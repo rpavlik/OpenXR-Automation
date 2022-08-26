@@ -29,13 +29,17 @@ def main(in_filename, out_filename):
     proj = gl.projects.get("openxr/openxr")
 
     print("Handling GitLab issues")
-    for issue in proj.issues.list(labels=["Contractor Approved Backlog"], iter=True):
+    for issue in proj.issues.list(
+        labels=["Contractor Approved Backlog"], iterator=True
+    ):
         print("Issue:", issue.references["short"])
         collection.add_issue(proj, cast(gitlab.v4.objects.ProjectIssue, issue))
 
     for mr in itertools.chain(
-        proj.mergerequests.list(labels=["Contractor Approved Backlog"], iter=True),
-        proj.mergerequests.list(labels=["Conformance Implementation"], iter=True),
+        *[
+            proj.mergerequests.list(labels=[label], iterator=True)
+            for label in ("Contractor Approved Backlog", "Conformance Implementation")
+        ]
     ):
         print("MR:", mr.references["short"])
         collection.add_mr(proj, cast(gitlab.v4.objects.ProjectMergeRequest, mr))
@@ -51,4 +55,4 @@ def main(in_filename, out_filename):
 
 
 if __name__ == "__main__":
-    main("cts.nbx", "cts-updated.nbx")
+    main("Nullboard-1661530413297-OpenXR-CTS.nbx", "Nullboard-1661530413297-OpenXR-CTS-updated.nbx")
