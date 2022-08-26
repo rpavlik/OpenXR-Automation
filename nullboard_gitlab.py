@@ -6,6 +6,7 @@
 # Author: Ryan Pavlik <ryan.pavlik@collabora.com>
 
 import re
+import time
 from typing import Any, Callable, Dict, List
 
 from work_item_and_collection import WorkUnit, WorkUnitCollection
@@ -40,6 +41,17 @@ def make_note_text(item: WorkUnit) -> str:
         item.web_url,
         "\n".join(item.make_mr_url_list()),
     )
+
+
+def make_empty_board(title):
+    return {
+        "format": 20190412,
+        "title": title,
+        "revision": 1,
+        "id": int(time.time()),
+        "lists": [],
+        "history": [1],
+    }
 
 
 def update_board(
@@ -93,9 +105,19 @@ def update_board(
             all_new[list_name] = []
         all_new[list_name].append(note)
 
+    handled_lists = set()
     # Now go through the lists in the json and add the appropriate new items
     for notelist in board["lists"]:
         title = notelist["title"]
         if title in all_new:
+            handled_lists.add(title)
             notelist["notes"].extend(all_new[title])
             print("Added new items to", title)
+
+    # Add any missing lists
+    missing_lists = set(all_new.keys()) - handled_lists
+    for missing_title in missing_lists:
+        print("Added new list", missing_title)
+        board["lists"].append({"title": missing_title, "notes": all_new[missing_title]})
+
+    board["revision"] = board["revision"] + 1
