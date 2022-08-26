@@ -5,12 +5,10 @@
 #
 # Author: Ryan Pavlik <ryan.pavlik@collabora.com>
 
-import dataclasses
 import itertools
 import json
 import os
-import re
-from typing import Any, Dict, List, Optional, Union, cast
+from typing import cast
 from work_item_and_collection import WorkUnitCollection
 from nullboard_gitlab import update_board
 

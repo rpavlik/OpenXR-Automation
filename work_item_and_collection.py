@@ -15,7 +15,7 @@ from gitlab.v4.objects import ProjectIssue, ProjectMergeRequest
 
 
 def make_url_list_item(issue_or_mr) -> str:
-    return "- {}: {} {}".format(
+    return "• {}: {} {}".format(
         issue_or_mr.references["short"], issue_or_mr.title, issue_or_mr.web_url
     )
 
