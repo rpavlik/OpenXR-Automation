@@ -1,0 +1,56 @@
+#!/usr/bin/env python3
+# Copyright 2022, Collabora, Ltd.
+#
+# SPDX-License-Identifier: BSL-1.0
+#
+# Author: Ryan Pavlik <ryan.pavlik@collabora.com>
+
+import dataclasses
+import itertools
+import json
+import os
+import re
+from typing import Any, Dict, List, Optional, Union, cast
+from work_item_and_collection import WorkUnitCollection
+from nullboard_gitlab import update_board
+
+import gitlab
+import gitlab.v4.objects
+from dotenv import load_dotenv
+
+load_dotenv()
+
+
+def main(in_filename, out_filename):
+    collection = WorkUnitCollection()
+
+    gl = gitlab.Gitlab(
+        url=os.environ["GL_URL"], private_token=os.environ["GL_ACCESS_TOKEN"]
+    )
+
+    proj = gl.projects.get("openxr/openxr")
+
+    print("Handling GitLab issues")
+    for issue in proj.issues.list(labels=["Contractor Approved Backlog"], iter=True):
+        print("Issue:", issue.references["short"])
+        collection.add_issue(proj, cast(gitlab.v4.objects.ProjectIssue, issue))
+
+    for mr in itertools.chain(
+        proj.mergerequests.list(labels=["Contractor Approved Backlog"], iter=True),
+        proj.mergerequests.list(labels=["Conformance Implementation"], iter=True),
+    ):
+        print("MR:", mr.references["short"])
+        collection.add_mr(proj, cast(gitlab.v4.objects.ProjectMergeRequest, mr))
+
+    print("Reading", in_filename)
+    with open(in_filename, "r") as fp:
+        existing_board = json.load(fp)
+
+    update_board(collection, existing_board)
+
+    with open(out_filename, "w", encoding="utf-8") as fp:
+        json.dump(existing_board, fp, indent=2)
+
+
+if __name__ == "__main__":
+    main("cts.nbx", "cts-updated.nbx")
