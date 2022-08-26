@@ -64,8 +64,8 @@ class WorkUnit:
 
 @dataclasses.dataclass
 class WorkUnitCollection:
-    items_by_ref: Dict[str, WorkUnit] = {}
-    items: List[WorkUnit] = []
+    items_by_ref: Dict[str, WorkUnit] = dataclasses.field(default_factory=dict)
+    items: List[WorkUnit] = dataclasses.field(default_factory=list)
 
     def _add_item(
         self,
