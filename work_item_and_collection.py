@@ -110,7 +110,6 @@ class WorkUnitCollection:
     ):
         if any(mr_num == mr.attributes["iid"] for mr in item.mrs):
             # already added
-            print(item.ref, "already references MR", mr_num)
             return
         mr = proj.mergerequests.get(mr_num)
         item.mrs.append(mr)
