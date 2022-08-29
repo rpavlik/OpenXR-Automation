@@ -7,15 +7,42 @@
 
 import json
 import os
+import re
 from typing import cast
-from work_item_and_collection import WorkUnitCollection
-from nullboard_gitlab import make_empty_board, update_board
+from work_item_and_collection import WorkUnit, WorkUnitCollection
+from nullboard_gitlab import make_empty_board, make_note_text, update_board
 
 import gitlab
 import gitlab.v4.objects
 from dotenv import load_dotenv
 
 load_dotenv()
+
+_FIND_MR_RE = re.compile(r"Main extension MR:\s*!([0-9]+)")
+
+_SPECEDITOR = "rpavlik"
+
+
+class ListName:
+    INACTIVE = "Inactive"
+    WAITING_REVIEW = "Waiting for Spec Editor Review"
+    REVIEWING = "Review in Progress"
+    WAITING_VENDOR_ACTION = "Waiting for Vendor Action"
+    WAITING_VENDOR_APPROVAL = "Waiting for Vendor Merge Approval"
+    DONE = "Done"
+
+
+def guess_list_for_release_checklist(item: WorkUnit) -> str:
+    if item.key_item.state in ("merged", "closed"):
+        return ListName.DONE
+    if item.mrs:
+        mr = item.mrs[0]
+        # merge request
+        if mr.work_in_progress:
+            return ListName.WAITING_VENDOR_ACTION
+        if mr.assignee and mr.assignee["username"] == _SPECEDITOR:
+            return ListName.WAITING_REVIEW
+    return ListName.INACTIVE
 
 
 def main(in_filename, out_filename):
@@ -30,7 +57,17 @@ def main(in_filename, out_filename):
     print("Handling GitLab issues")
     for issue in proj.issues.list(labels=["Release Checklist"], iterator=True):
         print("Issue:", issue.references["short"])
-        collection.add_issue(proj, cast(gitlab.v4.objects.ProjectIssue, issue))
+        item = collection.add_issue(
+            proj, cast(gitlab.v4.objects.ProjectIssue, issue), False
+        )
+        if not item:
+            continue
+        match_iter = _FIND_MR_RE.finditer(issue.description)
+        m = next(match_iter, None)
+        if m:
+            mr_num = int(m.group(1))
+            collection.add_mr_to_workunit(proj, item, mr_num)
+            collection.add_related_mrs_to_issue_workunit(proj, item)
 
     existing_board = make_empty_board("OpenXR-Release-Checklists")
     try:
@@ -40,11 +77,19 @@ def main(in_filename, out_filename):
     except:
         print("Read failed, using a blank board")
 
-    update_board(collection, existing_board)
+    update_board(
+        collection,
+        existing_board,
+        note_text_maker=make_note_text,
+        list_guesser=guess_list_for_release_checklist,
+    )
 
     with open(out_filename, "w", encoding="utf-8") as fp:
-        json.dump(existing_board, fp, indent=2)
+        json.dump(existing_board, fp, indent=4)
 
 
 if __name__ == "__main__":
-    main("Nullboard-1661545038-OpenXR-Release-Checklists.nbx", "Nullboard-1661545038-OpenXR-Release-Checklists-updated.nbx")
+    main(
+        "Nullboard-1661545038-OpenXR-Release-Checklists.nbx",
+        "Nullboard-1661545038-OpenXR-Release-Checklists-updated.nbx",
+    )

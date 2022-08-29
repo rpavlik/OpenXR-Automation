@@ -55,4 +55,7 @@ def main(in_filename, out_filename):
 
 
 if __name__ == "__main__":
-    main("Nullboard-1661530413297-OpenXR-CTS.nbx", "Nullboard-1661530413297-OpenXR-CTS-updated.nbx")
+    main(
+        "Nullboard-1661530413297-OpenXR-CTS.nbx",
+        "Nullboard-1661530413297-OpenXR-CTS-updated.nbx",
+    )
