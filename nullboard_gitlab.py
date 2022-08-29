@@ -63,7 +63,7 @@ def update_board(
     """Update the JSON data for a nullboard kanban board"""
 
     # the key item ref for all items used to update an existing note
-    updated = set()
+    existing = set()
 
     # Go through all existing lists
     for notelist in board["lists"]:
@@ -85,17 +85,19 @@ def update_board(
                 # We don't know about this item
                 continue
 
-            new_text = note_text_maker(item)
-            note["text"] = new_text
-            print("Updated text")
-            updated.add(item.ref)
+            existing.add(item.ref)
             item.list_name = list_name
+
+            new_text = note_text_maker(item)
+            if note["text"] != new_text:
+                print("Updated text")
+                note["text"] = new_text
 
     # Decide what list to put the leftovers in
     all_new: Dict[str, List[Dict[str, str]]] = {}
 
     for item in work.items:
-        if item.ref in updated:
+        if item.ref in existing:
             # we already did this
             continue
         print("New item for %s" % item.title)
