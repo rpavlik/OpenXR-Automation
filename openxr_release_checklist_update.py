@@ -19,7 +19,7 @@ from dotenv import load_dotenv
 load_dotenv()
 
 _FIND_MR_RE = re.compile(r"Main extension MR:\s*!([0-9]+)")
-
+_RELEASE_CHECKLIST_FOR_RE = re.compile(r"[Rr]elease [Cc]hecklist [Ff]or ")
 _SPECEDITOR = "rpavlik"
 
 
@@ -48,7 +48,7 @@ def guess_list_for_release_checklist(item: WorkUnit) -> str:
 def make_release_checklist_note_text(item: WorkUnit) -> str:
     return "{}: {} {}\n{}".format(
         item.ref,
-        item.title.replace("Release checklist for ", ""),
+        _RELEASE_CHECKLIST_FOR_RE.sub("", item.title),
         item.web_url,
         "\n".join(item.make_mr_url_list()),
     )
