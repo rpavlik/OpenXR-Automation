@@ -10,7 +10,7 @@ import os
 import re
 from typing import cast
 from work_item_and_collection import WorkUnit, WorkUnitCollection
-from nullboard_gitlab import make_empty_board, make_note_text, update_board
+from nullboard_gitlab import make_empty_board, update_board
 
 import gitlab
 import gitlab.v4.objects
@@ -43,6 +43,15 @@ def guess_list_for_release_checklist(item: WorkUnit) -> str:
         if mr.assignee and mr.assignee["username"] == _SPECEDITOR:
             return ListName.WAITING_REVIEW
     return ListName.INACTIVE
+
+
+def make_release_checklist_note_text(item: WorkUnit) -> str:
+    return "{}: {} {}\n{}".format(
+        item.ref,
+        item.title.replace("Release checklist for ", ""),
+        item.web_url,
+        "\n".join(item.make_mr_url_list()),
+    )
 
 
 def main(in_filename, out_filename):
@@ -80,7 +89,7 @@ def main(in_filename, out_filename):
     update_board(
         collection,
         existing_board,
-        note_text_maker=make_note_text,
+        note_text_maker=make_release_checklist_note_text,
         list_guesser=guess_list_for_release_checklist,
     )
 
