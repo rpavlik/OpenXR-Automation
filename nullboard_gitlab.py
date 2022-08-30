@@ -11,7 +11,8 @@ from typing import Any, Callable, Dict, List
 
 from work_item_and_collection import WorkUnit, WorkUnitCollection
 
-_REF_RE = re.compile(r"^([!#][0-9]+)\b.*")
+_INITIAL_REF_RE = re.compile(r"^([!#][0-9]+)\b.*")
+_REF_RE = re.compile(r"([!#][0-9]+)\b")
 
 
 class ListName:
@@ -39,7 +40,7 @@ def make_note_text(item: WorkUnit) -> str:
         item.ref,
         item.title,
         item.web_url,
-        "\n".join(item.make_mr_url_list()),
+        "\n".join(item.make_url_list_excluding_key_item()),
     )
 
 
@@ -72,20 +73,37 @@ def update_board(
 
         # For each item in those lists, extract the ref, and update the text if we can
         for note in notelist["notes"]:
-            m = _REF_RE.match(note["text"])
+            refs = _REF_RE.findall(note["text"])
+            print(refs)
+            if not refs:
+                # Can't find a reference to an item in the text
+                continue
+
+            items = (work.items_by_ref.get(ref) for ref in refs)
+            items = [item for item in items if item]
+            if not any(items):
+                # Can't find a match for any references
+                print("Could not find an entry for '%s'" % ",".join(refs))
+                continue
+
+            item = items[0]
+            merged_key_refs = set()
+            merged_key_refs.add(item.ref)
+            print("Found note for item %s" % item.ref)
+            for other in items[1:]:
+                if other.ref in merged_key_refs:
+                    continue
+                merged_key_refs.add(other.ref)
+                print("Merging work unit with refs", ",".join(other.refs()))
+                work.merge_workunits(item, other)
+
+            m = _INITIAL_REF_RE.match(note["text"])
             if not m:
                 # Can't find a reference to an item at the start of the text
                 print("Could not find an entry for '%s'" % note["text"])
                 continue
 
-            ref = m.group(1)
-            print("Found note for item %s" % ref)
-            item = work.items_by_ref.get(ref)
-            if not item:
-                # We don't know about this item
-                continue
-
-            existing.add(item.ref)
+            existing.update(item.refs())
             item.list_name = list_name
 
             new_text = note_text_maker(item)

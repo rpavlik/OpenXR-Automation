@@ -25,6 +25,7 @@ class WorkUnit:
     key_item: Union[ProjectIssue, ProjectMergeRequest]
 
     mrs: List[ProjectMergeRequest] = dataclasses.field(default_factory=list)
+    issues: List[ProjectIssue] = dataclasses.field(default_factory=list)
 
     list_name: Optional[str] = None
 
@@ -44,6 +45,13 @@ class WorkUnit:
     def is_mr(self):
         return "merge_status" in self.key_item.attributes
 
+    def refs(self):
+        yield self.ref
+        for issue in self.issues:
+            yield issue.references["short"]
+        for mr in self.mrs:
+            yield mr.references["short"]
+
     def get_key_item_as_mr(self) -> Optional[ProjectMergeRequest]:
         if not self.is_mr:
             return None
@@ -57,7 +65,9 @@ class WorkUnit:
     def make_url_list(self):
         yield make_url_list_item(self.key_item)
 
-    def make_mr_url_list(self):
+    def make_url_list_excluding_key_item(self):
+        for issue in self.issues:
+            yield make_url_list_item(issue)
         for mr in self.mrs:
             yield make_url_list_item(mr)
 
@@ -108,14 +118,28 @@ class WorkUnitCollection:
     def add_mr_to_workunit(
         self, proj: gitlab.v4.objects.Project, item: WorkUnit, mr_num: int
     ):
-        if any(mr_num == mr.attributes["iid"] for mr in item.mrs):
-            # already added
-            return
         mr = proj.mergerequests.get(mr_num)
-        item.mrs.append(mr)
-        mr_short_ref = mr.references["short"]
-        self.items_by_ref[mr_short_ref] = item
-        print("->", mr_short_ref)
+        self._add_mr_to_workunit(item, mr)
+
+    def _add_mr_to_workunit(self, item: WorkUnit, mr: ProjectMergeRequest):
+        if self._should_add_issue_or_mr_to_workunit(item, mr):
+            item.mrs.append(mr)
+
+    def _add_issue_to_workunit(self, item: WorkUnit, issue: ProjectIssue):
+        if self._should_add_issue_or_mr_to_workunit(item, issue):
+            item.issues.append(issue)
+
+    def _should_add_issue_or_mr_to_workunit(
+        self, item: WorkUnit, issue_or_mr: Union[ProjectMergeRequest, ProjectIssue]
+    ):
+        """Add to items_by_ref and return true if you should finish adding this mr/issue."""
+        short_ref = issue_or_mr.references["short"]
+        if any(short_ref == ref for ref in item.refs()):
+            return False
+
+        self.items_by_ref[short_ref] = item
+        print("->", short_ref)
+        return True
 
     def add_mr(
         self, _proj: gitlab.v4.objects.Project, mr: ProjectMergeRequest
@@ -125,3 +149,18 @@ class WorkUnitCollection:
             return
         # TODO combine other stuff?
         return item
+
+    def merge_workunits(self, item: WorkUnit, other: WorkUnit):
+        key_mr = other.get_key_item_as_mr()
+        if key_mr:
+            self._add_mr_to_workunit(item, key_mr)
+
+        key_issue = other.get_key_item_as_issue()
+        if key_issue:
+            self._add_issue_to_workunit(item, key_issue)
+
+        for issue in other.issues:
+            self._add_issue_to_workunit(item, issue)
+
+        for mr in other.mrs:
+            self._add_mr_to_workunit(item, mr)

@@ -50,7 +50,7 @@ def make_release_checklist_note_text(item: WorkUnit) -> str:
         item.ref,
         _RELEASE_CHECKLIST_FOR_RE.sub("", item.title),
         item.web_url,
-        "\n".join(item.make_mr_url_list()),
+        "\n".join(item.make_url_list_excluding_key_item()),
     )
 
 
