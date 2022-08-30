@@ -91,6 +91,7 @@ def main(in_filename, out_filename):
         existing_board,
         note_text_maker=make_release_checklist_note_text,
         list_guesser=guess_list_for_release_checklist,
+        list_titles_to_skip_adding_to=[ListName.DONE],
     )
 
     with open(out_filename, "w", encoding="utf-8") as fp:

@@ -10,7 +10,7 @@ import json
 import os
 from typing import cast
 from work_item_and_collection import WorkUnitCollection
-from nullboard_gitlab import update_board
+from nullboard_gitlab import ListName, update_board
 
 import gitlab
 import gitlab.v4.objects
@@ -48,7 +48,7 @@ def main(in_filename, out_filename):
     with open(in_filename, "r") as fp:
         existing_board = json.load(fp)
 
-    update_board(collection, existing_board)
+    update_board(collection, existing_board, list_titles_to_skip_adding_to=[ListName.DONE])
 
     with open(out_filename, "w", encoding="utf-8") as fp:
         json.dump(existing_board, fp, indent=2)
@@ -56,6 +56,7 @@ def main(in_filename, out_filename):
 
 if __name__ == "__main__":
     main(
+        # "/home/ryan/Downloads/Nullboard-1661530413297-OpenXR-CTS.nbx",
         "Nullboard-1661530413297-OpenXR-CTS.nbx",
         "Nullboard-1661530413297-OpenXR-CTS-updated.nbx",
     )

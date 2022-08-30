@@ -60,6 +60,7 @@ def update_board(
     board: Dict[str, Any],
     note_text_maker: Callable[[WorkUnit], str] = make_note_text,
     list_guesser: Callable[[WorkUnit], str] = guess_list,
+    list_titles_to_skip_adding_to=None,
 ):
     """Update the JSON data for a nullboard kanban board"""
 
@@ -126,10 +127,15 @@ def update_board(
         all_new[list_name].append(note)
 
     handled_lists = set()
+
+    # If we have some lists to skip, just say we already handled them.
+    if list_titles_to_skip_adding_to:
+        handled_lists.update(list_titles_to_skip_adding_to)
+
     # Now go through the lists in the json and add the appropriate new items
     for notelist in board["lists"]:
         title = notelist["title"]
-        if title in all_new:
+        if title in all_new and title not in handled_lists:
             handled_lists.add(title)
             notelist["notes"].extend(all_new[title])
             print("Added new items to", title)
