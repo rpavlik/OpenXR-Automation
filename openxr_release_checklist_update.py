@@ -40,6 +40,8 @@ def guess_list_for_release_checklist(item: WorkUnit) -> str:
         # merge request
         if mr.work_in_progress:
             return ListName.WAITING_VENDOR_ACTION
+        if "Needs Action" in mr.labels:
+            return ListName.WAITING_VENDOR_ACTION
         if mr.assignee and mr.assignee["username"] == _SPECEDITOR:
             return ListName.WAITING_REVIEW
     return ListName.INACTIVE
