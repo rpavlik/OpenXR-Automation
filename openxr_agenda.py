@@ -9,7 +9,7 @@ from dataclasses import dataclass, field
 import json
 import os
 import re
-from typing import Dict, List, Union, cast
+from typing import Dict, List, Optional, Union, cast
 from work_item_and_collection import WorkUnit, WorkUnitCollection
 from nullboard_gitlab import make_empty_board, parse_board, update_board
 
@@ -24,7 +24,9 @@ from openxr_release_checklist_update import ListName
 load_dotenv()
 
 
-def _format_user_dict(userdict: Dict[str, str]) -> str:
+def _format_user_dict(userdict: Dict[str, str]) -> Optional[str]:
+    if userdict["username"] == "khrbot":
+        return None
     ret = "[{} (@{})]({})".format(
         userdict["name"], userdict["username"], userdict["web_url"]
     )
@@ -41,18 +43,35 @@ def _format_issue_or_mr(
         "-",
         issue_or_mr.title,
     ]
+
+    # Indicate the author/assignee as applicable and requested
+    author = None
     if include_author:
-        elements.append("(Author: {})".format(_format_user_dict(issue_or_mr.author)))
+        author = _format_user_dict(issue_or_mr.author)
+    assignee = None
     if issue_or_mr.assignee:
-        elements.append(
-            "(Assigned to: {}".format(_format_user_dict(issue_or_mr.assignee))
-        )
+        assignee = _format_user_dict(issue_or_mr.assignee)
+
+    if author and assignee and author == assignee:
+        elements.append("(Author/assignee: {})".format(author))
+    else:
+        if author:
+
+            elements.append("(Author: {})".format(author))
+        if assignee:
+            elements.append("(Assignee: {}".format(assignee))
+
+    # Thumbs
     if issue_or_mr.upvotes or issue_or_mr.downvotes:
         elements.append(
-            "({} upvotes, {} downvotes)".format(
-                issue_or_mr.upvotes, issue_or_mr.downvotes
+            "({}{})".format(
+                ":+1:" * issue_or_mr.upvotes, ":-1:" * issue_or_mr.downvotes
             )
         )
+    else:
+        elements.append("(no thumbs yet)")
+
+    # Labels
     if issue_or_mr.labels:
         elements.append("(Labels: {})".format(", ".join(issue_or_mr.labels)))
     return " ".join(elements)
