@@ -6,7 +6,7 @@
 # Author: Ryan Pavlik <ryan.pavlik@collabora.com>
 
 import dataclasses
-from typing import Any, Dict, List, Optional, Union, cast
+from typing import Any, Dict, Generator, List, Optional, Union, cast
 
 import gitlab
 import gitlab.v4.objects
@@ -14,10 +14,14 @@ import gitlab.v4.objects
 from gitlab.v4.objects import ProjectIssue, ProjectMergeRequest
 
 
-def make_url_list_item(issue_or_mr) -> str:
+def make_url_list_item(issue_or_mr: Union[ProjectIssue, ProjectMergeRequest]) -> str:
     return "• {}: {} {}".format(
         issue_or_mr.references["short"], issue_or_mr.title, issue_or_mr.web_url
     )
+
+
+def is_mr(issue_or_mr: Union[ProjectIssue, ProjectMergeRequest]):
+    return "merge_status" in issue_or_mr.attributes
 
 
 @dataclasses.dataclass
@@ -43,7 +47,7 @@ class WorkUnit:
 
     @property
     def is_mr(self):
-        return "merge_status" in self.key_item.attributes
+        return is_mr(self.key_item)
 
     def refs(self):
         yield self.ref
@@ -70,6 +74,20 @@ class WorkUnit:
             yield make_url_list_item(issue)
         for mr in self.mrs:
             yield make_url_list_item(mr)
+
+    def non_key_issues_and_mrs(
+        self,
+    ) -> Generator[Union[ProjectIssue, ProjectMergeRequest], None, None]:
+        for issue in self.issues:
+            yield issue
+        for mr in self.mrs:
+            yield mr
+
+    def all_issues_and_mrs(
+        self,
+    ) -> Generator[Union[ProjectIssue, ProjectMergeRequest], None, None]:
+        yield self.key_item
+        yield from self.non_key_issues_and_mrs()
 
 
 @dataclasses.dataclass
@@ -120,6 +138,12 @@ class WorkUnitCollection:
     ):
         mr = proj.mergerequests.get(mr_num)
         self._add_mr_to_workunit(item, mr)
+
+    def add_issue_to_workunit(
+        self, proj: gitlab.v4.objects.Project, item: WorkUnit, issue_num: int
+    ):
+        issue = proj.issues.get(issue_num)
+        self._add_issue_to_workunit(item, issue)
 
     def _add_mr_to_workunit(self, item: WorkUnit, mr: ProjectMergeRequest):
         if self._should_add_issue_or_mr_to_workunit(item, mr):

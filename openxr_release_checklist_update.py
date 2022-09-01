@@ -25,10 +25,12 @@ _SPECEDITOR = "rpavlik"
 
 class ListName:
     INACTIVE = "Inactive"
+    INITIAL_COMPOSITION = "Initial Composition"
     WAITING_REVIEW = "Waiting for Spec Editor Review"
     REVIEWING = "Review in Progress"
     WAITING_VENDOR_ACTION = "Waiting for Vendor Action"
     WAITING_VENDOR_APPROVAL = "Waiting for Vendor Merge Approval"
+    NEEDS_VOTE = "Needs Vote"
     DONE = "Done"
 
 

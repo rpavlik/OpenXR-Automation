@@ -5,9 +5,14 @@
 #
 # Author: Ryan Pavlik <ryan.pavlik@collabora.com>
 
+from typing import Generator, Tuple, Union
 import re
 import time
 from typing import Any, Callable, Dict, List
+
+import gitlab
+import gitlab.v4.objects
+from gitlab.v4.objects import ProjectIssue, ProjectMergeRequest
 
 from work_item_and_collection import WorkUnit, WorkUnitCollection
 
@@ -53,6 +58,77 @@ def make_empty_board(title):
         "lists": [],
         "history": [1],
     }
+
+
+def _iterate_notes(board) -> Generator[Tuple[Dict, Dict], None, None]:
+    # Go through all existing lists
+    for notelist in board["lists"]:
+        list_name = notelist["title"]
+        print("In %s" % list_name)
+
+        # For each item in those lists, extract the ref, and update the text if we can
+        for note in notelist["notes"]:
+            yield notelist, note
+
+
+def _lookup_ref(
+    proj: gitlab.v4.objects.Project, ref: str
+) -> Union[ProjectMergeRequest, ProjectIssue]:
+    if ref[0] == "!":
+        return proj.mergerequests.get(ref[1:])
+    if ref[0] == "#":
+        return proj.issues.get(ref[1:])
+    raise RuntimeError("Could not identify the reference type of " + ref)
+
+
+def parse_board(
+    proj: gitlab.v4.objects.Project,
+    work: WorkUnitCollection,
+    board: Dict[str, Any],
+):
+    """Populate a work item collection from a nullboard export."""
+
+    for notelist, note in _iterate_notes(board):
+
+        # For each item in those lists, extract the ref, and update the text if we can
+        refs = _REF_RE.findall(note["text"])
+        print(refs)
+        if not refs:
+            # Can't find a reference to an item in the text
+            continue
+
+        # Make item from first reference
+        ref = refs[0]
+        if ref[0] == "!":
+            item = work.add_mr(proj, proj.mergerequests.get(ref[1:]))
+            if item is None:
+                raise RuntimeError("Could not add an item for mr " + ref)
+        elif ref[0] == "#":
+            item = work.add_issue(
+                proj, proj.issues.get(ref[1:]), also_add_related_mrs=False
+            )  # TODO maybe make true?
+            if item is None:
+                raise RuntimeError("Could not add an item for issue " + ref)
+        else:
+            raise RuntimeError(
+                "Should not happen, could not figure out ref type for " + ref
+            )
+        if item is None:
+            raise RuntimeError("Could not add an item for ref " + ref)
+
+        # Set list
+        item.list_name = notelist["title"]
+
+        # Add additional references
+        for ref in refs[1:]:
+            if ref[0] == "!":
+                work.add_mr_to_workunit(proj, item, int(ref[1:]))
+            elif ref[0] == "#":
+                work.add_issue_to_workunit(proj, item, int(ref[1:]))
+            else:
+                raise RuntimeError(
+                    "Should not happen, could not figure out ref type for " + ref
+                )
 
 
 def update_board(
