@@ -68,7 +68,7 @@ def main(in_filename, out_filename):
     proj = gl.projects.get("openxr/openxr")
 
     print("Handling GitLab issues")
-    for issue in proj.issues.list(labels=["Release Checklist"], iterator=True):
+    for issue in proj.issues.list(iterator=True, labels=["Release Checklist"]):
         print("Issue:", issue.references["short"])
         item = collection.add_issue(
             proj, cast(gitlab.v4.objects.ProjectIssue, issue), False
