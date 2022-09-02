@@ -79,16 +79,6 @@ def _iterate_notes(board) -> Generator[Tuple[Dict, Dict], None, None]:
             yield notelist, note
 
 
-def _lookup_ref(
-    proj: gitlab.v4.objects.Project, ref: str
-) -> Union[ProjectMergeRequest, ProjectIssue]:
-    if ref[0] == "!":
-        return proj.mergerequests.get(ref[1:])
-    if ref[0] == "#":
-        return proj.issues.get(ref[1:])
-    raise RuntimeError("Could not identify the reference type of " + ref)
-
-
 def parse_board(
     proj: gitlab.v4.objects.Project,
     work: WorkUnitCollection,
