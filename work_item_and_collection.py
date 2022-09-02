@@ -6,14 +6,25 @@
 # Author: Ryan Pavlik <ryan.pavlik@collabora.com>
 
 import dataclasses
+import logging
 from enum import Enum
-from typing import Any, Dict, Generator, Iterable, List, Optional, Sequence, Union, cast
-from typing_extensions import assert_never
+from typing import (
+    Dict,
+    Generator,
+    Iterable,
+    List,
+    Optional,
+    Sequence,
+    Set,
+    Tuple,
+    Union,
+    cast,
+)
 
 import gitlab
 import gitlab.v4.objects
-
 from gitlab.v4.objects import ProjectIssue, ProjectMergeRequest
+from typing_extensions import assert_never
 
 
 def make_url_list_item(issue_or_mr: Union[ProjectIssue, ProjectMergeRequest]) -> str:
@@ -117,13 +128,14 @@ class WorkUnitCollection:
         self,
         api_item: Union[ProjectIssue, ProjectMergeRequest],
     ) -> Optional[WorkUnit]:
+        log = logging.getLogger(__name__)
         short_ref = get_short_ref(api_item)
         if short_ref in self.items_by_ref:
             return None
         item = WorkUnit(key_item=api_item)
         self.items.append(item)
         self.items_by_ref[short_ref] = item
-        print(short_ref, api_item.title)
+        log.info("WorkUnitCollection: adding item %s: %s", short_ref, api_item.title)
         return item
 
     def _add_refs_to_workunit(
@@ -138,44 +150,91 @@ class WorkUnitCollection:
             else:
                 assert_never(ref_type)
 
+    def add_or_get_item_for_refs(
+        self, proj: gitlab.v4.objects.Project, refs: Sequence[str]
+    ) -> WorkUnit:
+        """Add a new item for the given refs, or extend an existing item. Returns the relevant item in either case"""
+        item, _ = self._add_refs(proj, refs)
+        return item
+
     def add_refs(
         self, proj: gitlab.v4.objects.Project, refs: Sequence[str]
     ) -> Optional[WorkUnit]:
         """Add a new item for the given refs, or extend an existing item and return None if they overlap one."""
-        existing_items: List[Optional[WorkUnit]] = [
-            self.items_by_ref.get(ref) for ref in refs
-        ]
-        nonnull_existing_items: List[WorkUnit] = [
-            x for x in existing_items if x is not None
-        ]
+        item, is_new = self._add_refs(proj, refs)
+        if is_new:
+            return item
+        return None
+
+    def get_items_for_refs(self, refs: Sequence[str]) -> List[WorkUnit]:
+        log = logging.getLogger(__name__)
+        retrieved_items: List[WorkUnit] = []
+        retrieved_key_refs: Set[str] = set()
+        log.debug("Getting items for refs %s", str(refs))
+        for ref in refs:
+            if ref not in self.items_by_ref:
+                # this ref not known already
+                log.debug("We don't yet know about %s", ref)
+                continue
+
+            retrieved_item = self.items_by_ref[ref]
+            if retrieved_item.ref in retrieved_key_refs:
+                # already got this one in the list
+                log.debug(
+                    "We know about %s, and already found the corresponding item %s in these refs",
+                    ref,
+                    retrieved_item.ref,
+                )
+                continue
+
+            # OK retrieve this new one. Hopefully only hit this code once per call...
+            retrieved_items.append(retrieved_item)
+            retrieved_key_refs.add(retrieved_item.ref)
+
+        return retrieved_items
+
+    def _add_refs(
+        self, proj: gitlab.v4.objects.Project, refs: Sequence[str]
+    ) -> Tuple[WorkUnit, bool]:
+        """Add a new item for the given refs, or extend an existing item and return None if they overlap one."""
+
         item: Optional[WorkUnit] = None
-        if nonnull_existing_items:
+        items = self.get_items_for_refs(refs)
+        if items:
             # We have overlap with at least one existing item.
-            unique_existing_items = {item.ref for item in nonnull_existing_items}
-            if len(unique_existing_items) > 1:
+            if len(items) > 1:
                 raise UserWarning(
                     "The provided references overlap with more than one existing work unit: "
-                    + ", ".join(unique_existing_items)
+                    + ", ".join(item.ref for item in items)
                 )
-
-            item = nonnull_existing_items[0]
+            item = items[0]
+            # we had at least some overlap, add remaining refs!
             self._add_refs_to_workunit(proj, item, refs)
             # Not a new thing.
-            return None
+            return item, False
 
+        # OK, nothing in common with existing items
+        # Make an item for the first ref
         ref = refs[0]
         ref_type = ReferenceType.parse_short_reference(ref)
+        ref_num = int(ref[1:])
+
         if ref_type == ReferenceType.ISSUE:
-            issue = proj.issues.get(int(ref[1:]))
+            issue = proj.issues.get(ref_num)
             item = self.add_issue(proj, issue, also_add_related_mrs=False)
+
         elif ref_type == ReferenceType.MERGE_REQUEST:
-            mr = proj.mergerequests.get(int(ref[1:]))
+            mr = proj.mergerequests.get(ref_num)
             item = self.add_mr(proj, mr)
+
         else:
             assert_never(ref_type)
+
         assert item
+
+        # Add subsequent refs to it
         self._add_refs_to_workunit(proj, item, refs[1:])
-        return item
+        return item, True
 
     def add_issue(
         self,
@@ -214,13 +273,25 @@ class WorkUnitCollection:
         issue = proj.issues.get(issue_num)
         self._add_issue_to_workunit(item, issue)
 
-    def _add_mr_to_workunit(self, item: WorkUnit, mr: ProjectMergeRequest):
+    def _add_mr_to_workunit(self, item: WorkUnit, mr: ProjectMergeRequest) -> int:
+        log = logging.getLogger(__name__)
+        ref = get_short_ref(mr)
         if self._should_add_issue_or_mr_to_workunit(item, mr):
+            log.debug("Adding %s to item %s", ref, item.ref)
             item.mrs.append(mr)
+            return 1
+        log.debug("Not adding %s to item %s, it's already in it", ref, item.ref)
+        return 0
 
     def _add_issue_to_workunit(self, item: WorkUnit, issue: ProjectIssue):
+        log = logging.getLogger(__name__)
+        ref = get_short_ref(issue)
         if self._should_add_issue_or_mr_to_workunit(item, issue):
+            log.debug("Adding %s to item %s", ref, item.ref)
             item.issues.append(issue)
+            return 1
+        log.debug("Not adding %s to item %s, it's already in it", ref, item.ref)
+        return 0
 
     def _should_add_issue_or_mr_to_workunit(
         self, item: WorkUnit, issue_or_mr: Union[ProjectMergeRequest, ProjectIssue]
@@ -231,7 +302,6 @@ class WorkUnitCollection:
             return False
 
         self.items_by_ref[short_ref] = item
-        print("->", short_ref)
         return True
 
     def add_mr(
@@ -243,17 +313,63 @@ class WorkUnitCollection:
         # TODO combine other stuff?
         return item
 
-    def merge_workunits(self, item: WorkUnit, other: WorkUnit):
+    def _merge_two_workunits(self, item: WorkUnit, other: WorkUnit) -> int:
+        log = logging.getLogger(__name__)
+
+        try:
+            self.items.remove(other)
+        except ValueError:
+            log.info(
+                "Could not remove item %s from list: not found, probably already removed",
+                other.ref,
+            )
+        items_transfered = 0
         key_mr = other.get_key_item_as_mr()
         if key_mr:
-            self._add_mr_to_workunit(item, key_mr)
+            items_transfered += self._add_mr_to_workunit(item, key_mr)
 
         key_issue = other.get_key_item_as_issue()
         if key_issue:
-            self._add_issue_to_workunit(item, key_issue)
+            items_transfered += self._add_issue_to_workunit(item, key_issue)
 
         for issue in other.issues:
-            self._add_issue_to_workunit(item, issue)
+            items_transfered += self._add_issue_to_workunit(item, issue)
 
         for mr in other.mrs:
-            self._add_mr_to_workunit(item, mr)
+            items_transfered += self._add_mr_to_workunit(item, mr)
+
+        log.debug(
+            "Transfered %d items from %s to %s during merge.",
+            items_transfered,
+            other.ref,
+            item.ref,
+        )
+        return items_transfered
+
+    def merge_workunits(self, item: WorkUnit, other: WorkUnit):
+        self._merge_two_workunits(item, other)
+
+    def merge_many_workunits(self, items: Sequence[WorkUnit]):
+
+        log = logging.getLogger(__name__)
+
+        deduplicated = []
+        deduped_refs = set()
+        for item in items:
+            if item.ref not in deduped_refs:
+                deduplicated.append(item)
+                deduped_refs.add(item.ref)
+
+        main_item = deduplicated[0]
+        items_transferred = 0
+        for item in deduplicated[1:]:
+            items_transferred += self._merge_two_workunits(main_item, item)
+
+        if len(deduplicated) > 1:
+            log.info(
+                "Merge: transfered %d items into %s from %d unique work units",
+                items_transferred,
+                main_item.ref,
+                len(deduplicated) - 1,
+            )
+        return deduplicated[0]

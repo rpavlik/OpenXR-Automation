@@ -5,10 +5,10 @@
 #
 # Author: Ryan Pavlik <ryan.pavlik@collabora.com>
 
-from typing import Generator, Tuple, Union
+import logging
 import re
 import time
-from typing import Any, Callable, Dict, List
+from typing import Any, Callable, Dict, Generator, List, Tuple, Union
 
 import gitlab
 import gitlab.v4.objects
@@ -69,10 +69,11 @@ def make_empty_board(title):
 
 
 def _iterate_notes(board) -> Generator[Tuple[Dict, Dict], None, None]:
+    log = logging.getLogger(__name__)
     # Go through all existing lists
     for notelist in board["lists"]:
         list_name = notelist["title"]
-        print("In %s" % list_name)
+        log.info("In list %s" % list_name)
 
         # For each item in those lists, extract the ref, and update the text if we can
         for note in notelist["notes"]:
@@ -85,48 +86,22 @@ def parse_board(
     board: Dict[str, Any],
 ):
     """Populate a work item collection from a nullboard export."""
+    log = logging.getLogger(__name__)
 
     for notelist, note in _iterate_notes(board):
 
         # For each item in those lists, extract the ref, and update the text if we can
         refs = _REF_RE.findall(note["text"])
-        print(refs)
+        log.debug("Found these refs in a note: %s", str(refs))
         if not refs:
+            log.debug("Could not find any refs in '%s'", note["text"])
             # Can't find a reference to an item in the text
             continue
 
-        # Make item from first reference
-        ref = refs[0]
-        if ref[0] == "!":
-            item = work.add_mr(proj, proj.mergerequests.get(ref[1:]))
-            if item is None:
-                raise RuntimeError("Could not add an item for mr " + ref)
-        elif ref[0] == "#":
-            item = work.add_issue(
-                proj, proj.issues.get(ref[1:]), also_add_related_mrs=False
-            )  # TODO maybe make true?
-            if item is None:
-                raise RuntimeError("Could not add an item for issue " + ref)
-        else:
-            raise RuntimeError(
-                "Should not happen, could not figure out ref type for " + ref
-            )
-        if item is None:
-            raise RuntimeError("Could not add an item for ref " + ref)
-
-        # Set list
-        item.list_name = notelist["title"]
-
-        # Add additional references
-        for ref in refs[1:]:
-            if ref[0] == "!":
-                work.add_mr_to_workunit(proj, item, int(ref[1:]))
-            elif ref[0] == "#":
-                work.add_issue_to_workunit(proj, item, int(ref[1:]))
-            else:
-                raise RuntimeError(
-                    "Should not happen, could not figure out ref type for " + ref
-                )
+        item = work.add_or_get_item_for_refs(proj, refs)
+        if not item.list_name:
+            # Set list
+            item.list_name = notelist["title"]
 
 
 def update_board(
@@ -137,6 +112,7 @@ def update_board(
     list_titles_to_skip_adding_to=None,
 ):
     """Update the JSON data for a nullboard kanban board"""
+    log = logging.getLogger(__name__)
 
     # the key item ref for all items used to update an existing note
     existing = set()
@@ -144,46 +120,29 @@ def update_board(
     # Go through all existing lists
     for notelist in board["lists"]:
         list_name = notelist["title"]
-        print("In %s" % list_name)
+        log.info("Updating in list %s", list_name)
 
         # For each item in those lists, extract the ref, and update the text if we can
         for note in notelist["notes"]:
             refs = _REF_RE.findall(note["text"])
-            print(refs)
+            log.debug("Extracted refs: %s", str(refs))
             if not refs:
                 # Can't find a reference to an item in the text
                 continue
 
-            optional_items = (work.items_by_ref.get(ref) for ref in refs)
-            items = [item for item in optional_items if item]
-            if not any(items):
+            items = work.get_items_for_refs(refs)
+            if not items:
                 # Can't find a match for any references
-                print("Could not find an entry for '%s'" % ",".join(refs))
+                log.debug("Could not find an entry for '%s'", ",".join(refs))
                 continue
 
-            item = items[0]
-            merged_key_refs = set()
-            merged_key_refs.add(item.ref)
-            print("Found note for item %s" % item.ref)
-            for other in items[1:]:
-                if other.ref in merged_key_refs:
-                    continue
-                merged_key_refs.add(other.ref)
-                print("Merging work unit with refs", ",".join(other.refs()))
-                work.merge_workunits(item, other)
-
-            m = _INITIAL_REF_RE.match(note["text"])
-            if not m:
-                # Can't find a reference to an item at the start of the text
-                print("Could not find an entry for '%s'" % note["text"])
-                continue
-
+            item = work.merge_many_workunits(items)
             existing.update(item.refs())
             item.list_name = list_name
 
             new_text = note_text_maker(item)
             if note["text"] != new_text:
-                print("Updated text")
+                log.info("Updated text for %s", refs[0])
                 note["text"] = new_text
 
     # Decide what list to put the leftovers in
@@ -193,7 +152,7 @@ def update_board(
         if item.ref in existing:
             # we already did this
             continue
-        print("New item for %s" % item.title)
+        log.info("New item for %s" % item.title)
         note = {"text": note_text_maker(item)}
         list_name = item.list_name or list_guesser(item)
         if list_name not in all_new:
@@ -212,12 +171,12 @@ def update_board(
         if title in all_new and title not in handled_lists:
             handled_lists.add(title)
             notelist["notes"].extend(all_new[title])
-            print("Added new items to", title)
+            log.info("Added new items to %s", title)
 
     # Add any missing lists
     missing_lists = set(all_new.keys()) - handled_lists
     for missing_title in missing_lists:
-        print("Added new list", missing_title)
+        log.info("Added new list %s", missing_title)
         board["lists"].append({"title": missing_title, "notes": all_new[missing_title]})
 
     board["revision"] = board["revision"] + 1
