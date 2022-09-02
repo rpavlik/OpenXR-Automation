@@ -44,7 +44,7 @@ def main(in_filename, out_filename):
         print("Issue:", ref)
         refs = [ref]
         refs.extend(
-            mr["references"]["short"] for mr in proj_issue.related_merge_requests()
+            mr["references"]["short"] for mr in proj_issue.related_merge_requests()  # type: ignore
         )
         print(refs)
         work.add_refs(proj, refs)

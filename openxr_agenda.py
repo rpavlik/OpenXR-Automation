@@ -257,7 +257,7 @@ def main(in_nbx_filename, out_md_filename):
     for gh_issue in proj.issues.list(
         state="opened", label="From GitHub", iterator=True
     ):
-        item = work.add_issue(proj, gh_issue, False)
+        item = work.add_issue(proj, cast(ProjectIssue, gh_issue), False)
         if not item:
             continue
         try:
@@ -280,7 +280,7 @@ def main(in_nbx_filename, out_md_filename):
     for label in _DISCUSSION_TAGS:
         for issue in proj.issues.list(state="opened", label=label, iterator=True):
             try:
-                item = work.add_issue(proj, issue, False)
+                item = work.add_issue(proj, cast(ProjectIssue, issue), False)
             except:
                 continue
             if not item:
@@ -305,7 +305,7 @@ def main(in_nbx_filename, out_md_filename):
     for label in _DISCUSSION_TAGS:
         for mr in proj.mergerequests.list(state="opened", label=label, iterator=True):
             try:
-                item = work.add_mr(proj, mr)
+                item = work.add_mr(proj, cast(ProjectMergeRequest, mr))
             except:
                 continue
             if not item:
