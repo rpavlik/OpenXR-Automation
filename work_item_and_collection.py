@@ -149,7 +149,7 @@ class WorkUnitCollection:
         if nonnull_existing_items:
             # We have overlap with at least one existing item.
             unique_existing_items = {item.ref for item in nonnull_existing_items}
-            if len(unique_existing_items):
+            if len(unique_existing_items) > 1:
                 raise UserWarning(
                     "The provided references overlap with more than one existing work unit: "
                     + ", ".join(unique_existing_items)
