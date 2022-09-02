@@ -6,7 +6,9 @@
 # Author: Ryan Pavlik <ryan.pavlik@collabora.com>
 
 import dataclasses
-from typing import Any, Dict, Generator, List, Optional, Union, cast
+from enum import Enum
+from typing import Any, Dict, Generator, Iterable, List, Optional, Sequence, Union, cast
+from typing_extensions import assert_never
 
 import gitlab
 import gitlab.v4.objects
@@ -90,6 +92,20 @@ class WorkUnit:
         yield from self.non_key_issues_and_mrs()
 
 
+class ReferenceType(Enum):
+    ISSUE = "#"
+    MERGE_REQUEST = "!"
+
+    @classmethod
+    def parse_short_reference(cls, short_ref):
+        for reftype in cls:
+            if short_ref[0] == reftype.value:
+                return reftype
+        raise RuntimeError("Cannot detect reference type of" + short_ref)
+
+def get_short_ref(api_item: Union[ProjectIssue, ProjectMergeRequest]) -> str:
+    return api_item.references["short"]
+
 @dataclasses.dataclass
 class WorkUnitCollection:
     items_by_ref: Dict[str, WorkUnit] = dataclasses.field(default_factory=dict)
@@ -99,13 +115,64 @@ class WorkUnitCollection:
         self,
         api_item: Union[ProjectIssue, ProjectMergeRequest],
     ) -> Optional[WorkUnit]:
-        short_ref = api_item.references["short"]
+        short_ref = get_short_ref(api_item)
         if short_ref in self.items_by_ref:
             return
         item = WorkUnit(key_item=api_item)
         self.items.append(item)
         self.items_by_ref[short_ref] = item
         print(short_ref, api_item.title)
+        return item
+
+    def _add_refs_to_workunit(
+        self, proj: gitlab.v4.objects.Project, item: WorkUnit, refs: Iterable[str]
+    ):
+        for ref in refs:
+            ref_type = ReferenceType.parse_short_reference(ref)
+            if ref_type == ReferenceType.ISSUE:
+                self.add_issue_to_workunit(proj, item, int(ref[1:]))
+            elif ref_type == ReferenceType.MERGE_REQUEST:
+                self.add_mr_to_workunit(proj, item, int(ref[1:]))
+            else:
+                assert_never(ref_type)
+
+    def add_refs(
+        self, proj: gitlab.v4.objects.Project, refs: Sequence[str]
+    ) -> Optional[WorkUnit]:
+        """Add a new item for the given refs, or extend an existing item and return None if they overlap one."""
+        existing_items: List[Optional[WorkUnit]] = [
+            self.items_by_ref.get(ref) for ref in refs
+        ]
+        nonnull_existing_items: List[WorkUnit] = [
+            x for x in existing_items if x is not None
+        ]
+        if nonnull_existing_items:
+            # We have overlap with at least one existing item.
+            unique_existing_items = {item.ref for item in nonnull_existing_items}
+            if len(unique_existing_items):
+                raise UserWarning(
+                    "The provided references overlap with more than one existing work unit: "
+                    + ", ".join(unique_existing_items)
+                )
+
+            item = nonnull_existing_items[0]
+            self._add_refs_to_workunit(proj, item, refs)
+            # Not a new thing.
+            return None
+
+        item = None
+        ref = refs[0]
+        ref_type = ReferenceType.parse_short_reference(ref)
+        if ref_type == ReferenceType.ISSUE:
+            issue = proj.issues.get(int(ref[1:]))
+            item = self.add_issue(proj, issue, also_add_related_mrs=False)
+        elif ref_type == ReferenceType.MERGE_REQUEST:
+            mr = proj.mergerequests.get(int(ref[1:]))
+            item = self.add_mr(proj, mr)
+        else:
+            assert_never(ref_type)
+        assert item
+        self._add_refs_to_workunit(proj, item, refs[1:])
         return item
 
     def add_issue(
