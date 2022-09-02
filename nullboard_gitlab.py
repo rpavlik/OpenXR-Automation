@@ -40,12 +40,20 @@ def guess_list(item: WorkUnit) -> str:
     return ListName.TODO
 
 
+def _make_bullet(api_item: Union[ProjectIssue, ProjectMergeRequest]) -> str:
+    return "• [{ref}]({url}): {title}".format(
+        ref=api_item.references["short"], title=api_item.title, url=api_item.web_url
+    )
+
+
 def make_note_text(item: WorkUnit) -> str:
-    return "{}: {} {}\n{}".format(
-        item.ref,
-        item.title,
-        item.web_url,
-        "\n".join(item.make_url_list_excluding_key_item()),
+    return "[{ref}]({url}): {title}\n{rest}".format(
+        ref=item.ref,
+        title=item.title,
+        url=item.web_url,
+        rest="\n".join(
+            _make_bullet(api_item) for api_item in item.non_key_issues_and_mrs()
+        ),
     )
 
 
