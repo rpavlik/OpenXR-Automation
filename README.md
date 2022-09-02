@@ -27,11 +27,11 @@ easily create/modify/parse the data of each board.
   group of data structures
 - `nullboard_gitlab.py` has some shared utilities for Nullboard export (`.nbx`)
   and GitLab interaction, building on the above
-- `cts_workboard_update.py` and `openxr_release_checklist_update.py` are the
-  top-level scripts for doing the update for two boards I maintain. They assume
-  you have placed your latest Nullboard export of the corresponding board (if
-  available), using the default filename, in this root directory before
-  execution.
+- `cts_workboard_update.py`/`cts_workboard_update2.py` and
+  `openxr_release_checklist_update.py` are the top-level scripts for doing the
+  update for two boards I maintain. They assume you have placed your latest
+  Nullboard export of the corresponding board (if available), using the default
+  filename, in this root directory before execution.
 
 ## Usage
 
