@@ -103,8 +103,10 @@ class ReferenceType(Enum):
                 return reftype
         raise RuntimeError("Cannot detect reference type of" + short_ref)
 
+
 def get_short_ref(api_item: Union[ProjectIssue, ProjectMergeRequest]) -> str:
     return api_item.references["short"]
+
 
 @dataclasses.dataclass
 class WorkUnitCollection:
@@ -117,7 +119,7 @@ class WorkUnitCollection:
     ) -> Optional[WorkUnit]:
         short_ref = get_short_ref(api_item)
         if short_ref in self.items_by_ref:
-            return
+            return None
         item = WorkUnit(key_item=api_item)
         self.items.append(item)
         self.items_by_ref[short_ref] = item
@@ -146,6 +148,7 @@ class WorkUnitCollection:
         nonnull_existing_items: List[WorkUnit] = [
             x for x in existing_items if x is not None
         ]
+        item: Optional[WorkUnit] = None
         if nonnull_existing_items:
             # We have overlap with at least one existing item.
             unique_existing_items = {item.ref for item in nonnull_existing_items}
@@ -160,7 +163,6 @@ class WorkUnitCollection:
             # Not a new thing.
             return None
 
-        item = None
         ref = refs[0]
         ref_type = ReferenceType.parse_short_reference(ref)
         if ref_type == ReferenceType.ISSUE:
@@ -183,7 +185,7 @@ class WorkUnitCollection:
     ) -> Optional[WorkUnit]:
         item = self._add_item(issue)
         if not item:
-            return
+            return None
         if also_add_related_mrs:
             self.add_related_mrs_to_issue_workunit(proj, item)
         return item
@@ -237,7 +239,7 @@ class WorkUnitCollection:
     ) -> Optional[WorkUnit]:
         item = self._add_item(mr)
         if not item:
-            return
+            return None
         # TODO combine other stuff?
         return item
 

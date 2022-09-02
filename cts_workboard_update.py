@@ -48,7 +48,9 @@ def main(in_filename, out_filename):
     with open(in_filename, "r") as fp:
         existing_board = json.load(fp)
 
-    update_board(collection, existing_board, list_titles_to_skip_adding_to=[ListName.DONE])
+    update_board(
+        collection, existing_board, list_titles_to_skip_adding_to=[ListName.DONE]
+    )
 
     with open(out_filename, "w", encoding="utf-8") as fp:
         json.dump(existing_board, fp, indent=2)

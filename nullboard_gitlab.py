@@ -154,8 +154,8 @@ def update_board(
                 # Can't find a reference to an item in the text
                 continue
 
-            items = (work.items_by_ref.get(ref) for ref in refs)
-            items = [item for item in items if item]
+            optional_items = (work.items_by_ref.get(ref) for ref in refs)
+            items = [item for item in optional_items if item]
             if not any(items):
                 # Can't find a match for any references
                 print("Could not find an entry for '%s'" % ",".join(refs))
