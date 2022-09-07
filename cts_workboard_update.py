@@ -7,6 +7,7 @@
 
 import itertools
 import json
+import logging
 import os
 from typing import cast
 from work_item_and_collection import WorkUnitCollection
@@ -20,6 +21,7 @@ load_dotenv()
 
 
 def main(in_filename, out_filename):
+    logging.basicConfig(level=logging.INFO)
     collection = WorkUnitCollection()
 
     gl = gitlab.Gitlab(
