@@ -8,7 +8,7 @@
 import logging
 import re
 import time
-from typing import Any, Callable, Dict, Generator, List, Tuple, Union
+from typing import Any, Callable, Dict, Generator, List, Optional, Tuple, Union
 
 import gitlab
 import gitlab.v4.objects
@@ -16,7 +16,6 @@ from gitlab.v4.objects import ProjectIssue, ProjectMergeRequest
 
 from work_item_and_collection import WorkUnit, WorkUnitCollection
 
-_INITIAL_REF_RE = re.compile(r"^([!#][0-9]+)\b.*")
 _REF_RE = re.compile(r"([!#][0-9]+)\b")
 
 
@@ -104,19 +103,47 @@ def parse_board(
             item.list_name = notelist["title"]
 
 
+_DELETION_MARKER = "delete"
+
+
+def mark_note_for_deletion(note: Dict[str, Union[str, bool]]):
+    note[_DELETION_MARKER] = True
+
+
+def remove_marked_for_deletion(board: Dict[str, Any]):
+
+    log = logging.getLogger(__name__)
+    for notelist in board["lists"]:
+        newlist = [note for note in notelist["notes"] if _DELETION_MARKER not in note]
+        oldlen = len(notelist["notes"])
+        if len(newlist) != oldlen:
+            log.info(
+                "Removing %d notes from %s that were marked for deletion",
+                oldlen - len(newlist),
+                notelist["title"],
+            )
+            notelist["notes"] = newlist
+
+
 def update_board(
     work: WorkUnitCollection,
     board: Dict[str, Any],
     note_text_maker: Callable[[WorkUnit], str] = make_note_text,
     list_guesser: Callable[[WorkUnit], str] = guess_list,
     list_titles_to_skip_adding_to=None,
+    project: Optional[gitlab.v4.objects.Project] = None,
 ):
     """Update the JSON data for a nullboard kanban board"""
     log = logging.getLogger(__name__)
 
-    # the key item ref for all items used to update an existing note
+    if project is not None:
+        # First merge stuff for completeness
+        parse_board(project, work, board)
+
+    # the refs for all items used to update an existing note
     existing = set()
 
+    deleted_any = False
     # Go through all existing lists
     for notelist in board["lists"]:
         list_name = notelist["title"]
@@ -137,6 +164,23 @@ def update_board(
                 continue
 
             item = work.merge_many_workunits(items)
+            item_refs = set(item.refs())
+            num_refs = len(item_refs)
+            num_existing_intersection = len(existing.intersection(item_refs))
+            if num_refs == num_existing_intersection:
+                # This is fully handled in an existing card
+                log.info("Marking a card for deletion as it is a duplicate")
+                deleted_any = True
+                mark_note_for_deletion(note)
+                continue
+            if num_existing_intersection > 0:
+                # If we had run "parse" beforehand, this wouldn't happen, because we'd already have merged all refs into a single item,
+                # intersection would be complete or empty
+                log.warning(
+                    "Found %d refs that are duplicates of earlier-parsed cards! You may want to pass project= to update_board() to be able to merge and clean dupes",
+                    num_existing_intersection,
+                )
+
             existing.update(item.refs())
             item.list_name = list_name
 
@@ -144,6 +188,9 @@ def update_board(
             if note["text"] != new_text:
                 log.info("Updated text for %s", refs[0])
                 note["text"] = new_text
+
+    if deleted_any:
+        remove_marked_for_deletion(board)
 
     # Decide what list to put the leftovers in
     all_new: Dict[str, List[Dict[str, str]]] = {}
