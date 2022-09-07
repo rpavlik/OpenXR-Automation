@@ -39,7 +39,7 @@ def guess_list(item: WorkUnit) -> str:
     return ListName.TODO
 
 
-def _make_bullet(api_item: Union[ProjectIssue, ProjectMergeRequest]) -> str:
+def make_item_bullet(api_item: Union[ProjectIssue, ProjectMergeRequest]) -> str:
     return "• [{ref}]({url}): {title}".format(
         ref=api_item.references["short"], title=api_item.title, url=api_item.web_url
     )
@@ -51,7 +51,7 @@ def make_note_text(item: WorkUnit) -> str:
         title=item.title,
         url=item.web_url,
         rest="\n".join(
-            _make_bullet(api_item) for api_item in item.non_key_issues_and_mrs()
+            make_item_bullet(api_item) for api_item in item.non_key_issues_and_mrs()
         ),
     )
 
