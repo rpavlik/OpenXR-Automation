@@ -119,6 +119,28 @@ def get_short_ref(api_item: Union[ProjectIssue, ProjectMergeRequest]) -> str:
     return api_item.references["short"]
 
 
+def get_issue_from_data_or_project(
+    proj: gitlab.v4.objects.Project,
+    ref: str,
+    ref_num: int,
+    data: Optional[Dict[str, Union[ProjectIssue, ProjectMergeRequest]]] = None,
+) -> ProjectIssue:
+    if data and ref in data:
+        return cast(ProjectIssue, data[ref])
+    return proj.issues.get(ref_num)
+
+
+def get_mr_from_data_or_project(
+    proj: gitlab.v4.objects.Project,
+    ref: str,
+    ref_num: int,
+    data: Optional[Dict[str, Union[ProjectIssue, ProjectMergeRequest]]] = None,
+) -> ProjectMergeRequest:
+    if data and ref in data:
+        return cast(ProjectMergeRequest, data[ref])
+    return proj.mergerequests.get(ref_num)
+
+
 @dataclasses.dataclass
 class WorkUnitCollection:
     items_by_ref: Dict[str, WorkUnit] = dataclasses.field(default_factory=dict)
@@ -139,29 +161,47 @@ class WorkUnitCollection:
         return item
 
     def _add_refs_to_workunit(
-        self, proj: gitlab.v4.objects.Project, item: WorkUnit, refs: Iterable[str]
+        self,
+        proj: gitlab.v4.objects.Project,
+        item: WorkUnit,
+        refs: Iterable[str],
+        data: Optional[Dict[str, Union[ProjectIssue, ProjectMergeRequest]]] = None,
     ):
+        log = logging.getLogger(__name__)
         for ref in refs:
             ref_type = ReferenceType.parse_short_reference(ref)
+            ref_num = int(ref[1:])
             if ref_type == ReferenceType.ISSUE:
-                self.add_issue_to_workunit(proj, item, int(ref[1:]))
+                issue = get_issue_from_data_or_project(proj, ref, ref_num, data)
+                self.add_issue_to_workunit(item, issue)
             elif ref_type == ReferenceType.MERGE_REQUEST:
-                self.add_mr_to_workunit(proj, item, int(ref[1:]))
+                try:
+                    mr = get_mr_from_data_or_project(proj, ref, ref_num, data)
+                except:
+                    log.warning("Could not get MR with ref %s", ref)
+                    continue
+                self.add_mr_to_workunit(item, mr)
             else:
                 assert_never(ref_type)
 
     def add_or_get_item_for_refs(
-        self, proj: gitlab.v4.objects.Project, refs: Sequence[str]
+        self,
+        proj: gitlab.v4.objects.Project,
+        refs: Sequence[str],
+        data: Optional[Dict[str, Union[ProjectIssue, ProjectMergeRequest]]] = None,
     ) -> WorkUnit:
         """Add a new item for the given refs, or extend an existing item. Returns the relevant item in either case"""
-        item, _ = self._add_refs(proj, refs)
+        item, _ = self._add_refs(proj, refs, data)
         return item
 
     def add_refs(
-        self, proj: gitlab.v4.objects.Project, refs: Sequence[str]
+        self,
+        proj: gitlab.v4.objects.Project,
+        refs: Sequence[str],
+        data: Optional[Dict[str, Union[ProjectIssue, ProjectMergeRequest]]] = None,
     ) -> Optional[WorkUnit]:
         """Add a new item for the given refs, or extend an existing item and return None if they overlap one."""
-        item, is_new = self._add_refs(proj, refs)
+        item, is_new = self._add_refs(proj, refs, data)
         if is_new:
             return item
         return None
@@ -194,22 +234,26 @@ class WorkUnitCollection:
         return retrieved_items
 
     def _add_refs(
-        self, proj: gitlab.v4.objects.Project, refs: Sequence[str]
+        self,
+        proj: gitlab.v4.objects.Project,
+        refs: Sequence[str],
+        data: Optional[Dict[str, Union[ProjectIssue, ProjectMergeRequest]]] = None,
     ) -> Tuple[WorkUnit, bool]:
         """Add a new item for the given refs, or extend an existing item and return None if they overlap one."""
 
         item: Optional[WorkUnit] = None
         items = self.get_items_for_refs(refs)
         if items:
+            log = logging.getLogger(__name__)
             # We have overlap with at least one existing item.
             if len(items) > 1:
-                raise UserWarning(
-                    "The provided references overlap with more than one existing work unit: "
-                    + ", ".join(item.ref for item in items)
+                log.warning(
+                    "The provided references overlap with more than one existing work unit, choosing the first arbitrarily: %s",
+                    ", ".join(item.ref for item in items),
                 )
             item = items[0]
             # we had at least some overlap, add remaining refs!
-            self._add_refs_to_workunit(proj, item, refs)
+            self._add_refs_to_workunit(proj, item, refs, data)
             # Not a new thing.
             return item, False
 
@@ -220,11 +264,11 @@ class WorkUnitCollection:
         ref_num = int(ref[1:])
 
         if ref_type == ReferenceType.ISSUE:
-            issue = proj.issues.get(ref_num)
+            issue = get_issue_from_data_or_project(proj, ref, ref_num, data)
             item = self.add_issue(proj, issue, also_add_related_mrs=False)
 
         elif ref_type == ReferenceType.MERGE_REQUEST:
-            mr = proj.mergerequests.get(ref_num)
+            mr = get_mr_from_data_or_project(proj, ref, ref_num, data)
             item = self.add_mr(proj, mr)
 
         else:
@@ -233,7 +277,7 @@ class WorkUnitCollection:
         assert item
 
         # Add subsequent refs to it
-        self._add_refs_to_workunit(proj, item, refs[1:])
+        self._add_refs_to_workunit(proj, item, refs[1:], data)
         return item, True
 
     def add_issue(
@@ -259,21 +303,21 @@ class WorkUnitCollection:
         # TODO closed_by instead?
         for mr_dict in issue.related_merge_requests():
             mr_num: int = mr_dict["iid"]  # type: ignore
-            self.add_mr_to_workunit(proj, item, mr_num)
+            self.add_mr_to_workunit_by_number(proj, item, mr_num)
 
-    def add_mr_to_workunit(
+    def add_mr_to_workunit_by_number(
         self, proj: gitlab.v4.objects.Project, item: WorkUnit, mr_num: int
     ):
         mr = proj.mergerequests.get(mr_num)
-        self._add_mr_to_workunit(item, mr)
+        self.add_mr_to_workunit(item, mr)
 
-    def add_issue_to_workunit(
+    def add_issue_to_workunit_by_number(
         self, proj: gitlab.v4.objects.Project, item: WorkUnit, issue_num: int
     ):
         issue = proj.issues.get(issue_num)
-        self._add_issue_to_workunit(item, issue)
+        self.add_issue_to_workunit(item, issue)
 
-    def _add_mr_to_workunit(self, item: WorkUnit, mr: ProjectMergeRequest) -> int:
+    def add_mr_to_workunit(self, item: WorkUnit, mr: ProjectMergeRequest) -> int:
         log = logging.getLogger(__name__)
         ref = get_short_ref(mr)
         if self._should_add_issue_or_mr_to_workunit(item, mr):
@@ -283,7 +327,7 @@ class WorkUnitCollection:
         log.debug("Not adding %s to item %s, it's already in it", ref, item.ref)
         return 0
 
-    def _add_issue_to_workunit(self, item: WorkUnit, issue: ProjectIssue):
+    def add_issue_to_workunit(self, item: WorkUnit, issue: ProjectIssue):
         log = logging.getLogger(__name__)
         ref = get_short_ref(issue)
         if self._should_add_issue_or_mr_to_workunit(item, issue):
@@ -298,7 +342,7 @@ class WorkUnitCollection:
     ):
         """Add to items_by_ref and return true if you should finish adding this mr/issue."""
         short_ref = issue_or_mr.references["short"]
-        if any(short_ref == ref for ref in item.refs()):
+        if short_ref in item.refs():
             return False
 
         self.items_by_ref[short_ref] = item
@@ -326,17 +370,17 @@ class WorkUnitCollection:
         items_transfered = 0
         key_mr = other.get_key_item_as_mr()
         if key_mr:
-            items_transfered += self._add_mr_to_workunit(item, key_mr)
+            items_transfered += self.add_mr_to_workunit(item, key_mr)
 
         key_issue = other.get_key_item_as_issue()
         if key_issue:
-            items_transfered += self._add_issue_to_workunit(item, key_issue)
+            items_transfered += self.add_issue_to_workunit(item, key_issue)
 
         for issue in other.issues:
-            items_transfered += self._add_issue_to_workunit(item, issue)
+            items_transfered += self.add_issue_to_workunit(item, issue)
 
         for mr in other.mrs:
-            items_transfered += self._add_mr_to_workunit(item, mr)
+            items_transfered += self.add_mr_to_workunit(item, mr)
 
         log.debug(
             "Transfered %d items from %s to %s during merge.",

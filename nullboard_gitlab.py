@@ -8,7 +8,7 @@
 import logging
 import re
 import time
-from typing import Any, Callable, Dict, Generator, List, Optional, Tuple, Union
+from typing import Any, Callable, Dict, Generator, List, Optional, Set, Tuple, Union
 
 import gitlab
 import gitlab.v4.objects
@@ -141,7 +141,7 @@ def update_board(
         parse_board(project, work, board)
 
     # the refs for all items used to update an existing note
-    existing = set()
+    existing: Set[str] = set()
 
     deleted_any = False
     # Go through all existing lists

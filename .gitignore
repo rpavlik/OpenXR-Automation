@@ -11,3 +11,4 @@ __pycache__
 *.nbx
 *.ipynb
 agenda.md
+gitlab_cache.sqlite

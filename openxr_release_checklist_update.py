@@ -100,7 +100,7 @@ def main(in_filename, out_filename):
         m = next(match_iter, None)
         if m:
             mr_num = int(m.group(1))
-            collection.add_mr_to_workunit(proj, item, mr_num)
+            collection.add_mr_to_workunit_by_number(proj, item, mr_num)
             collection.add_related_mrs_to_issue_workunit(proj, item)
 
     update_board(
