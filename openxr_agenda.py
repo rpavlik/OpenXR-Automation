@@ -168,7 +168,7 @@ def _get_col_for_issue_or_mr(
     if col == Column.THUMBS:
         if issue_or_mr.upvotes or issue_or_mr.downvotes:
             return "{}{}".format(
-                ":+1:" * issue_or_mr.upvotes, ":-1:" * issue_or_mr.downvotes
+                ":+1: " * issue_or_mr.upvotes, ":-1: " * issue_or_mr.downvotes
             )
 
         return "no thumbs yet"
