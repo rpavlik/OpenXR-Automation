@@ -20,6 +20,8 @@ find_mr = re.compile(r"Main extension MR:\s*!([0-9]+)")
 
 @dataclass
 class ReleaseChecklistTemplate:
+    """Fills in the "fields" of the release checklist template."""
+
     contents: str
 
     def __str__(self):
@@ -34,7 +36,7 @@ class ReleaseChecklistTemplate:
         )
 
     def fill_in_mr(self, mr_num: int):
-        self.contents = self.contents.replace("(_MR_)", f"!@{mr_num}", 1)
+        self.contents = self.contents.replace("(_MR_)", f"!{mr_num}", 1)
 
 
 class LazyGitFile:
@@ -101,9 +103,6 @@ class VendorNames:
 
     def get_vendor_name(self, vendor_code: str) -> Optional[str]:
         return self.known.get(vendor_code)
-        # cached = self.cached.get(vendor_code)
-        # if cached is not None:
-        #     return cached
 
 
 class ReleaseChecklistFactory:
@@ -332,3 +331,4 @@ if __name__ == "__main__":
     collection.handle_mr_if_needed(2407)
     collection.handle_mr_if_needed(2138)
     collection.handle_mr_if_needed(2410)
+    collection.handle_mr_if_needed(2397)
