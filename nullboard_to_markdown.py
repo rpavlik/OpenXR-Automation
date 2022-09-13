@@ -8,20 +8,54 @@
 from dataclasses import dataclass, field
 import json
 import logging
-from typing import Dict, List, cast
+from typing import Dict, List, Optional, cast
+
+
+@dataclass
+class CommonMarkOutline:
+    current_indent_level: int = 0
+    lines: List[str] = field(default_factory=list)
+    indent_size: int = 2
+
+    def _indentation(self, level: Optional[int] = None) -> str:
+        if level is None:
+            level = self.current_indent_level
+        return " " * (self.indent_size * level)
+
+    def add_item(self, s: str, override_indent_level: Optional[int] = None):
+        self.lines.append(f"{self._indentation(override_indent_level)}* {s}")
+
+    def __str__(self):
+        return "{}\n".format("\n".join(self.lines))
 
 
 def _list_to_md(nb_list: Dict):
-    lines = [f"* {nb_list['title']}"]
-    _INDENT_WIDTH = 2
-    current_indent = _INDENT_WIDTH
+    outline = CommonMarkOutline()
+    outline.add_item(nb_list["title"])
+    outline.current_indent_level = 1
+
     for note in nb_list["notes"]:
+        note_text: str = note["text"]
         if note.get("raw"):
-            lines.append(f"{' ' * _INDENT_WIDTH}* {note['text']}")
-            current_indent = 2 * _INDENT_WIDTH
-        else:
-            lines.append(f"{' ' * current_indent}* {note['text']}")
-    return "\n".join(lines)
+            # Override indent level, to reliably "out-dent"
+            outline.add_item(note_text, 1)
+
+            # Bump up indent for following lines
+            outline.current_indent_level = 2
+            continue
+        # Just a regular note. Split up the parts, though.
+        parts = [part.strip("•").strip() for part in note_text.split("\n")]
+        main_part = parts[0]
+        outline.add_item(main_part)
+
+        sub_parts = parts[1:]
+        if sub_parts:
+            outline.current_indent_level += 1
+            for part in sub_parts:
+                outline.add_item(part)
+            outline.current_indent_level -= 1
+
+    return str(outline)
 
 
 def _nb_to_md(nb_board: Dict):
