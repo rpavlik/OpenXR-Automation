@@ -184,10 +184,13 @@ def update_board(
                 mark_note_for_deletion(note)
                 continue
             if num_existing_intersection > 0:
-                # If we had run "parse" beforehand, this wouldn't happen, because we'd already have merged all refs into a single item,
+                # If we had run "parse" beforehand, this wouldn't happen, because we'd
+                # already have merged all refs into a single item,
                 # intersection would be complete or empty
                 log.warning(
-                    "Found %d refs that are duplicates of earlier-parsed cards! You may want to pass project= to update_board() to be able to merge and clean dupes",
+                    "Found %d refs that are duplicates of earlier-parsed cards! You "
+                    "may want to pass project= to update_board() to be able to merge "
+                    "and clean dupes",
                     num_existing_intersection,
                 )
 

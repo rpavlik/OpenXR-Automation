@@ -85,7 +85,7 @@ def main(in_filename, out_filename):
         with open(in_filename, "r") as fp:
             existing_board = json.load(fp)
         parse_board(proj, collection, existing_board)
-    except:
+    except IOError:
         log.info("Read failed, using a blank board")
 
     log.info("Handling GitLab issues")
