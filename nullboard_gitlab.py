@@ -39,17 +39,27 @@ def guess_list(item: WorkUnit) -> str:
     return ListName.TODO
 
 
-def make_item_bullet(api_item: Union[ProjectIssue, ProjectMergeRequest]) -> str:
-    return "• [{ref}]({url}): {title}".format(
-        ref=api_item.references["short"], title=api_item.title, url=api_item.web_url
+def _make_api_item_text(api_item: Union[ProjectIssue, ProjectMergeRequest]) -> str:
+    state = ""
+    if api_item.state == "closed":
+        state = "(CLOSED) "
+    elif api_item.state == "merged":
+        state = "(MERGED) "
+    return "[{ref}]({url}): {state}{title}".format(
+        ref=api_item.references["short"],
+        title=api_item.title,
+        state=state,
+        url=api_item.web_url,
     )
 
 
+def make_item_bullet(api_item: Union[ProjectIssue, ProjectMergeRequest]) -> str:
+    return "• {}".format(_make_api_item_text(api_item))
+
+
 def make_note_text(item: WorkUnit) -> str:
-    return "[{ref}]({url}): {title}\n{rest}".format(
-        ref=item.ref,
-        title=item.title,
-        url=item.web_url,
+    return "{key_item}\n{rest}".format(
+        key_item=_make_api_item_text(item.key_item),
         rest="\n".join(
             make_item_bullet(api_item) for api_item in item.non_key_issues_and_mrs()
         ),
