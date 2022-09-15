@@ -9,9 +9,11 @@ import json
 import logging
 import os
 from dataclasses import dataclass, field
+from datetime import datetime, timedelta
 from enum import Enum
 from typing import Dict, Iterable, List, Optional, Set, Union, cast
 
+import dateutil.parser
 import gitlab
 import gitlab.v4.objects
 import requests_cache
@@ -20,16 +22,32 @@ from gitlab.v4.objects import ProjectIssue, ProjectMergeRequest
 
 from nullboard_gitlab import parse_board
 from openxr_release_checklist_update import ListName
-from work_item_and_collection import WorkUnit, WorkUnitCollection, get_short_ref, is_mr
+from work_item_and_collection import (WorkUnit, WorkUnitCollection,
+                                      get_short_ref, is_mr)
 
 load_dotenv()
 
-EXPIRE_AFTER_SECONDS = 60 * 10
+EXPIRE_AFTER_SECONDS = 60 * 10  # 10 minute cache for GitLab API
 
-_SKIP_DISCUSSING_MR_LABELS = ("Objection Window", "Needs Action")
-_SKIP_DISCUSSING_ISSUE_LABELS = ["Needs Merge Request"]
-_SKIP_DISCUSSING_MILESTONES = ["OpenXR-Next Preliminary"]
-_SKIP_DRAFTS_WITHOUT_THESE_LABELS = ["Needs Discussion", "Needs Approval"]
+_SKIP_DISCUSSING_MR_LABELS = {"Objection Window", "Needs Action", "Stale"}
+_SKIP_DISCUSSING_ISSUE_LABELS = {
+    "Needs Merge Request",
+    "Contractor Approved Backlog",
+    "Stale",
+}
+_SKIP_DISCUSSING_MILESTONES = {"OpenXR-Next Preliminary"}
+_SKIP_DRAFTS_WITHOUT_THESE_LABELS = {"Needs Discussion", "Needs Approval"}
+_SKIP_STALE_GITHUB_UNLESS_LABELED = {
+    "Needs Discussion",
+    "Needs Approval",
+}
+_SKIP_REFS = {
+    "#1363",  # vulkan sync, part of the vulkan 3 work
+    "#1658",  # Adjust reference space - LunarG work on hold
+}
+
+_GITHUB_STALE_THRESHOLD_DELTA = timedelta(days=14)
+_GITLAB_STALE_THRESHOLD_DELTA = timedelta(days=9 * 30)  # 9 months
 
 
 class Labels:
@@ -39,14 +57,28 @@ class Labels:
 
 _VENDOR_MILESTONE = "Vendor Extensions (outside timeline)"
 
-_SKIP_DISCUSSING_LABELS = (
+_SKIP_DISCUSSING_LABELS = {
     "Device Plugin Extension",
     "Conformance-Next",
     "For Contractor",
     "Stale",
     "OpenXR 1.1",
     "Phoenix-F2F",  # next f2f
-)
+}
+
+_REVIEW_LISTS = {ListName.REVIEWING, ListName.WAITING_REVIEW}
+
+_DISCUSSION_TAGS = {"Needs Discussion", "Needs Approval"}
+
+
+def parse_gitlab_timestamp(timestamp: str) -> datetime:
+    # Replaces the timezone info with nothing because
+    # datetime.now is not timezone aware...
+    return dateutil.parser.isoparse(timestamp).replace(tzinfo=None)
+
+
+def get_updated_timestamp(issue_or_mr) -> datetime:
+    return parse_gitlab_timestamp(issue_or_mr.updated_at)
 
 
 def _format_user_dict(userdict: Optional[Dict[str, str]]) -> Optional[str]:
@@ -72,6 +104,8 @@ class Column(Enum):
     THUMBS = 6
     LABELS = 7
     STATUS = 8
+    OPENED = 9
+    UPDATED = 10
     # NUM_COMMENTS = 8
 
     @classmethod
@@ -85,6 +119,8 @@ class Column(Enum):
             cls.ASSIGNEE,
             cls.THUMBS,
             cls.LABELS,
+            cls.OPENED,
+            cls.UPDATED,
         )
 
     @classmethod
@@ -96,6 +132,8 @@ class Column(Enum):
             cls.STATUS,
             cls.COMBINED_AUTHOR_ASSIGNEE,
             cls.LABELS,
+            cls.OPENED,
+            cls.UPDATED,
         )
 
     @classmethod
@@ -108,6 +146,8 @@ class Column(Enum):
             cls.COMBINED_AUTHOR_ASSIGNEE,
             cls.THUMBS,
             cls.LABELS,
+            cls.OPENED,
+            cls.UPDATED,
         )
 
     @classmethod
@@ -130,6 +170,10 @@ class Column(Enum):
             return "Labels"
         if col == cls.STATUS:
             return "Status"
+        if col == cls.OPENED:
+            return "Opened At"
+        if col == cls.UPDATED:
+            return "Updated At"
         raise RuntimeError("Unrecognized column " + str(col))
 
 
@@ -137,7 +181,7 @@ def _get_col_for_issue_or_mr(
     indent: bool, issue_or_mr: Union[ProjectIssue, ProjectMergeRequest], col: Column
 ) -> str:
     if col == Column.INDENT:
-        return ":heavy_plus_sign:" if indent else ":star:"
+        return "see also" if indent else ""
 
     elif col == Column.REF:
         return "[{}]({})".format(issue_or_mr.references["short"], issue_or_mr.web_url)
@@ -182,6 +226,10 @@ def _get_col_for_issue_or_mr(
         if not issue_or_mr.has_tasks:
             return status
         return "{}, {}".format(status, issue_or_mr.task_status)
+    if col == Column.OPENED:
+        return str(parse_gitlab_timestamp(issue_or_mr.created_at).date())
+    if col == Column.UPDATED:
+        return str(parse_gitlab_timestamp(issue_or_mr.updated_at).date())
     # if col == Columns.NUM_COMMENTS:
     #     return
     raise RuntimeError("Not handled!")
@@ -216,13 +264,13 @@ class Agenda:
     other_mrs: List[WorkUnit] = field(default_factory=list)
     other_issues: List[WorkUnit] = field(default_factory=list)
 
+    ext_and_vendor_other: List[WorkUnit] = field(default_factory=list)
     ext_and_vendor_release_checklists_composing: List[WorkUnit] = field(
         default_factory=list
     )
     ext_and_vendor_release_checklists_reviews: List[WorkUnit] = field(
         default_factory=list
     )
-    ext_and_vendor_other: List[WorkUnit] = field(default_factory=list)
 
     do_filter_out: bool = True
 
@@ -282,6 +330,11 @@ class Agenda:
             self._normal_section(
                 "Other Issues", self.other_issues, Column.columns_for_issue()
             ),
+            self._normal_section(
+                "Vendor/EXT Other Issues and MRs",
+                self.ext_and_vendor_other,
+                Column.columns_for_mr(),
+            ),
             self._release_checklist_section(
                 "Vendor/EXT Initial Composition",
                 self.ext_and_vendor_release_checklists_composing,
@@ -289,11 +342,6 @@ class Agenda:
             self._release_checklist_section(
                 "Vendor/EXT Review/Waiting",
                 self.ext_and_vendor_release_checklists_reviews,
-            ),
-            self._normal_section(
-                "Vendor/EXT Other Issues and MRs",
-                self.ext_and_vendor_other,
-                Column.columns_for_mr(),
             ),
         ]
         return "\n\n".join(sections)
@@ -333,7 +381,7 @@ def should_skip_discussion_of_issue_or_mr(
         return True
 
     milestone = issue_or_mr.attributes["milestone"]
-    if milestone in _SKIP_DISCUSSING_MILESTONES:
+    if milestone and milestone["title"] in _SKIP_DISCUSSING_MILESTONES:
         return True
 
     if "merge_status" in issue_or_mr.attributes:
@@ -364,11 +412,6 @@ def is_khr(item: WorkUnit) -> bool:
         if issue_or_mr.attributes["milestone"] == _VENDOR_MILESTONE:
             return False
     return True
-
-
-_REVIEW_LISTS = {ListName.REVIEWING, ListName.WAITING_REVIEW}
-
-_DISCUSSION_TAGS = ("Needs Discussion", "Needs Approval")
 
 
 def maybe_create_item_for_issue(
@@ -405,33 +448,13 @@ def maybe_create_item_for_mr(
     return work.add_refs(proj, refs, {ref: mr})
 
 
-def main(in_nbx_filename, out_md_filename):
-    logging.basicConfig(level=logging.INFO)
-
-    log = logging.getLogger(__name__)
-    work = WorkUnitCollection()
-
-    session = requests_cache.CachedSession(
-        cache_name="gitlab_cache", expire_after=EXPIRE_AFTER_SECONDS
-    )
-
-    with session.cache_disabled():
-        gl = gitlab.Gitlab(
-            url=os.environ["GL_URL"],
-            private_token=os.environ["GL_ACCESS_TOKEN"],
-            session=session,
-        )
-        gl.auth()
-
-    proj = gl.projects.get("openxr/openxr")
+def populate_from_checklists(agenda, proj, work, in_nbx_filename):
 
     print("Reading", in_nbx_filename)
     with open(in_nbx_filename, "r") as fp:
         existing_board = json.load(fp)
 
     parse_board(proj, work, existing_board)
-    agenda = Agenda()
-
     for item in work.items:
 
         if item.list_name == ListName.INITIAL_COMPOSITION:
@@ -453,16 +476,40 @@ def main(in_nbx_filename, out_md_filename):
                 )
             continue
 
+
+def populate_from_github_synced_issues(agenda, proj, work):
+
+    log = logging.getLogger(f"{__name__}.populate_from_github_synced_issues")
     log.info("Looking for open issues from GitHub")
+
+    now = datetime.now()
+    github_stale_threshold = now - _GITHUB_STALE_THRESHOLD_DELTA
+
     # Grab qualified github issues
     for gh_issue in proj.issues.list(
-        state="opened", label="From GitHub", iterator=True
+        state="opened", labels="From GitHub", iterator=True
     ):
         issue = cast(ProjectIssue, gh_issue)
+        updated = get_updated_timestamp(issue)
+        if (
+            _SKIP_STALE_GITHUB_UNLESS_LABELED.isdisjoint(issue.labels)
+            and updated < github_stale_threshold
+        ):
+            log.info(
+                "GitHub-imported issue %d is stale and lacking specific labels: "
+                "%d days since last update",
+                gh_issue.iid,
+                (now - updated).days,
+            )
+            continue
 
         item = maybe_create_item_for_issue(proj, work, issue)
         if not item:
             # We already had this in the work collection
+            continue
+
+        if get_short_ref(issue) in _SKIP_REFS:
+            # Intentionally skipped
             continue
 
         if agenda.is_on_agenda(item):
@@ -480,10 +527,18 @@ def main(in_nbx_filename, out_md_filename):
                 item, agenda.ext_and_vendor_other, skip_if_any_skippable=True
             )
 
+
+def populate_from_gitlab_label_search(agenda, proj, work):
+
+    log = logging.getLogger(f"{__name__}.populate_from_gitlab_label_search")
+
+    now = datetime.now()
+    gitlab_stale_threshold = now - _GITLAB_STALE_THRESHOLD_DELTA
+
     # Grab issues to discuss
     for label in _DISCUSSION_TAGS:
         log.info("Looking for open issues labeled %s", label)
-        for issue in proj.issues.list(state="opened", label=label, iterator=True):
+        for issue in proj.issues.list(state="opened", labels=label, iterator=True):
 
             item = maybe_create_item_for_issue(proj, work, cast(ProjectIssue, issue))
             if not item:
@@ -496,6 +551,20 @@ def main(in_nbx_filename, out_md_filename):
                     issue.iid,
                     item.ref,
                 )
+                continue
+
+            last_updated = get_updated_timestamp(issue)
+            if last_updated < gitlab_stale_threshold:
+                log.info(
+                    "Discussion-labeled issue %d is stale: %d days since last update",
+                    issue.iid,
+                    (now - last_updated).days,
+                )
+                continue
+
+            if get_short_ref(issue) in _SKIP_REFS:
+                # Intentionally skipped
+                continue
 
             if is_khr(item):
                 agenda.add_to_list(
@@ -507,11 +576,32 @@ def main(in_nbx_filename, out_md_filename):
                 )
 
         log.info("Looking for open merge requests labeled %s", label)
-        for mr in proj.mergerequests.list(state="opened", label=label, iterator=True):
+        for mr in proj.mergerequests.list(state="opened", labels=label, iterator=True):
             item = maybe_create_item_for_mr(proj, work, cast(ProjectMergeRequest, mr))
 
             if not item:
                 # We already had this in the work collection
+                continue
+
+            if agenda.is_on_agenda(item):
+                log.info(
+                    "Discussion-labeled mr %d is already on the agenda as %s",
+                    mr.iid,
+                    item.ref,
+                )
+                continue
+
+            last_updated = get_updated_timestamp(mr)
+            if last_updated < gitlab_stale_threshold:
+                log.info(
+                    "Discussion-labeled mr %d is stale: %d days since last update",
+                    mr.iid,
+                    (now - last_updated).days,
+                )
+                continue
+
+            if get_short_ref(mr) in _SKIP_REFS:
+                # Intentionally skipped
                 continue
 
             if is_khr(item):
@@ -520,6 +610,33 @@ def main(in_nbx_filename, out_md_filename):
                 agenda.add_to_list(
                     item, agenda.ext_and_vendor_other, skip_if_any_skippable=True
                 )
+
+
+def main(in_nbx_filename, out_md_filename):
+    logging.basicConfig(level=logging.INFO)
+
+    log = logging.getLogger(__name__)
+    work = WorkUnitCollection()
+
+    session = requests_cache.CachedSession(
+        cache_name="gitlab_cache", expire_after=EXPIRE_AFTER_SECONDS
+    )
+
+    log.info("Connecting to GitLab")
+    with session.cache_disabled():
+        gl = gitlab.Gitlab(
+            url=os.environ["GL_URL"],
+            private_token=os.environ["GL_ACCESS_TOKEN"],
+            session=session,
+        )
+        gl.auth()
+
+    proj = gl.projects.get("openxr/openxr")
+
+    agenda = Agenda()
+    populate_from_checklists(agenda, proj, work, in_nbx_filename)
+    populate_from_github_synced_issues(agenda, proj, work)
+    populate_from_gitlab_label_search(agenda, proj, work)
 
     with open(out_md_filename, "w", encoding="utf-8") as fp:
         fp.write(str(agenda))
