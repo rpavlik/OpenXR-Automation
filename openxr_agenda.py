@@ -518,7 +518,7 @@ def maybe_create_item_for_mr(
     return work.add_refs(proj, refs, {ref: mr})
 
 
-def populate_from_checklists(agenda, proj, work, in_nbx_filename):
+def populate_from_checklists(agenda, proj, work: WorkUnitCollection, in_nbx_filename):
 
     print("Reading", in_nbx_filename)
     with open(in_nbx_filename, "r") as fp:
@@ -526,25 +526,29 @@ def populate_from_checklists(agenda, proj, work, in_nbx_filename):
 
     parse_board(proj, work, existing_board)
     for item in work.items:
+        if is_khr(item):
+            # We take all KHR extensions on these two lists
 
-        if item.list_name == ListName.INITIAL_COMPOSITION:
-            if is_khr(item):
+            if item.list_name == ListName.INITIAL_COMPOSITION:
                 agenda.add_to_list(item, agenda.khr_release_checklists_composing)
-            else:
+
+            if item.list_name in _REVIEW_LISTS:
+                agenda.add_to_list(item, agenda.khr_release_checklists_reviews)
+
+        else:
+            # We only list vendor extensions if they're marked "Needs Discussion"
+            if Labels.NEEDS_DISCUSSION not in item.key_item.labels:
+                continue
+
+            if item.list_name == ListName.INITIAL_COMPOSITION:
                 agenda.add_to_list(
                     item, agenda.ext_and_vendor_release_checklists_composing
                 )
-            continue
 
-        if item.list_name in _REVIEW_LISTS:
-            if is_khr(item):
-                agenda.add_to_list(item, agenda.khr_release_checklists_reviews)
-            else:
-
+            if item.list_name in _REVIEW_LISTS:
                 agenda.add_to_list(
                     item, agenda.ext_and_vendor_release_checklists_reviews
                 )
-            continue
 
 
 def populate_from_github_synced_issues(agenda, proj, work):
