@@ -28,46 +28,65 @@ load_dotenv()
 
 EXPIRE_AFTER_SECONDS = 60 * 10  # 10 minute cache for GitLab API
 
-_SKIP_DISCUSSING_MR_LABELS = {"Objection Window", "Needs Action", "Stale"}
+
+class Labels:
+    """Just a namespace for some label name constants."""
+
+    NEEDS_DISCUSSION = "Needs Discussion"
+    NEEDS_APPROVAL = "Needs Approval"
+
+    NEEDS_ACTION = "Needs Action"
+
+    PHOENIX_F2F = "Phoenix-F2F"
+
+    OPENXR_1_1 = "OpenXR 1.1"
+    CONTRACTOR_APPROVED_BACKLOG = "Contractor Approved Backlog"
+    STALE = "Stale"
+    FOR_CONTRACTOR = "For Contractor"
+    NEEDS_MERGE_REQUEST = "Needs Merge Request"
+    KHR_EXTENSIONS = "KHR Extensions"
+    VENDOR_EXTENSION = "Vendor_Extension"
+    OBJECTION_WINDOW = "Objection Window"
+    DEVICE_PLUGIN_EXTENSION = "Device Plugin Extension"
+    CONFORMANCE_NEXT = "Conformance-Next"
+
+
+_SKIP_DISCUSSING_MR_LABELS = {
+    Labels.OBJECTION_WINDOW,
+    Labels.NEEDS_ACTION,
+    Labels.STALE,
+}
 _SKIP_DISCUSSING_ISSUE_LABELS = {
-    "Needs Merge Request",
-    "Contractor Approved Backlog",
-    "Stale",
+    Labels.NEEDS_MERGE_REQUEST,
+    Labels.CONTRACTOR_APPROVED_BACKLOG,
+    Labels.STALE,
 }
-_SKIP_DISCUSSING_MILESTONES = {"OpenXR-Next Preliminary"}
-_SKIP_DRAFTS_WITHOUT_THESE_LABELS = {"Needs Discussion", "Needs Approval"}
-_SKIP_STALE_GITHUB_UNLESS_LABELED = {
-    "Needs Discussion",
-    "Needs Approval",
+_SKIP_DRAFTS_WITHOUT_THESE_LABELS = {Labels.NEEDS_DISCUSSION, Labels.NEEDS_APPROVAL}
+_SKIP_STALE_GITHUB_UNLESS_LABELED = {Labels.NEEDS_DISCUSSION, Labels.NEEDS_APPROVAL}
+
+_DISCUSSION_TAGS = {Labels.NEEDS_DISCUSSION, Labels.NEEDS_APPROVAL}
+
+_SKIP_DISCUSSING_LABELS = {
+    Labels.DEVICE_PLUGIN_EXTENSION,
+    Labels.CONFORMANCE_NEXT,
+    Labels.FOR_CONTRACTOR,
+    Labels.STALE,
+    Labels.OPENXR_1_1,
+    Labels.PHOENIX_F2F,  # next f2f
 }
+
 _SKIP_REFS = {
     "#1363",  # vulkan sync, part of the vulkan 3 work
     "#1658",  # Adjust reference space - LunarG work on hold
 }
 
-_GITHUB_STALE_THRESHOLD_DELTA = timedelta(days=14)
-_GITLAB_STALE_THRESHOLD_DELTA = timedelta(days=9 * 30)  # 9 months
-
-
-class Labels:
-    KHR_EXTENSIONS = "KHR Extensions"
-    VENDOR_EXTENSION = "Vendor_Extension"
-
-
+_SKIP_DISCUSSING_MILESTONES = {"OpenXR-Next Preliminary"}
 _VENDOR_MILESTONE = "Vendor Extensions (outside timeline)"
-
-_SKIP_DISCUSSING_LABELS = {
-    "Device Plugin Extension",
-    "Conformance-Next",
-    "For Contractor",
-    "Stale",
-    "OpenXR 1.1",
-    "Phoenix-F2F",  # next f2f
-}
 
 _REVIEW_LISTS = {ListName.REVIEWING, ListName.WAITING_REVIEW}
 
-_DISCUSSION_TAGS = {"Needs Discussion", "Needs Approval"}
+_GITHUB_STALE_THRESHOLD_DELTA = timedelta(days=14)
+_GITLAB_STALE_THRESHOLD_DELTA = timedelta(days=9 * 30)  # 9 months
 
 
 def parse_gitlab_timestamp(timestamp: str) -> datetime:
