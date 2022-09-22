@@ -250,14 +250,10 @@ def _get_col_for_issue_or_mr(
             )
 
         ret = "No Thumbs Yet"
-        if indent:
-            ret = "*" + ret + "*"
-        return ret
+        return _maybe_italicize(ret, indent)
     if col == Column.LABELS:
         ret = "{}".format(", ".join(issue_or_mr.labels))
-        if indent:
-            ret = "*" + ret + "*"
-        return ret
+        return _maybe_italicize(ret, indent)
 
     if col == Column.STATUS:
         status = issue_or_mr.state
