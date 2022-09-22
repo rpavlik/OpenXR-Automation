@@ -244,7 +244,7 @@ def _get_col_for_issue_or_mr(
         return _maybe_italicize(ret, indent)
 
     if col == Column.ASSIGNEE:
-        ret = _format_user_dict(issue_or_mr.author) or ""
+        ret = _format_user_dict(issue_or_mr.assignee) or ""
         return _maybe_italicize(ret, indent)
 
     if col == Column.COMBINED_AUTHOR_ASSIGNEE:
