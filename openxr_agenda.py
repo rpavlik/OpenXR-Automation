@@ -22,8 +22,7 @@ from gitlab.v4.objects import ProjectIssue, ProjectMergeRequest
 
 from nullboard_gitlab import parse_board
 from openxr_release_checklist_update import ListName
-from work_item_and_collection import (WorkUnit, WorkUnitCollection,
-                                      get_short_ref, is_mr)
+from work_item_and_collection import WorkUnit, WorkUnitCollection, get_short_ref, is_mr
 
 load_dotenv()
 
@@ -201,6 +200,12 @@ class Column(Enum):
         raise RuntimeError("Unrecognized column " + str(col))
 
 
+def _maybe_italicize(s: str, italicize: bool) -> str:
+    if italicize:
+        return "*{}*".format(s)
+    return s
+
+
 def _get_col_for_issue_or_mr(
     indent: bool, issue_or_mr: Union[ProjectIssue, ProjectMergeRequest], col: Column
 ) -> str:
@@ -209,27 +214,19 @@ def _get_col_for_issue_or_mr(
 
     elif col == Column.REF:
         ret = "[{}]({})".format(issue_or_mr.references["short"], issue_or_mr.web_url)
-        if indent:
-            ret = "*" + ret + "*"
-        return ret
+        return _maybe_italicize(ret, indent)
 
     if col == Column.TITLE:
         ret = issue_or_mr.title
-        if indent:
-            ret = "*" + ret + "*"
-        return ret
+        return _maybe_italicize(ret, indent)
 
     if col == Column.AUTHOR:
         ret = _format_user_dict(issue_or_mr.author) or ""
-        if indent:
-            ret = "*" + ret + "*"
-        return ret
+        return _maybe_italicize(ret, indent)
 
     if col == Column.ASSIGNEE:
         ret = _format_user_dict(issue_or_mr.author) or ""
-        if indent:
-            ret = "*" + ret + "*"
-        return ret
+        return _maybe_italicize(ret, indent)
 
     if col == Column.COMBINED_AUTHOR_ASSIGNEE:
         author = _format_user_dict(issue_or_mr.author)
@@ -245,9 +242,7 @@ def _get_col_for_issue_or_mr(
                 elements.append("(Assignee: {}".format(assignee))
 
         ret = " ".join(elements)
-        if indent:
-            ret = "*" + ret + "*"
-        return ret
+        return _maybe_italicize(ret, indent)
     if col == Column.THUMBS:
         if issue_or_mr.upvotes or issue_or_mr.downvotes:
             return "{}{}".format(
@@ -268,28 +263,18 @@ def _get_col_for_issue_or_mr(
         status = issue_or_mr.state
         if is_mr(issue_or_mr):
             ret = status
-            if indent:
-                ret = "*" + ret + "*"
-            return ret
+            return _maybe_italicize(ret, indent)
         if not issue_or_mr.has_tasks:
             ret = status
-            if indent:
-                ret = "*" + ret + "*"
-            return ret
+            return _maybe_italicize(ret, indent)
         ret = "{}, {}".format(status, issue_or_mr.task_status)
-        if indent:
-            ret = "*" + ret + "*"
-        return ret
+        return _maybe_italicize(ret, indent)
     if col == Column.OPENED:
         ret = str(parse_gitlab_timestamp(issue_or_mr.created_at).date())
-        if indent:
-            ret = "*" + ret + "*"
-        return ret
+        return _maybe_italicize(ret, indent)
     if col == Column.UPDATED:
         ret = str(parse_gitlab_timestamp(issue_or_mr.updated_at).date())
-        if indent:
-            ret = "*" + ret + "*"
-        return ret
+        return _maybe_italicize(ret, indent)
     # after the meeting, change the output .md to "&#9745;" for checked checkbox
     if col == Column.APPROVED:
         return "" if indent else "&#9744;"
