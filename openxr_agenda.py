@@ -181,19 +181,31 @@ def _get_col_for_issue_or_mr(
     indent: bool, issue_or_mr: Union[ProjectIssue, ProjectMergeRequest], col: Column
 ) -> str:
     if col == Column.INDENT:
-        return "see also" if indent else ""
+        return "*see also*" if indent else ""
 
     elif col == Column.REF:
-        return "[{}]({})".format(issue_or_mr.references["short"], issue_or_mr.web_url)
+        ret = "[{}]({})".format(issue_or_mr.references["short"], issue_or_mr.web_url)
+        if indent:
+            ret = "*" + ret + "*"
+        return ret
 
     if col == Column.TITLE:
-        return issue_or_mr.title
+        ret = issue_or_mr.title
+        if indent:
+            ret = "*" + ret + "*"
+        return ret
 
     if col == Column.AUTHOR:
-        return _format_user_dict(issue_or_mr.author) or ""
+        ret = _format_user_dict(issue_or_mr.author) or ""
+        if indent:
+            ret = "*" + ret + "*"
+        return ret
 
     if col == Column.ASSIGNEE:
-        return _format_user_dict(issue_or_mr.author) or ""
+        ret = _format_user_dict(issue_or_mr.author) or ""
+        if indent:
+            ret = "*" + ret + "*"
+        return ret
 
     if col == Column.COMBINED_AUTHOR_ASSIGNEE:
         author = _format_user_dict(issue_or_mr.author)
@@ -208,28 +220,52 @@ def _get_col_for_issue_or_mr(
             if assignee:
                 elements.append("(Assignee: {}".format(assignee))
 
-        return " ".join(elements)
+        ret = " ".join(elements)
+        if indent:
+            ret = "*" + ret + "*"
+        return ret
     if col == Column.THUMBS:
         if issue_or_mr.upvotes or issue_or_mr.downvotes:
             return "{}{}".format(
                 ":+1: " * issue_or_mr.upvotes, ":-1: " * issue_or_mr.downvotes
             )
 
-        return "no thumbs yet"
+        ret = "No Thumbs Yet"
+        if indent:
+            ret = "*" + ret + "*"
+        return ret
     if col == Column.LABELS:
-        return "{}".format(", ".join(issue_or_mr.labels))
+        ret = "{}".format(", ".join(issue_or_mr.labels))
+        if indent:
+            ret = "*" + ret + "*"
+        return ret
 
     if col == Column.STATUS:
         status = issue_or_mr.state
         if is_mr(issue_or_mr):
-            return status
+            ret = status
+            if indent:
+                ret = "*" + ret + "*"
+            return ret
         if not issue_or_mr.has_tasks:
-            return status
-        return "{}, {}".format(status, issue_or_mr.task_status)
+            ret = status
+            if indent:
+                ret = "*" + ret + "*"
+            return ret
+        ret = "{}, {}".format(status, issue_or_mr.task_status)
+        if indent:
+            ret = "*" + ret + "*"
+        return ret
     if col == Column.OPENED:
-        return str(parse_gitlab_timestamp(issue_or_mr.created_at).date())
+        ret = str(parse_gitlab_timestamp(issue_or_mr.created_at).date())
+        if indent:
+            ret = "*" + ret + "*"
+        return ret
     if col == Column.UPDATED:
-        return str(parse_gitlab_timestamp(issue_or_mr.updated_at).date())
+        ret = str(parse_gitlab_timestamp(issue_or_mr.updated_at).date())
+        if indent:
+            ret = "*" + ret + "*"
+        return ret
     # if col == Columns.NUM_COMMENTS:
     #     return
     raise RuntimeError("Not handled!")
