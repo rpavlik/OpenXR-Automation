@@ -106,6 +106,10 @@ class Column(Enum):
     STATUS = 8
     OPENED = 9
     UPDATED = 10
+    APPROVED = 11
+    OBJECTION = 12
+    REWORK = 13
+    ASSIGNED = 14
     # NUM_COMMENTS = 8
 
     @classmethod
@@ -121,6 +125,10 @@ class Column(Enum):
             cls.LABELS,
             cls.OPENED,
             cls.UPDATED,
+            cls.APPROVED,
+            cls.OBJECTION,
+            cls.REWORK,
+            cls.ASSIGNED,
         )
 
     @classmethod
@@ -134,6 +142,10 @@ class Column(Enum):
             cls.LABELS,
             cls.OPENED,
             cls.UPDATED,
+            cls.APPROVED,
+            cls.OBJECTION,
+            cls.REWORK,
+            cls.ASSIGNED,
         )
 
     @classmethod
@@ -148,6 +160,10 @@ class Column(Enum):
             cls.LABELS,
             cls.OPENED,
             cls.UPDATED,
+            cls.APPROVED,
+            cls.OBJECTION,
+            cls.REWORK,
+            cls.ASSIGNED,
         )
 
     @classmethod
@@ -174,6 +190,14 @@ class Column(Enum):
             return "Opened At"
         if col == cls.UPDATED:
             return "Updated At"
+        if col == cls.APPROVED:
+            return "Approved"
+        if col == cls.OBJECTION:
+            return "Objection Window"
+        if col == cls.REWORK:
+            return "Rework"
+        if col == cls.ASSIGNED:
+            return "Assigned To"
         raise RuntimeError("Unrecognized column " + str(col))
 
 
@@ -266,6 +290,16 @@ def _get_col_for_issue_or_mr(
         if indent:
             ret = "*" + ret + "*"
         return ret
+    # after the meeting, change the output .md to "&#9745;" for checked checkbox
+    if col == Column.APPROVED:
+        return "" if indent else "&#9744;"
+    if col == Column.OBJECTION:
+        return "" if indent else "&#9744;"
+    if col == Column.REWORK:
+        return "" if indent else "&#9744;"
+    if col == Column.ASSIGNED:
+        return "" if indent else "TBD"
+
     # if col == Columns.NUM_COMMENTS:
     #     return
     raise RuntimeError("Not handled!")
