@@ -5,6 +5,7 @@
 #
 # Author: Ryan Pavlik <ryan.pavlik@collabora.com>
 
+from dataclasses import dataclass
 import logging
 import re
 import time
@@ -55,6 +56,58 @@ def _make_api_item_text(api_item: Union[ProjectIssue, ProjectMergeRequest]) -> s
 
 def make_item_bullet(api_item: Union[ProjectIssue, ProjectMergeRequest]) -> str:
     return "• {}".format(_make_api_item_text(api_item))
+
+
+@dataclass
+class NoteLine:
+    line: str
+    ref: Optional[str] = None
+
+    def __str__(self):
+        return self.line
+
+    @classmethod
+    def parse_line(cls, s: str) -> "NoteLine":
+        matches = _REF_RE.findall(s)
+        if not matches:
+            return NoteLine(s)
+        if len(matches) > 1:
+            logging.warn("Found more than one ref in line: '" + s + "'")
+        return NoteLine(s, str(matches[0]))
+
+
+def make_note_lines(item: WorkUnit) -> List[NoteLine]:
+    return [NoteLine(_make_api_item_text(item.key_item), ref=item.ref)] + [
+        NoteLine(make_item_bullet(api_item), api_item.references["short"])
+        for api_item in item.non_key_issues_and_mrs()
+    ]
+
+
+def parse_note(note: str) -> List[NoteLine]:
+    return [NoteLine.parse_line(line) for line in note.split("\n")]
+
+
+def merge_note(existing_note: str, notelines: List[NoteLine]) -> str:
+    new_lines_by_ref = {nl.ref: nl for nl in notelines if nl.ref}
+    old_lines = parse_note(existing_note)
+    merged_lines = []
+    for noteline in old_lines:
+        if not noteline.ref:
+            # we can't update this line, there's no ref for it
+            merged_lines.append(str(noteline))
+            continue
+        new_noteline = new_lines_by_ref.get(noteline.ref)
+        if new_noteline is not None:
+            merged_lines.append(str(new_noteline))
+            # wipe this out now
+            del new_lines_by_ref[noteline.ref]
+            continue
+        merged_lines.append(str(noteline))
+
+    # Add the ones we missed
+    for noteline in new_lines_by_ref.values():
+        merged_lines.append(str(noteline))
+    return "\n".join(merged_lines)
 
 
 def make_note_text(item: WorkUnit) -> str:
@@ -196,11 +249,12 @@ def update_board(
 
             existing.update(item.refs())
             item.list_name = list_name
-
+            old_text = note["text"]
             new_text = note_text_maker(item)
-            if note["text"] != new_text:
+            merged_text = merge_note(old_text, parse_note(new_text))
+            if old_text != merged_text:
                 log.info("Updated text for %s", refs[0])
-                note["text"] = new_text
+                note["text"] = merged_text
 
     if deleted_any:
         remove_marked_for_deletion(board)
