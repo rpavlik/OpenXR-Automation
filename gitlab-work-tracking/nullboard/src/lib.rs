@@ -1,5 +1,21 @@
+use std::fs;
+use std::io;
+use std::path::Path;
+
 use serde::Deserialize;
 use serde::Serialize;
+
+#[derive(thiserror::Error, Debug)]
+pub enum Error {
+    #[error("IO error")]
+    IoError(#[from] io::Error),
+
+    #[error("Format mismatch")]
+    FormatMismatch,
+
+    #[error("JSON parsing error")]
+    JsonParseError(#[from] serde_json::Error),
+}
 
 #[derive(Debug, Clone, Deserialize, Serialize, PartialEq, Eq)]
 pub struct Note {
@@ -34,8 +50,32 @@ pub struct Board {
 const FORMAT: u32 = 20190412;
 
 impl Board {
+    /// Make a new board with a given title
+    pub fn new(title: &str) -> Self {
+        let mut ret: Self = Default::default();
+        ret.title = title.to_owned();
+        ret
+    }
+
+    /// Load a board from a JSON file
+    pub fn load_from_json(filename: &Path) -> Result<Self, Error> {
+        let contents = fs::read_to_string(filename)?;
+        let parsed: Self = serde_json::from_str(&contents)?;
+        if !parsed.check_format() {
+            return Err(Error::FormatMismatch);
+        }
+        Ok(parsed)
+    }
+
+    /// Serialize to a pretty-printed JSON file
+    pub fn save_to_json(&self, filename: &Path) -> Result<(), Error> {
+        let contents = serde_json::to_string_pretty(self)?;
+        fs::write(filename, contents)?;
+        Ok(())
+    }
+
     /// If false, we can't be confident we are interpreting this correctly.
-    pub fn check_format(&self) -> bool {
+    fn check_format(&self) -> bool {
         self.format == FORMAT
     }
 

@@ -1,9 +1,16 @@
 [package]
+edition = "2021"
 name = "gitlab-work"
 version = "0.1.0"
-edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-gitlab = "0.1506"
+derive_more = "0.99"
+gitlab = "0.1506.*"
+lazy_static = "1.4"
+log = "0.4"
+regex = "1.7"
+serde = {version = "1.0", features = ["derive"]}
+thiserror = "1.0"
+typed-index-collections = "3.1.0"
