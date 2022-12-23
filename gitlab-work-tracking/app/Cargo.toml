@@ -10,4 +10,7 @@ clap = {version = "4.0", features = ["derive"]}
 env_logger = "0.10"
 anyhow = "1.0"
 nullboard-tools = {path = "../nullboard"}
+gitlab-work = {path = "../gitlab_work"}
 itertools = "0.10"
+dotenv = "0.15"
+log = "0.4"

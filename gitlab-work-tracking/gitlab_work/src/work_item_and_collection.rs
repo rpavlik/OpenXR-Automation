@@ -27,7 +27,7 @@ impl WorkUnit {
 }
 
 #[derive(Debug, Clone, Copy, From, Into, Hash, PartialEq, Eq, PartialOrd, Ord)]
-struct UnitId(usize);
+pub struct UnitId(usize);
 
 #[derive(Debug, Default)]
 pub struct WorkUnitCollection {

@@ -4,7 +4,7 @@
 //
 // Author: Ryan Pavlik <ryan.pavlik@collabora.com>
 
-use std::collections::HashMap;
+use std::{collections::HashMap, fmt::Display};
 
 use gitlab::{IssueInternalId, MergeRequestInternalId, Project, ProjectId};
 
@@ -38,6 +38,20 @@ pub(crate) trait SimpleGitLabItemReference: Clone {
 
     /// Clone and replace project with the given project ID
     fn with_project_id(&self, project_id: ProjectId) -> Self;
+
+    fn format(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self.get_project() {
+            ProjectReference::ProjectId(id) => {
+                write!(f, "{}{}{}", id, Self::get_symbol(), self.get_raw_iid())
+            }
+            ProjectReference::ProjectName(name) => {
+                write!(f, "{}{}{}", name, Self::get_symbol(), self.get_raw_iid())
+            }
+            ProjectReference::UnknownProject => {
+                write!(f, "{}{}", Self::get_symbol(), self.get_raw_iid())
+            }
+        }
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
@@ -78,6 +92,12 @@ impl SimpleGitLabItemReference for Issue {
     }
 }
 
+impl Display for Issue {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        self.format(f)
+    }
+}
+
 impl Into<Issue> for gitlab::types::Issue {
     fn into(self) -> Issue {
         Issue {
@@ -98,6 +118,7 @@ impl MergeRequest {
         Self { project, iid }
     }
 }
+
 impl SimpleGitLabItemReference for MergeRequest {
     type IidType = MergeRequestInternalId;
 
@@ -121,6 +142,12 @@ impl SimpleGitLabItemReference for MergeRequest {
             project: ProjectReference::ProjectId(project_id),
             iid: self.iid,
         }
+    }
+}
+
+impl Display for MergeRequest {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        self.format(f)
     }
 }
 
@@ -148,5 +175,14 @@ impl Into<ProjectItemReference> for Issue {
 impl Into<ProjectItemReference> for MergeRequest {
     fn into(self) -> ProjectItemReference {
         ProjectItemReference::MergeRequest(self)
+    }
+}
+
+impl Display for ProjectItemReference {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            ProjectItemReference::Issue(issue) => issue.fmt(f),
+            ProjectItemReference::MergeRequest(mr) => mr.fmt(f),
+        }
     }
 }

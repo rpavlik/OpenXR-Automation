@@ -22,6 +22,8 @@ pub enum Error {
 }
 
 mod gitlab_refs;
-mod note;
+pub mod note;
 mod project_mapper;
 mod work_item_and_collection;
+
+pub use gitlab_refs::{ProjectItemReference, ProjectReference};
