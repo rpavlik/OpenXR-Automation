@@ -14,7 +14,7 @@ use gitlab::Project;
 use log::{debug, info};
 use typed_index_collections::TiVec;
 
-use crate::{gitlab_refs::ProjectReference, Error};
+use crate::{gitlab_refs::ProjectItemReference, Error};
 use derive_more::{From, Into};
 
 #[derive(Debug, Clone, Copy, From, Into, Hash, PartialEq, Eq, PartialOrd, Ord)]
@@ -28,13 +28,13 @@ impl Display for UnitId {
 
 #[derive(Debug)]
 pub struct WorkUnit {
-    refs: Vec<ProjectReference>,
-    // refs_set: HashSet<ProjectReference>,
+    refs: Vec<ProjectItemReference>,
+    // refs_set: HashSet<ProjectItemReference>,
     extincted_by: Option<UnitId>,
 }
 
 impl WorkUnit {
-    pub fn new(projref: ProjectReference) -> Self {
+    pub fn new(projref: ProjectItemReference) -> Self {
         // let refs_set = HashSet::new();
         // refs_set.insert(projref);
         Self {
@@ -67,35 +67,50 @@ impl UnitContainer {
         Ok(unit)
     }
 
-    fn emplace(&mut self, reference: ProjectReference) -> UnitId {
+    fn emplace(&mut self, reference: ProjectItemReference) -> UnitId {
         self.0.push_and_get_key(WorkUnit::new(reference))
+    }
+
+    fn follow_extinction(&self, id: UnitId, limit: usize) -> Result<UnitId, Error> {
+        let mut result_id = id;
+        for _i in [0..limit] {
+            let unit = self.0.get(result_id).ok_or(Error::InvalidWorkUnitId(id))?;
+            match &unit.extincted_by {
+                Some(successor) => {
+                    result_id = *successor;
+                }
+                None => return Ok(result_id),
+            }
+        }
+        Err(Error::RecursionLimitReached(id))
     }
 }
 
 #[derive(Debug, Default)]
 pub struct WorkUnitCollection {
     units: UnitContainer,
-    unit_by_ref: HashMap<ProjectReference, UnitId>,
+    unit_by_ref: HashMap<ProjectItemReference, UnitId>,
 }
 
 impl WorkUnitCollection {
     /// Records a work unit containing the provided references (must be non-empty).
     /// If any of those references already exist in the work collection, their corresponding work units are merged.
     /// Any references not yet in the work collection are added.
-    pub fn add_or_get_unit_for_refs(&mut self, refs: &[ProjectReference]) -> Result<UnitId, Error> {
-        // let refs: Vec<ProjectReference> = refs.collect();
+    pub fn add_or_get_unit_for_refs(
+        &mut self,
+        refs: impl IntoIterator<Item = ProjectItemReference>,
+    ) -> Result<UnitId, Error> {
+        let refs: Vec<ProjectItemReference> = refs.into_iter().collect();
         let unit_ids = self.get_ids_for_refs(refs.iter());
-        // let unit_id: Option<UnitId> = None;
         if let Some((&unit_id, remaining_unit_ids)) = unit_ids.split_first() {
             // we have at least one existing unit
             debug!("Will use work unit {}", unit_id);
-            // unit_id = Some(first_unit_id);
             for src_id in remaining_unit_ids {
                 debug!("Merging {} into {}", unit_id, src_id);
                 self.merge_work_units(unit_id, *src_id)?;
             }
             for reference in refs {
-                self.add_ref_to_unit_id(unit_id, reference)?;
+                self.add_ref_to_unit_id(unit_id, &reference)?;
             }
             Ok(unit_id)
         } else {
@@ -112,38 +127,13 @@ impl WorkUnitCollection {
             } else {
                 Err(Error::NoReferences)
             }
-            // match  {
-            //     Some() => todo!(),
-            //     None => todo!(),
-            // }
         }
-
-        // if units.is_empty() {
-        //     let (first_ref, rest) = refs.split_first().expect("know it's not empty");
-        //     let unit = WorkUnit::new(*first_ref);
-        // } else if units.len() == 1 {
-        // } else if units.len() > 1 {
-        //     // arbitrarily choose first.
-        //     let unit = units.first().unwrap();
-        // }
-        // Err(Error::RefParseError)
     }
-
-    // pub fn add_refs(
-    //     &mut self,
-    //     proj: &Project,
-    //     refs: impl IntoIterator<Item = ProjectReference>,
-    // ) -> UnitId {
-    // }
-
-    // fn move_ref_between_units(&mut self, reference: ProjectReference, src_unit: &mut WorkUnit, dest_unit: &mut WorkUnit) {
-    //     let old_index = src_unit.
-    // }
 
     fn add_ref_to_unit_id(
         &mut self,
         id: UnitId,
-        reference: &ProjectReference,
+        reference: &ProjectItemReference,
     ) -> Result<(), Error> {
         // let mut do_insert = false;
         let do_insert = match self.unit_by_ref.entry(reference.clone()) {
@@ -200,7 +190,7 @@ impl WorkUnitCollection {
         let src = self.units.get_unit_mut(src_id)?;
         // mark as extinct
         src.extincted_by = Some(id);
-        let refs_to_move: Vec<ProjectReference> = src.refs.drain(..).collect();
+        let refs_to_move: Vec<ProjectItemReference> = src.refs.drain(..).collect();
         for reference in refs_to_move {
             self.add_ref_to_unit_id(id, &reference)?;
             // self.unit_by_ref.insert(reference.clone(), id);
@@ -214,6 +204,16 @@ impl WorkUnitCollection {
         self.units.get_unit(id)
     }
 
+    /// Get a work unit by ID, following extinction pointers
+    pub fn get_unit_following_extinction(
+        &self,
+        id: UnitId,
+        limit: usize,
+    ) -> Result<(UnitId, &WorkUnit), Error> {
+        let valid_id = self.units.follow_extinction(id, limit)?;
+        Ok((valid_id, self.units.get_unit(valid_id)?))
+    }
+
     // pub fn try_get_unit(&self, id: UnitId) -> Option<&WorkUnit> {
     //     self.units.get(id)
     // }
@@ -222,7 +222,7 @@ impl WorkUnitCollection {
     // }
 
     //     /// Find the unit ID corresponding to the ref, if any
-    //     fn get_id_for_ref(&self, reference:  &ProjectReference) -> Option<UnitId> {
+    //     fn get_id_for_ref(&self, reference:  &ProjectItemReference) -> Option<UnitId> {
     // if let Some(&id) = self.unit_by_ref.get(&reference) {
     //     return Some(id)
     //                 if retrieved_ids.insert(id) {
@@ -232,7 +232,7 @@ impl WorkUnitCollection {
     //     }
 
     /// Find the set of unit IDs corresponding to the refs, if any.
-    fn get_ids_for_refs<'a, T: Iterator<Item = &'a ProjectReference>>(
+    fn get_ids_for_refs<'a, T: Iterator<Item = &'a ProjectItemReference>>(
         &self,
         refs: T,
     ) -> Vec<UnitId> {

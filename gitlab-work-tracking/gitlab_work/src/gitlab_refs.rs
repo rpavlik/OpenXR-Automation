@@ -4,10 +4,12 @@
 //
 // Author: Ryan Pavlik <ryan.pavlik@collabora.com>
 
-use std::{collections::HashMap, fmt::Display};
+use std::{fmt::Display};
 
-use gitlab::{IssueInternalId, MergeRequestInternalId, Project, ProjectId};
+use gitlab::{IssueInternalId, MergeRequestInternalId, ProjectId};
 
+/// A way of referring to a project.
+/// More than one name may correspond to a single project ID.
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum ProjectReference {
     ProjectId(ProjectId),
@@ -160,6 +162,7 @@ impl Into<MergeRequest> for gitlab::types::MergeRequest {
     }
 }
 
+/// A reference to an item (issue, MR) in a project
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum ProjectItemReference {
     Issue(Issue),

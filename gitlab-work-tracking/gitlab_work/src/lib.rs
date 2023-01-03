@@ -28,6 +28,9 @@ pub enum Error {
 
     #[error("No references passed, at least one required")]
     NoReferences,
+
+    #[error("Recursion limit reached when resolving work unit ID {0}")]
+    RecursionLimitReached(UnitId),
 }
 
 mod gitlab_refs;
@@ -36,4 +39,4 @@ mod project_mapper;
 mod work_item_and_collection;
 
 pub use gitlab_refs::{ProjectItemReference, ProjectReference};
-use work_item_and_collection::UnitId;
+pub use work_item_and_collection::{UnitId, WorkUnitCollection};
