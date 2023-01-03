@@ -10,19 +10,20 @@ use crate::{
 };
 use gitlab::{api, api::Query, ProjectId};
 use serde::Deserialize;
-use std::collections::HashMap;
-
-pub(crate) struct ProjectMapper {
-    client: gitlab::Gitlab,
-    default_project_name: String,
-    name_to_id: HashMap<String, ProjectId>,
-}
+use std::collections::{hash_map::Entry, HashMap};
 
 #[derive(Debug, Deserialize)]
 struct ProjectQuery {
     path: String,
     path_with_namespace: String,
     id: ProjectId,
+}
+
+#[derive(Debug)]
+pub(crate) struct ProjectMapper {
+    client: gitlab::Gitlab,
+    default_project_name: String,
+    name_to_id: HashMap<String, ProjectId>,
 }
 
 impl ProjectMapper {
@@ -38,16 +39,27 @@ impl ProjectMapper {
         // this keeps the borrow of the default internal
         let name = name.unwrap_or_else(|| &self.default_project_name);
 
-        if let Some(&id) = self.name_to_id.get(name) {
-            return Ok(id);
+        let project_query = match self.name_to_id.entry(name.to_owned()) {
+            Entry::Occupied(entry) => return Ok(*entry.get()),
+            Entry::Vacant(entry) => {
+                let endpoint = api::projects::Project::builder().project(name).build()?;
+                let project_query: ProjectQuery = endpoint
+                    .query(&self.client)
+                    .map_err(|e| Error::ProjectQueryError(name.to_owned(), e))?;
+                entry.insert(project_query.id);
+                project_query
+            }
+        };
+
+        // Make sure that both ways of naming a project are in the map (qualified and unqualified)
+        if &project_query.path != name {
+            self.name_to_id.insert(project_query.path, project_query.id);
         }
-        let endpoint = api::projects::Project::builder().project(name).build()?;
-        let proj: ProjectQuery = endpoint
-            .query(&self.client)
-            .map_err(|e| Error::ProjectQueryError(name.to_owned(), e))?;
-        self.name_to_id.insert(proj.path, proj.id);
-        self.name_to_id.insert(proj.path_with_namespace, proj.id);
-        Ok(proj.id)
+        if &project_query.path_with_namespace != name {
+            self.name_to_id
+                .insert(project_query.path_with_namespace, project_query.id);
+        }
+        Ok(project_query.id)
     }
 
     pub(crate) fn map_project_to_id(

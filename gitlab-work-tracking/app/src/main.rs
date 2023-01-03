@@ -1,9 +1,9 @@
-use std::{ffi::OsString, path::Path};
+use std::path::Path;
 
 use anyhow::anyhow;
 use clap::Parser;
-use dotenv::dotenv;
-use gitlab_work::note::NoteLine;
+use dotenvy::dotenv;
+use gitlab_work::{note::NoteLine, ProjectItemReference};
 use log::info;
 
 #[derive(Parser, Debug)]
@@ -12,8 +12,22 @@ struct Args {
     filename: String,
 }
 
-fn parse_note(s: &str) -> Vec<NoteLine> {
-    s.split("\n").map(NoteLine::parse_line).collect()
+enum LineOrGitlabRef {
+    FreeformText(String),
+    GitlabRef(ProjectItemReference),
+}
+
+fn parse_note(s: &str) -> Vec<LineOrGitlabRef> {
+    s.split("\n")
+        .map(NoteLine::parse_line)
+        .map(|l| {
+            if let Some(reference) = l.reference {
+                LineOrGitlabRef::GitlabRef(reference)
+            } else {
+                LineOrGitlabRef::FreeformText(l.line)
+            }
+        })
+        .collect()
 }
 
 fn main() -> Result<(), anyhow::Error> {

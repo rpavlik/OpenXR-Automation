@@ -19,6 +19,15 @@ pub enum Error {
 
     #[error("API call error when querying project {0}: {1}")]
     ProjectQueryError(String, #[source] ApiError<<Gitlab as RestClient>::Error>),
+
+    #[error("Invalid work unit ID {0} - internal data structure error")]
+    InvalidWorkUnitId(UnitId),
+
+    #[error("Extinct work unit ID {0}, extincted by {1} - internal data structure error")]
+    ExtinctWorkUnitId(UnitId, UnitId),
+
+    #[error("No references passed, at least one required")]
+    NoReferences,
 }
 
 mod gitlab_refs;
@@ -27,3 +36,4 @@ mod project_mapper;
 mod work_item_and_collection;
 
 pub use gitlab_refs::{ProjectItemReference, ProjectReference};
+use work_item_and_collection::UnitId;
