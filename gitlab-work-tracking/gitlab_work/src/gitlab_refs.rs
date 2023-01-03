@@ -4,7 +4,7 @@
 //
 // Author: Ryan Pavlik <ryan.pavlik@collabora.com>
 
-use std::{fmt::Display};
+use std::fmt::Display;
 
 use gitlab::{IssueInternalId, MergeRequestInternalId, ProjectId};
 
