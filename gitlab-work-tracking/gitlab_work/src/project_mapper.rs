@@ -65,6 +65,10 @@ impl ProjectMapper {
         Ok(self)
     }
 
+    pub fn gitlab_client(&self) -> &gitlab::Gitlab {
+        &self.client
+    }
+
     pub(crate) fn try_lookup_name(&mut self, name: Option<&str>) -> Result<ProjectId, Error> {
         // this keeps the borrow of the default internal
         let name = name.unwrap_or(&self.default_project_name);
@@ -131,7 +135,7 @@ where
     ) -> Result<Self, Error>;
 
     /// Replace the project reference ID with either a string or "Unknown" (for the default project unless otherwise configured)
-    fn with_formatted_project_reference(&self, mapper: &ProjectMapper) -> Self;
+    fn with_formatted_project_reference(self, mapper: &ProjectMapper) -> Self;
 }
 
 impl<T> GitLabItemReferenceNormalize for T
@@ -146,7 +150,7 @@ where
         Ok(self.with_project_id(id))
     }
 
-    fn with_formatted_project_reference(&self, mapper: &ProjectMapper) -> Self {
+    fn with_formatted_project_reference(self, mapper: &ProjectMapper) -> Self {
         let id = self.get_project();
         let formatted = mapper.map_id_to_formatted_project(id);
         self.with_project(formatted)

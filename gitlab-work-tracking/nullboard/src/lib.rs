@@ -7,6 +7,8 @@
 use serde::{Deserialize, Serialize};
 use std::{fs, io, path::Path};
 
+pub mod experiment;
+
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
     #[error("IO error")]
@@ -46,7 +48,7 @@ pub struct Board {
     id: u64,
     revision: u32,
     pub title: String,
-    pub lists: Vec<List>,
+    lists: Vec<List>,
     history: Vec<u32>,
 }
 
@@ -100,9 +102,13 @@ impl Board {
         self.revision
     }
 
+    pub fn take_lists(&mut self) -> Vec<List> {
+        std::mem::take(&mut self.lists)
+    }
+
     /// Make a new revision that replaces the lists.
     pub fn make_new_revision_with_lists(
-        &self,
+        self,
         lists: impl IntoIterator<Item = GenericList<String>>,
     ) -> Self {
         let mut ret = Self {
@@ -154,17 +160,23 @@ impl Default for Note {
 }
 
 /// Nullboard list note, with arbitrary text type
-#[derive(Debug)]
-pub struct GenericNote<T>
-where
-    T: core::fmt::Debug,
-{
+pub struct GenericNote<T> {
     /// Contents of the note
     pub text: T,
     /// Whether the note is shown "raw" (without a border, makes it look like a sub-header)
     pub raw: bool,
     /// Whether the note is shown minimized/collapsed
     pub min: bool,
+}
+
+impl<T: core::fmt::Debug> core::fmt::Debug for GenericNote<T> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("GenericNote")
+            .field("text", &self.text)
+            .field("raw", &self.raw)
+            .field("min", &self.min)
+            .finish()
+    }
 }
 
 impl From<GenericNote<String>> for Note {
@@ -177,8 +189,17 @@ impl From<GenericNote<String>> for Note {
     }
 }
 
-impl<T: std::fmt::Debug> GenericNote<T> {
-    pub fn with_replacement_text<U: std::fmt::Debug>(&self, text: U) -> GenericNote<U> {
+impl<T> GenericNote<T> {
+    pub fn with_replacement_text<U>(&self, text: U) -> GenericNote<U> {
+        GenericNote {
+            text,
+            raw: self.raw,
+            min: self.min,
+        }
+    }
+    pub fn map<B>(self, f: impl FnOnce(T) -> B) -> GenericNote<B> {
+        let text = f(self.text);
+
         GenericNote {
             text,
             raw: self.raw,
@@ -188,7 +209,7 @@ impl<T: std::fmt::Debug> GenericNote<T> {
 }
 
 impl Note {
-    pub fn with_replacement_text<T: std::fmt::Debug>(&self, text: T) -> GenericNote<T> {
+    pub fn with_replacement_text<T>(&self, text: T) -> GenericNote<T> {
         GenericNote {
             text,
             raw: self.raw,
@@ -196,8 +217,18 @@ impl Note {
         }
     }
 
-    pub fn map_text<T: std::fmt::Debug, F: Fn(&str) -> T>(&self, f: F) -> GenericNote<T> {
+    pub fn map_text<T, F: Fn(&str) -> T>(&self, f: F) -> GenericNote<T> {
         self.with_replacement_text(f(&self.text))
+    }
+
+    pub fn map<B, F: Fn(String) -> B>(self, f: F) -> GenericNote<B> {
+        let text = f(self.text);
+
+        GenericNote {
+            text,
+            raw: self.raw,
+            min: self.min,
+        }
     }
 }
 
@@ -211,14 +242,49 @@ impl From<Note> for GenericNote<String> {
     }
 }
 
+// impl<T> GenericNote<T> {
+//     pub fn map<B>(self, f: &mut impl FnMut(T) -> B) -> GenericNote<B> {
+//         let text = f(self.text);
+
+//         GenericNote {
+//             text,
+//             raw: self.raw,
+//             min: self.min,
+//         }
+//     }
+// }
+
 /// A structure representing a list in a board as exported to JSON from Nullboard, with arbitrary note text type
-#[derive(Debug)]
-pub struct GenericList<T: core::fmt::Debug> {
+pub struct GenericList<T> {
     /// Title of the list
     pub title: String,
     /// Notes in the list
     pub notes: Vec<GenericNote<T>>,
 }
+
+impl<T: core::fmt::Debug> core::fmt::Debug for GenericList<T> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("GenericList")
+            .field("title", &self.title)
+            .field("notes", &self.notes)
+            .finish()
+    }
+}
+// fn map_generic_note<T, B>(
+//     f: &mut impl FnMut(T) -> B,
+// ) -> impl FnMut(GenericNote<T>) -> GenericNote<B> + '_ {
+//     // let f = &mut f;
+//     move |note| note.map(f)
+// }
+
+// impl<T> GenericList<T> {
+//     pub fn map<B>(self, f: &mut impl FnMut(T) -> B) -> GenericList<B> {
+//         GenericList {
+//             title: self.title,
+//             notes: self.notes.into_iter().map(map_generic_note(f)).collect(),
+//         }
+//     }
+// }
 
 impl From<GenericList<String>> for List {
     fn from(list: GenericList<String>) -> Self {
@@ -240,7 +306,7 @@ impl From<List> for GenericList<String> {
 
 // -- map_note_text --//
 
-fn map_generic_note_text<T: std::fmt::Debug, B: std::fmt::Debug>(
+fn map_generic_note_text_as_ref<T, B>(
     mut f: impl FnMut(&T) -> B,
 ) -> impl FnMut(&GenericNote<T>) -> GenericNote<B> {
     move |note| GenericNote {
@@ -249,8 +315,19 @@ fn map_generic_note_text<T: std::fmt::Debug, B: std::fmt::Debug>(
         min: note.min,
     }
 }
-impl<T: core::fmt::Debug> GenericList<T> {
-    pub fn map_note_text<U: std::fmt::Debug, F: FnMut(&T) -> U>(&self, f: F) -> GenericList<U> {
+
+fn map_generic_note_text<T, B>(
+    mut f: impl FnMut(T) -> B,
+) -> impl FnMut(GenericNote<T>) -> GenericNote<B> {
+    move |note| GenericNote {
+        text: f(note.text),
+        raw: note.raw,
+        min: note.min,
+    }
+}
+
+impl<T> GenericList<T> {
+    pub fn map_note_text_as_ref<U, F: FnMut(&T) -> U>(&self, f: F) -> GenericList<U> {
         // let mut f = f;
         GenericList {
             title: self.title.clone(),
@@ -258,15 +335,24 @@ impl<T: core::fmt::Debug> GenericList<T> {
                 .notes
                 .iter()
                 // .map(move |note| note.map_text(f))
+                .map(map_generic_note_text_as_ref(f))
+                .collect(),
+        }
+    }
+
+    pub fn map_notes<B>(self, f: impl FnMut(T) -> B) -> GenericList<B> {
+        GenericList {
+            title: self.title,
+            notes: self
+                .notes
+                .into_iter()
                 .map(map_generic_note_text(f))
                 .collect(),
         }
     }
 }
 
-fn map_note_text<B: std::fmt::Debug>(
-    mut f: impl FnMut(&str) -> B,
-) -> impl FnMut(&Note) -> GenericNote<B> {
+fn map_note_text<B>(mut f: impl FnMut(&str) -> B) -> impl FnMut(&Note) -> GenericNote<B> {
     move |note| GenericNote {
         text: f(&note.text),
         raw: note.raw,
@@ -275,7 +361,7 @@ fn map_note_text<B: std::fmt::Debug>(
 }
 
 impl List {
-    pub fn map_note_text<T: std::fmt::Debug, F: FnMut(&str) -> T>(&self, f: F) -> GenericList<T> {
+    pub fn map_notes<B>(&self, f: impl FnMut(&str) -> B) -> GenericList<B> {
         // let mut f = f;
         GenericList {
             title: self.title.clone(),
@@ -290,10 +376,10 @@ impl List {
 }
 
 /// A structure representing the lists in a board, with arbitrary note type
-#[derive(Debug, Default)]
-pub struct GenericLists<T: core::fmt::Debug>(pub Vec<GenericList<T>>);
+#[derive(Default)]
+pub struct GenericLists<T>(pub Vec<GenericList<T>>);
 
-impl<T: core::fmt::Debug> GenericLists<T> {
+impl<T> GenericLists<T> {
     pub fn new() -> Self {
         Self(Default::default())
     }

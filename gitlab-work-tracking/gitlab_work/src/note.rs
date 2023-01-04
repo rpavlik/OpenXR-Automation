@@ -112,7 +112,7 @@ impl LineOrReference {
 
     pub fn map_reference(
         &self,
-        f: &mut impl FnMut(&ProjectItemReference) -> ProjectItemReference,
+        mut f: impl FnMut(&ProjectItemReference) -> ProjectItemReference,
     ) -> Self {
         if let LineOrReference::Reference(reference) = self {
             let mapped = f(reference);
@@ -123,7 +123,7 @@ impl LineOrReference {
 
     pub fn try_map_reference<E: std::error::Error>(
         &self,
-        f: &mut impl FnMut(&ProjectItemReference) -> Result<ProjectItemReference, E>,
+        mut f: impl FnMut(&ProjectItemReference) -> Result<ProjectItemReference, E>,
     ) -> Result<Self, E> {
         if let LineOrReference::Reference(reference) = self {
             let mapped = f(reference)?;

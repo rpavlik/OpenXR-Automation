@@ -470,6 +470,7 @@ dependencies = [
  "itertools",
  "log",
  "nullboard-tools",
+ "serde",
 ]
 
 [[package]]

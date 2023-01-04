@@ -6,7 +6,7 @@
 
 use std::fmt::Display;
 
-use gitlab::{IssueInternalId, MergeRequestInternalId, ProjectId};
+use gitlab::{api::common::NameOrId, IssueInternalId, MergeRequestInternalId, ProjectId};
 
 /// A way of referring to a project.
 /// More than one name may correspond to a single project ID.
@@ -15,6 +15,32 @@ pub enum ProjectReference {
     ProjectId(ProjectId),
     ProjectName(String),
     UnknownProject,
+}
+
+impl ProjectReference {
+    pub fn project_id(&self) -> Option<ProjectId> {
+        match self {
+            ProjectReference::ProjectId(id) => Some(*id),
+            ProjectReference::ProjectName(_) => None,
+            ProjectReference::UnknownProject => None,
+        }
+    }
+}
+
+#[derive(Debug, thiserror::Error)]
+#[error("Cannot pass ProjectReference::UnknownProject into the gitlab API")]
+pub struct UnknownProjectError;
+
+impl<'a> TryInto<NameOrId<'a>> for &'a ProjectReference {
+    type Error = UnknownProjectError;
+
+    fn try_into(self) -> Result<NameOrId<'a>, Self::Error> {
+        match self {
+            ProjectReference::ProjectId(id) => Ok(id.value().into()),
+            ProjectReference::ProjectName(name) => Ok(name.clone().into()),
+            ProjectReference::UnknownProject => Err(UnknownProjectError),
+        }
+    }
 }
 
 impl From<ProjectId> for ProjectReference {
@@ -70,14 +96,17 @@ pub trait BaseGitLabItemReference: Clone {
     fn get_raw_iid(&self) -> u64;
 
     /// Clone and replace project with the given project reference
-    fn with_project(&self, project: ProjectReference) -> Self;
+    fn clone_with_project(&self, project: ProjectReference) -> Self;
+
+    /// Consume and replace project with the given project reference
+    fn with_project(self, project: ProjectReference) -> Self;
 
     /// Get the symbol used to signify a reference of the type of this instance
     fn get_symbol(&self) -> char;
 
     /// Clone and replace project with the given project ID
     fn with_project_id(&self, project_id: ProjectId) -> Self {
-        self.with_project(project_id.into())
+        self.clone_with_project(project_id.into())
     }
 }
 
@@ -149,7 +178,14 @@ impl BaseGitLabItemReference for Issue {
         self.iid.value()
     }
 
-    fn with_project(&self, project: ProjectReference) -> Self {
+    fn clone_with_project(&self, project: ProjectReference) -> Self {
+        Self {
+            project: project,
+            iid: self.iid,
+        }
+    }
+
+    fn with_project(self, project: ProjectReference) -> Self {
         Self {
             project: project,
             iid: self.iid,
@@ -216,7 +252,14 @@ impl BaseGitLabItemReference for MergeRequest {
         self.iid.value()
     }
 
-    fn with_project(&self, project: ProjectReference) -> Self {
+    fn clone_with_project(&self, project: ProjectReference) -> Self {
+        Self {
+            project: project,
+            iid: self.iid,
+        }
+    }
+
+    fn with_project(self, project: ProjectReference) -> Self {
         Self {
             project: project,
             iid: self.iid,
@@ -304,7 +347,14 @@ impl BaseGitLabItemReference for ProjectItemReference {
         }
     }
 
-    fn with_project(&self, project: ProjectReference) -> Self {
+    fn clone_with_project(&self, project: ProjectReference) -> Self {
+        match self {
+            ProjectItemReference::Issue(c) => c.clone_with_project(project).into(),
+            ProjectItemReference::MergeRequest(c) => c.clone_with_project(project).into(),
+        }
+    }
+
+    fn with_project(self, project: ProjectReference) -> Self {
         match self {
             ProjectItemReference::Issue(c) => c.with_project(project).into(),
             ProjectItemReference::MergeRequest(c) => c.with_project(project).into(),

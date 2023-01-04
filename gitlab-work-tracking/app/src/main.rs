@@ -4,23 +4,28 @@
 //
 // Author: Ryan Pavlik <ryan.pavlik@collabora.com>
 
+use anyhow::anyhow;
 use board_update::{
-    mark_notes_for_deletion, parse_and_process_note, parse_note,
-    process_note_and_associate_work_unit, Lines,
+    mark_notes_for_deletion, note_formatter, parse_and_process_note, parse_note,
+    process_lists_and_associate_work_units, process_note_and_associate_work_unit,
+    project_refs_to_ids, prune_notes, Lines,
 };
 use clap::{Args, Parser};
-use gitlab_work::{LineOrReference, ProjectMapper, TypedGitLabItemReference, WorkUnitCollection};
-use std::path::Path;
-// use clap::{arg, command, value_parser, ArgAction, Command};
 use dotenvy::dotenv;
+use gitlab_work::{ProjectMapper, WorkUnitCollection};
+use log::info;
+use map::map_note_data_in_lists;
+use std::path::Path;
+
 mod board_update;
+mod map;
 
 #[derive(Args, Debug, Clone)]
 // #[command(PARENT CMD ATTRIBUTE)]
 // #[command(next_help_heading = "GitLab access details")]
 struct GitlabArgs {
-    #[arg(long = "gitlab", env = "GL_URL")]
-    gitlab_url: String,
+    #[arg(long = "gitlab", env = "GL_DOMAIN")]
+    gitlab_domain: String,
 
     #[arg(long = "username", env = "GL_USERNAME")]
     gitlab_username: String,
@@ -51,54 +56,48 @@ fn main() -> Result<(), anyhow::Error> {
 
     let path = Path::new(&args.filename);
 
-    // let out_fn = path
-    //     .file_stem()
-    //     .map(|p| {
-    //         let mut p = p.to_owned();
-    //         p.push(".updated.json");
-    //         p
-    //     })
-    //     .ok_or_else(|| anyhow!("Could not get file stem"))?;
-    // let out_path = path.with_file_name(out_fn);
+    let out_fn = path
+        .file_stem()
+        .map(|p| {
+            let mut p = p.to_owned();
+            p.push(".updated.json");
+            p
+        })
+        .ok_or_else(|| anyhow!("Could not get file stem"))?;
+    let out_path = path.with_file_name(out_fn);
+
+    info!("Connecting to GitLab: {}", &args.gitlab.gitlab_domain);
 
     let gitlab =
-        gitlab::GitlabBuilder::new(args.gitlab.gitlab_url, args.gitlab.gitlab_access_token)
+        gitlab::GitlabBuilder::new(args.gitlab.gitlab_domain, args.gitlab.gitlab_access_token)
             .build()?;
     let mut mapper = ProjectMapper::new(gitlab, &args.gitlab.default_project)?;
     if let Some(default_formatting) = args.gitlab.default_project_format_as {
         mapper.try_set_project_name_formatting(None, &default_formatting)?;
     }
 
-    let board = nullboard_tools::Board::load_from_json(path)?;
+    info!("Loading board from {}", path.display());
 
+    let mut board = nullboard_tools::Board::load_from_json(path)?;
+
+    info!("Parsing notes");
     let mut parsed_lists = vec![];
     // Parse all notes
-    for list in board.lists {
-        parsed_lists.push(list.map_note_text(|text| parse_note(text)));
+    for list in board.take_lists() {
+        parsed_lists.push(list.map_notes(|text| parse_note(text)));
     }
 
-    // Map all references
-    // parsed_lists.into_iter().map(|)
-    for list in &mut parsed_lists {
+    info!("Normalizing item references");
+    let parsed_lists: Vec<_> = project_refs_to_ids(&mut mapper, parsed_lists).collect();
 
-        // for note: &mut Vec<LineOrReference> in &mut list {
-        //     for line: &mut LineOrReference in &mut note {
-
-        //     }
-        // }
-    }
-
+    info!("Processing notes and associating with work units");
     let mut collection = WorkUnitCollection::default();
 
-    let mut processed_lists = vec![];
+    let lists: Vec<_> =
+        process_lists_and_associate_work_units(&mut collection, parsed_lists).collect();
 
-    for list in parsed_lists {
-        processed_lists.push(list.map_note_text(|text| {
-            process_note_and_associate_work_unit(&mut collection, Lines(text.0.clone()))
-        }));
-    }
-
-    mark_notes_for_deletion(&mut processed_lists, &collection)?;
+    info!("Pruning notes");
+    let lists = prune_notes(&mut collection, lists);
     // (board.lists.iter().map(|list| GenericList { title: list.title.clone(),notes: }))
     // for note in notes_iter {
     //     let lines = parse_note(&note.text);
@@ -106,5 +105,13 @@ fn main() -> Result<(), anyhow::Error> {
     //     info!("{:?}", note);
     // }
 
+    info!("Re-generating notes for export");
+    let updated_board = board
+        .make_new_revision_with_lists(map_note_data_in_lists(lists, |proc_note| {
+            note_formatter::format_note(proc_note.into(), &mapper)
+        }));
+
+    println!("Writing to {}", out_path.display());
+    updated_board.save_to_json(&out_path)?;
     Ok(())
 }

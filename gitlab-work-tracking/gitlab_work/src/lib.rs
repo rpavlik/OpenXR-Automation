@@ -5,7 +5,13 @@
 // Author: Ryan Pavlik <ryan.pavlik@collabora.com>
 
 use gitlab::{
-    api::{projects::ProjectBuilderError, ApiError, RestClient},
+    api::{
+        projects::{
+            issues::IssueBuilderError, merge_requests::MergeRequestBuilderError,
+            ProjectBuilderError,
+        },
+        ApiError, RestClient,
+    },
     Gitlab,
 };
 use work_item_and_collection::{FollowExtinctionUnitIdError, GeneralUnitIdError, GetUnitIdError};
@@ -15,11 +21,20 @@ pub enum Error {
     #[error("Could not parse string to GitLab ref")]
     RefParseError,
 
-    #[error("Problem looking up project")]
+    #[error("Problem preparing project query endpoint")]
     ProjectBuilder(#[from] ProjectBuilderError),
+
+    #[error("Problem preparing issue query endpoint")]
+    IssueBuilder(#[from] IssueBuilderError),
+
+    #[error("Problem preparing merge request query endpoint")]
+    MergeRequestBuilder(#[from] MergeRequestBuilderError),
 
     #[error("API call error when querying project {0}: {1}")]
     ProjectQueryError(String, #[source] ApiError<<Gitlab as RestClient>::Error>),
+
+    #[error("API call error when querying item {0}: {1}")]
+    ItemQueryError(String, #[source] ApiError<<Gitlab as RestClient>::Error>),
 
     #[error("No references passed, at least one required")]
     NoReferences,
@@ -65,5 +80,5 @@ pub use gitlab_refs::{
     BaseGitLabItemReference, ProjectItemReference, ProjectReference, TypedGitLabItemReference,
 };
 pub use note::{LineOrReference, NoteLine};
-pub use project_mapper::{ProjectMapper, GitLabItemReferenceNormalize};
+pub use project_mapper::{GitLabItemReferenceNormalize, ProjectMapper};
 pub use work_item_and_collection::{UnitId, WorkUnitCollection};

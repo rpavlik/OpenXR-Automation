@@ -21,3 +21,5 @@ gitlab-work = {path = "../gitlab_work"}
 itertools = "0.10"
 log = "0.4"
 nullboard-tools = {path = "../nullboard"}
+
+serde = {version = "1.0", features = ["derive"]}
