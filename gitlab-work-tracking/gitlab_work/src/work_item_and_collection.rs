@@ -1,4 +1,4 @@
-// Copyright 2022, Collabora, Ltd.
+// Copyright 2022-2023, Collabora, Ltd.
 //
 // SPDX-License-Identifier: BSL-1.0
 //
@@ -23,6 +23,7 @@ impl Display for UnitId {
     }
 }
 
+/// A single logical task encompassing one or more project item references (issue or MR) in an ordered list.
 #[derive(Debug)]
 pub struct WorkUnit {
     refs: Vec<ProjectItemReference>,
@@ -30,32 +31,105 @@ pub struct WorkUnit {
 }
 
 impl WorkUnit {
+    /// Create a new WorkUnit
     pub fn new(reference: ProjectItemReference) -> Self {
         Self {
             refs: vec![reference],
             extincted_by: None,
         }
     }
+
+    /// Iterate through the project item references
+    pub fn iter_refs(&self) -> impl Iterator<Item = &ProjectItemReference> {
+        self.refs.iter()
+    }
 }
 
+#[derive(Debug, thiserror::Error)]
+#[error("Invalid work unit ID {0} - internal data structure error")]
+pub struct InvalidWorkUnitId(UnitId);
+
+#[derive(Debug, thiserror::Error)]
+#[error("Recursion limit reached when resolving work unit ID {0}")]
+pub struct RecursionLimitReached(UnitId);
+
+#[derive(Debug, thiserror::Error)]
+#[error("Extinct work unit ID {0}, extincted by {1} - internal data structure error")]
+pub struct ExtinctWorkUnitId(UnitId, UnitId);
+
+/// An error type when trying to follow extinction pointers:
+/// might hit the limit, might hit an invalid ID, but won't error because of extinction.
+#[derive(Debug, thiserror::Error)]
+pub enum FollowExtinctionUnitIdError {
+    #[error(transparent)]
+    InvalidWorkUnitId(#[from] InvalidWorkUnitId),
+
+    #[error(transparent)]
+    RecursionLimitReached(#[from] RecursionLimitReached),
+}
+
+/// An error type when trying to get a work unit without following extinction pointers:
+/// might hit an invalid ID, might hit an extinct ID.
+#[derive(Debug, thiserror::Error)]
+pub enum GetUnitIdError {
+    #[error(transparent)]
+    InvalidWorkUnitId(#[from] InvalidWorkUnitId),
+
+    #[error(transparent)]
+    ExtinctWorkUnitId(#[from] ExtinctWorkUnitId),
+}
+
+/// The union of the errors in `FollowExtinctionUnitIdError` and `GetUnitIdError`.
+/// Try not to return this since it makes handling errors sensibly harder.
+#[derive(Debug, thiserror::Error)]
+pub enum GeneralUnitIdError {
+    #[error(transparent)]
+    InvalidWorkUnitId(#[from] InvalidWorkUnitId),
+
+    #[error(transparent)]
+    ExtinctWorkUnitId(#[from] ExtinctWorkUnitId),
+
+    #[error(transparent)]
+    RecursionLimitReached(#[from] RecursionLimitReached),
+}
+
+impl From<FollowExtinctionUnitIdError> for GeneralUnitIdError {
+    fn from(err: FollowExtinctionUnitIdError) -> Self {
+        match err {
+            FollowExtinctionUnitIdError::InvalidWorkUnitId(err) => err.into(),
+            FollowExtinctionUnitIdError::RecursionLimitReached(err) => err.into(),
+        }
+    }
+}
+
+impl From<GetUnitIdError> for GeneralUnitIdError {
+    fn from(err: GetUnitIdError) -> Self {
+        match err {
+            GetUnitIdError::InvalidWorkUnitId(err) => err.into(),
+            GetUnitIdError::ExtinctWorkUnitId(err) => err.into(),
+        }
+    }
+}
+
+/// Internal newtype to provide utility functions over a TiVec<UnitId, WorkUnit>
 #[derive(Debug, Default)]
 struct UnitContainer(TiVec<UnitId, WorkUnit>);
 
 impl UnitContainer {
     /// Get a mutable work unit by ID
-    fn get_unit_mut(&mut self, id: UnitId) -> Result<&mut WorkUnit, Error> {
-        let unit = self.0.get_mut(id).ok_or(Error::InvalidWorkUnitId(id))?;
+    fn get_unit_mut(&mut self, id: UnitId) -> Result<&mut WorkUnit, GetUnitIdError> {
+        let unit = self.0.get_mut(id).ok_or(InvalidWorkUnitId(id))?;
         if let Some(extincted_by) = &unit.extincted_by {
-            return Err(Error::ExtinctWorkUnitId(id, *extincted_by));
+            return Err(ExtinctWorkUnitId(id, *extincted_by).into());
         }
         Ok(unit)
     }
 
     /// Get a work unit by ID
-    fn get_unit(&self, id: UnitId) -> Result<&WorkUnit, Error> {
-        let unit = self.0.get(id).ok_or(Error::InvalidWorkUnitId(id))?;
+    fn get_unit(&self, id: UnitId) -> Result<&WorkUnit, GetUnitIdError> {
+        let unit = self.0.get(id).ok_or(InvalidWorkUnitId(id))?;
         if let Some(extincted_by) = &unit.extincted_by {
-            return Err(Error::ExtinctWorkUnitId(id, *extincted_by));
+            return Err(ExtinctWorkUnitId(id, *extincted_by).into());
         }
         Ok(unit)
     }
@@ -66,10 +140,14 @@ impl UnitContainer {
     }
 
     /// If the ID is extinct, follow the extincted-by field, repeatedly, at most `limit` steps.
-    fn follow_extinction(&self, id: UnitId, limit: usize) -> Result<UnitId, Error> {
+    fn follow_extinction(
+        &self,
+        id: UnitId,
+        limit: usize,
+    ) -> Result<UnitId, FollowExtinctionUnitIdError> {
         let mut result_id = id;
-        for _i in [0..limit] {
-            let unit = self.0.get(result_id).ok_or(Error::InvalidWorkUnitId(id))?;
+        for _i in 0..limit {
+            let unit = self.0.get(result_id).ok_or(InvalidWorkUnitId(id))?;
             match &unit.extincted_by {
                 Some(successor) => {
                     result_id = *successor;
@@ -77,7 +155,7 @@ impl UnitContainer {
                 None => return Ok(result_id),
             }
         }
-        Err(Error::RecursionLimitReached(id))
+        Err(RecursionLimitReached(id).into())
     }
 }
 
@@ -110,18 +188,16 @@ impl WorkUnitCollection {
             }
             self.add_refs_to_unit_id(unit_id, &refs[..])?;
             Ok(unit_id)
+        } else if let Some((first_ref, rest_of_refs)) = refs.split_first() {
+            // we have some refs
+            let unit_id = self.units.emplace(first_ref.clone());
+
+            debug!("Created new work unit {}", unit_id);
+            self.add_refs_to_unit_id(unit_id, rest_of_refs)?;
+
+            Ok(unit_id)
         } else {
-            if let Some((first_ref, rest_of_refs)) = refs.split_first() {
-                // we have some refs
-                let unit_id = self.units.emplace(first_ref.clone());
-
-                debug!("Created new work unit {}", unit_id);
-                self.add_refs_to_unit_id(unit_id, rest_of_refs)?;
-
-                Ok(unit_id)
-            } else {
-                Err(Error::NoReferences)
-            }
+            Err(Error::NoReferences)
         }
     }
 
@@ -129,8 +205,8 @@ impl WorkUnitCollection {
         &mut self,
         unit_id: UnitId,
         refs: &[ProjectItemReference],
-    ) -> Result<(), Error> {
-        for reference in refs.into_iter() {
+    ) -> Result<(), GetUnitIdError> {
+        for reference in refs.iter() {
             self.add_ref_to_unit_id(unit_id, reference)?;
         }
         Ok(())
@@ -140,7 +216,7 @@ impl WorkUnitCollection {
         &mut self,
         id: UnitId,
         reference: &ProjectItemReference,
-    ) -> Result<(), Error> {
+    ) -> Result<(), GetUnitIdError> {
         debug!("Trying to add a reference to {}: {:?}", id, reference);
         let do_insert = match self.unit_by_ref.entry(reference.clone()) {
             Entry::Occupied(mut entry) => {
@@ -173,7 +249,7 @@ impl WorkUnitCollection {
         Ok(())
     }
 
-    fn merge_work_units(&mut self, id: UnitId, src_id: UnitId) -> Result<(), Error> {
+    fn merge_work_units(&mut self, id: UnitId, src_id: UnitId) -> Result<(), GetUnitIdError> {
         let _ = self.units.get_unit_mut(id)?;
         let src = self.units.get_unit_mut(src_id)?;
         debug!(
@@ -191,18 +267,17 @@ impl WorkUnitCollection {
     }
 
     /// Get a work unit by ID
-    pub fn get_unit(&self, id: UnitId) -> Result<&WorkUnit, Error> {
+    pub fn get_unit(&self, id: UnitId) -> Result<&WorkUnit, GetUnitIdError> {
         self.units.get_unit(id)
     }
 
-    /// Get a work unit by ID, following extinction pointers
-    pub fn get_unit_following_extinction(
+    /// Folow extinction pointers to get the valid unit ID after all populating and merging is complete
+    pub fn get_unit_id_following_extinction(
         &self,
         id: UnitId,
         limit: usize,
-    ) -> Result<(UnitId, &WorkUnit), Error> {
-        let valid_id = self.units.follow_extinction(id, limit)?;
-        Ok((valid_id, self.units.get_unit(valid_id)?))
+    ) -> Result<UnitId, FollowExtinctionUnitIdError> {
+        self.units.follow_extinction(id, limit)
     }
 
     /// Find the set of unit IDs corresponding to the refs, if any.
@@ -215,7 +290,7 @@ impl WorkUnitCollection {
             refs.len()
         );
         for reference in refs {
-            if let Some(&id) = self.unit_by_ref.get(&reference) {
+            if let Some(&id) = self.unit_by_ref.get(reference) {
                 debug!("Found id {} for: {:#?}", id, &reference);
                 if retrieved_ids.insert(id) {
                     debug!("Adding {} to our return set", id);

@@ -1,16 +1,19 @@
-use std::{
-    collections::{hash_map::Entry, HashMap, HashSet},
-    iter::zip,
-    path::Path,
-};
+// Copyright 2022-2023, Collabora, Ltd.
+//
+// SPDX-License-Identifier: BSL-1.0
+//
+// Author: Ryan Pavlik <ryan.pavlik@collabora.com>
 
-use anyhow::{anyhow, Error};
+use anyhow::Error;
 use clap::Parser;
 use dotenvy::dotenv;
-use gitlab_work::{note::NoteLine, ProjectItemReference, UnitId, WorkUnitCollection};
-use itertools::{repeat_n, Itertools};
-use log::{info, warn};
-use nullboard_tools::{GenericList, GenericLists};
+use gitlab_work::{note::LineOrReference, ProjectItemReference, UnitId, WorkUnitCollection};
+use log::warn;
+use nullboard_tools::GenericList;
+use std::{
+    collections::{hash_map::Entry, HashMap},
+    path::Path,
+};
 
 #[derive(Parser, Debug)]
 struct Args {
@@ -19,49 +22,20 @@ struct Args {
 }
 
 #[derive(Debug)]
-enum LineOrGitlabRef {
-    FreeformText(String),
-    GitlabRef(ProjectItemReference),
-}
-
-fn parse_note(s: &str) -> Vec<LineOrGitlabRef> {
-    s.split("\n")
-        .map(NoteLine::parse_line)
-        .map(|l| {
-            if let Some(reference) = l.reference {
-                LineOrGitlabRef::GitlabRef(reference)
-            } else {
-                LineOrGitlabRef::FreeformText(l.line)
-            }
-        })
-        .collect()
-}
-
-#[derive(Debug)]
 struct ProcessedNote {
     unit_id: Option<UnitId>,
-    lines: Vec<LineOrGitlabRef>,
+    lines: Vec<LineOrReference>,
     deleted: bool,
 }
 
 fn parse_and_process_note(collection: &mut WorkUnitCollection, s: &str) -> ProcessedNote {
-    let lines: Vec<_> = s
-        .split("\n")
-        .map(NoteLine::parse_line)
-        .map(|l| {
-            if let Some(reference) = l.reference {
-                LineOrGitlabRef::GitlabRef(reference)
-            } else {
-                LineOrGitlabRef::FreeformText(l.line)
-            }
-        })
-        .collect();
+    let lines: Vec<_> = s.split('\n').map(LineOrReference::parse_line).collect();
 
     let refs: Vec<ProjectItemReference> = lines
         .iter()
         .filter_map(|line| match line {
-            LineOrGitlabRef::FreeformText(_) => None,
-            LineOrGitlabRef::GitlabRef(reference) => Some(reference),
+            LineOrReference::Line(_) => None,
+            LineOrReference::Reference(reference) => Some(reference),
         })
         .cloned()
         .collect();
@@ -82,28 +56,35 @@ fn parse_and_process_note(collection: &mut WorkUnitCollection, s: &str) -> Proce
     }
 }
 
-fn process_note(
-    collection: &mut WorkUnitCollection,
-    note: Vec<LineOrGitlabRef>,
-) -> Result<ProcessedNote, Error> {
-    let refs: Vec<ProjectItemReference> = note
-        .iter()
-        .filter_map(|line| match line {
-            LineOrGitlabRef::FreeformText(_) => None,
-            LineOrGitlabRef::GitlabRef(reference) => Some(reference),
-        })
-        .cloned()
-        .collect();
-    let unit_id = if refs.is_empty() {
-        None
-    } else {
-        Some(collection.add_or_get_unit_for_refs(refs)?)
-    };
-    Ok(ProcessedNote {
-        unit_id,
-        lines: note,
-        deleted: false,
-    })
+const RECURSE_LIMIT: usize = 5;
+
+fn mark_notes_for_deletion(
+    lists: &mut Vec<GenericList<ProcessedNote>>,
+    collection: &WorkUnitCollection,
+) -> Result<(), Error> {
+    // Mark those notes which should be skipped because they refer to a work unit that already has a card.
+    let mut units_handled: HashMap<UnitId, ()> = Default::default();
+    for list in lists.iter_mut() {
+        for note in &mut list.notes {
+            if let Some(id) = &note.text.unit_id {
+                let id = collection.get_unit_id_following_extinction(*id, RECURSE_LIMIT)?;
+                match units_handled.entry(id) {
+                    Entry::Occupied(_) => {
+                        note.text.deleted = true;
+                        warn!(
+                            "Deleting note because its work unit was already handled: {} {:?}",
+                            id, note.text.lines
+                        );
+                    }
+                    Entry::Vacant(e) => {
+                        note.text.unit_id = Some(id);
+                        e.insert(());
+                    }
+                }
+            }
+        }
+    }
+    Ok(())
 }
 
 fn main() -> Result<(), anyhow::Error> {
@@ -125,47 +106,14 @@ fn main() -> Result<(), anyhow::Error> {
 
     let board = nullboard_tools::Board::load_from_json(path)?;
 
-    // let notes_iter = board
-    //     .lists
-    //     .iter()
-    //     .flat_map(|list| zip(repeat_n(list, list.notes.len()), list.notes.iter()));
     let mut collection = WorkUnitCollection::default();
     let mut parsed_lists = vec![];
+    // Parse all notes and process them into work units
     for list in board.lists {
         parsed_lists.push(list.map_note_text(|text| parse_and_process_note(&mut collection, text)));
     }
-    let mut units_handled: HashMap<UnitId, ()> = Default::default();
-    for list in parsed_lists.iter_mut() {
-        for note in &mut list.notes {
-            if let Some(id) = &note.text.unit_id {
-                let (id, _) = collection.get_unit_following_extinction(*id, 5)?;
-                match units_handled.entry(id) {
-                    Entry::Occupied(_) => {
-                        note.text.deleted = true;
-                        warn!(
-                            "Deleting note because its work unit was already handled: {} {:?}",
-                            id, note.text.lines
-                        );
-                    }
-                    Entry::Vacant(e) => {
-                        note.text.unit_id = Some(id);
-                        e.insert(());
-                    }
-                }
-            }
-        }
-    }
-    // let mut updated_lists = vec![];
-    // for list in parsed_lists {
-    //     updated_lists.push(list.notes.into_iter().unique_by(|n| n.t))
-    // }
-    // let mut processed_lists = vec![];
-    // let mut collection = WorkUnitCollection::default();
-    // for list in parsed_lists.0.iter().rev() {
-    //     /// generate units in right-to-left list order
-    //     processed_lists.push(list.map_note_text(|lines| process_note(&mut collection, lines)))
-    // }
 
+    mark_notes_for_deletion(&mut parsed_lists, &collection)?;
     // (board.lists.iter().map(|list| GenericList { title: list.title.clone(),notes: }))
     // for note in notes_iter {
     //     let lines = parse_note(&note.text);

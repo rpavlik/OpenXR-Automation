@@ -1,7 +1,13 @@
+# Copyright 2022-2023, Collabora, Ltd.
+#
+# SPDX-License-Identifier: BSL-1.0
+#
+# Author: Ryan Pavlik <ryan.pavlik@collabora.com>
+
 [package]
+edition = "2021"
 name = "nullboard-tools"
 version = "0.1.0"
-edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 

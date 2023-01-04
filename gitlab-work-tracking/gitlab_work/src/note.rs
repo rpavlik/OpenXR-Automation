@@ -1,4 +1,4 @@
-// Copyright 2022, Collabora, Ltd.
+// Copyright 2022-2023, Collabora, Ltd.
 //
 // SPDX-License-Identifier: BSL-1.0
 //
@@ -8,7 +8,7 @@ use crate::gitlab_refs::{Issue, MergeRequest, ProjectItemReference, ProjectRefer
 use gitlab::{IssueInternalId, MergeRequestInternalId};
 use itertools::Itertools;
 use lazy_static::lazy_static;
-use log::{error, info};
+use log::{error, warn};
 use regex::Regex;
 use std::collections::VecDeque;
 
@@ -49,13 +49,17 @@ fn find_refs(input: &str) -> VecDeque<ProjectItemReference> {
         .collect()
 }
 
+/// Association of an optional project item reference with a line in a note/card
 #[derive(Debug, Clone)]
 pub struct NoteLine {
+    /// The full original line of text
     pub line: String,
+    /// At most one project item reference parsed out of the line
     pub reference: Option<ProjectItemReference>,
 }
 
 impl NoteLine {
+    /// Parse a single line of text into a NoteLine instance
     pub fn parse_line(s: &str) -> Self {
         let mut refs = find_refs(s);
         if refs.is_empty() {
@@ -70,7 +74,7 @@ impl NoteLine {
             }
         } else {
             let front = refs.pop_front();
-            info!(
+            warn!(
                 "Found more than one ref in a single line: {}",
                 refs.iter().format(", ")
             );
@@ -78,6 +82,32 @@ impl NoteLine {
                 line: s.to_owned(),
                 reference: front,
             }
+        }
+    }
+}
+
+/// A simplified more structured representation of a line in a note (compared to `NoteLine`),
+/// as either a non-reference freeform text line, or as a single project item reference.
+#[derive(Debug, Clone)]
+pub enum LineOrReference {
+    /// A line of freeform text with no project item reference
+    Line(String),
+    /// A project item reference found in a line
+    Reference(ProjectItemReference),
+}
+
+impl LineOrReference {
+    /// Parse a single line of text into a LineOrReference instance
+    pub fn parse_line(s: &str) -> Self {
+        NoteLine::parse_line(s).into()
+    }
+}
+
+impl From<NoteLine> for LineOrReference {
+    fn from(line: NoteLine) -> Self {
+        match line.reference {
+            Some(reference) => LineOrReference::Reference(reference),
+            None => LineOrReference::Line(line.line),
         }
     }
 }

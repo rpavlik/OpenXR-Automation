@@ -1,4 +1,4 @@
-// Copyright 2022, Collabora, Ltd.
+// Copyright 2022-2023, Collabora, Ltd.
 //
 // SPDX-License-Identifier: BSL-1.0
 //
@@ -8,6 +8,7 @@ use gitlab::{
     api::{projects::ProjectBuilderError, ApiError, RestClient},
     Gitlab,
 };
+use work_item_and_collection::{FollowExtinctionUnitIdError, GeneralUnitIdError, GetUnitIdError};
 
 #[derive(Debug, thiserror::Error)]
 pub enum Error {
@@ -20,17 +21,39 @@ pub enum Error {
     #[error("API call error when querying project {0}: {1}")]
     ProjectQueryError(String, #[source] ApiError<<Gitlab as RestClient>::Error>),
 
-    #[error("Invalid work unit ID {0} - internal data structure error")]
-    InvalidWorkUnitId(UnitId),
-
-    #[error("Extinct work unit ID {0}, extincted by {1} - internal data structure error")]
-    ExtinctWorkUnitId(UnitId, UnitId),
-
     #[error("No references passed, at least one required")]
     NoReferences,
 
-    #[error("Recursion limit reached when resolving work unit ID {0}")]
-    RecursionLimitReached(UnitId),
+    #[error(transparent)]
+    InvalidWorkUnitId(#[from] work_item_and_collection::InvalidWorkUnitId),
+
+    #[error(transparent)]
+    ExtinctWorkUnitId(#[from] work_item_and_collection::ExtinctWorkUnitId),
+
+    #[error(transparent)]
+    RecursionLimitReached(#[from] work_item_and_collection::RecursionLimitReached),
+}
+
+impl From<GeneralUnitIdError> for Error {
+    fn from(err: GeneralUnitIdError) -> Self {
+        match err {
+            GeneralUnitIdError::InvalidWorkUnitId(err) => err.into(),
+            GeneralUnitIdError::ExtinctWorkUnitId(err) => err.into(),
+            GeneralUnitIdError::RecursionLimitReached(err) => err.into(),
+        }
+    }
+}
+
+impl From<GetUnitIdError> for Error {
+    fn from(err: GetUnitIdError) -> Self {
+        GeneralUnitIdError::from(err).into()
+    }
+}
+
+impl From<FollowExtinctionUnitIdError> for Error {
+    fn from(err: FollowExtinctionUnitIdError) -> Self {
+        GeneralUnitIdError::from(err).into()
+    }
 }
 
 mod gitlab_refs;

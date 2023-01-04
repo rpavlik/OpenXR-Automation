@@ -37,7 +37,7 @@ impl ProjectMapper {
 
     pub(crate) fn lookup_name(&mut self, name: Option<&str>) -> Result<ProjectId, Error> {
         // this keeps the borrow of the default internal
-        let name = name.unwrap_or_else(|| &self.default_project_name);
+        let name = name.unwrap_or(&self.default_project_name);
 
         let project_query = match self.name_to_id.entry(name.to_owned()) {
             Entry::Occupied(entry) => return Ok(*entry.get()),

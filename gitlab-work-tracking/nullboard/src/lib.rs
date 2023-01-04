@@ -1,9 +1,11 @@
-use std::fs;
-use std::io;
-use std::path::Path;
+// Copyright 2022-2023, Collabora, Ltd.
+//
+// SPDX-License-Identifier: BSL-1.0
+//
+// Author: Ryan Pavlik <ryan.pavlik@collabora.com>
 
-use serde::Deserialize;
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
+use std::{fs, io, path::Path};
 
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
@@ -17,6 +19,7 @@ pub enum Error {
     JsonParseError(#[from] serde_json::Error),
 }
 
+/// A single "note" or "card" in a Nullboard-compatible format
 #[derive(Debug, Clone, Deserialize, Serialize, PartialEq, Eq)]
 pub struct Note {
     /// Contents of the note
@@ -92,17 +95,22 @@ impl Board {
         ret
     }
 
+    /// Get the current revision number
     pub fn get_revision(&self) -> u32 {
         self.revision
     }
 
-    pub fn make_new_revision_with_lists(&self, lists: Vec<GenericList<String>>) -> Self {
+    /// Make a new revision that replaces the lists.
+    pub fn make_new_revision_with_lists(
+        &self,
+        lists: impl IntoIterator<Item = GenericList<String>>,
+    ) -> Self {
         let mut ret = Self {
             format: self.format,
             id: self.id,
             revision: self.revision,
             title: self.title.clone(),
-            lists: lists.into_iter().map(|l| List::from(l)).collect(),
+            lists: lists.into_iter().map(List::from).collect(),
             history: self.history.clone(),
         };
         ret.increment_revision();
@@ -170,14 +178,6 @@ impl From<GenericNote<String>> for Note {
 }
 
 impl<T: std::fmt::Debug> GenericNote<T> {
-    // pub fn new_from_text_and_note_flags(text: T, old_note: &Note) -> Self {
-    //     GenericNote {
-    //         text,
-    //         raw: old_note.raw,
-    //         min: old_note.min,
-    //     }
-    // }
-
     pub fn with_replacement_text<U: std::fmt::Debug>(&self, text: U) -> GenericNote<U> {
         GenericNote {
             text,
@@ -224,7 +224,7 @@ impl From<GenericList<String>> for List {
     fn from(list: GenericList<String>) -> Self {
         Self {
             title: list.title,
-            notes: list.notes.into_iter().map(|n| Note::from(n)).collect(),
+            notes: list.notes.into_iter().map(Note::from).collect(),
         }
     }
 }
@@ -233,11 +233,7 @@ impl From<List> for GenericList<String> {
     fn from(list: List) -> Self {
         Self {
             title: list.title,
-            notes: list
-                .notes
-                .into_iter()
-                .map(|n| GenericNote::from(n))
-                .collect(),
+            notes: list.notes.into_iter().map(GenericNote::from).collect(),
         }
     }
 }
@@ -293,19 +289,6 @@ impl List {
     }
 }
 
-// fn map_generic_list<T: std::fmt::Debug, B: std::fmt::Debug>(
-//     mut f: impl FnMut(&GenericList<T>) -> GenericList<B>,
-// ) -> impl FnMut(&GenericList<T>) -> GenericList<B> {
-//     // let mut map_note = ;
-//     let f_ref = &f;
-//     |list| list.map_note_text(f_ref)
-//     // GenericList {
-//     //     title: list.title.clone(),
-//     //     // notes: list.notes.iter().map(map_generic_note_text(f)).collect(),
-//     //     notes: list.map_note_text(f)
-//     // }
-// }
-
 /// A structure representing the lists in a board, with arbitrary note type
 #[derive(Debug, Default)]
 pub struct GenericLists<T: core::fmt::Debug>(pub Vec<GenericList<T>>);
@@ -318,7 +301,7 @@ impl<T: core::fmt::Debug> GenericLists<T> {
 
 impl From<GenericLists<String>> for Vec<List> {
     fn from(lists: GenericLists<String>) -> Self {
-        lists.0.into_iter().map(|l| List::from(l)).collect()
+        lists.0.into_iter().map(List::from).collect()
     }
 }
 
