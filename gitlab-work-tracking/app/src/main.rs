@@ -106,9 +106,13 @@ fn main() -> Result<(), anyhow::Error> {
     // }
 
     info!("Re-generating notes for export");
-    let updated_board = board
-        .make_new_revision_with_lists(map_note_data_in_lists(lists, |proc_note| {
-            note_formatter::format_note(proc_note.into(), &mapper)
+    let updated_board =
+        board.make_new_revision_with_lists(map_note_data_in_lists(lists, |proc_note| {
+            note_formatter::format_note(proc_note.into(), &mapper, |title| {
+                title
+                    .trim_start_matches("Release checklist for ")
+                    .trim_start_matches("Resolve ")
+            })
         }));
 
     println!("Writing to {}", out_path.display());

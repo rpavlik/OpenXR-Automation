@@ -189,8 +189,8 @@ pub mod note_formatter {
     }
 
     #[derive(Debug, Deserialize)]
-    struct ProjectMR {
-        state: gitlab::MergeRequestState,
+    struct InternalResults {
+        state: String,
         web_url: String,
         title: String,
     }
@@ -206,40 +206,19 @@ pub mod note_formatter {
         fn as_state_annotation(self) -> Option<&'static str>;
     }
 
-    impl MakeStateAnnotation for gitlab::MergeRequestState {
+    impl MakeStateAnnotation for String {
         fn as_state_annotation(self) -> Option<&'static str> {
-            match self {
-                gitlab::MergeRequestState::Opened => None,
-                gitlab::MergeRequestState::Closed => Some("[CLOSED] "),
-                gitlab::MergeRequestState::Reopened => None,
-                gitlab::MergeRequestState::Merged => Some("[MERGED] "),
-                gitlab::MergeRequestState::Locked => Some("[LOCKED] "),
+            match self.as_str() {
+                "closed" => Some("[CLOSED] "),
+                "merged" => Some("[MERGED] "),
+                "locked" => Some("[LOCKED] "),
+                _ => None,
             }
         }
     }
 
-    impl MakeStateAnnotation for gitlab::IssueState {
-        fn as_state_annotation(self) -> Option<&'static str> {
-            match self {
-                gitlab::IssueState::Opened => None,
-                gitlab::IssueState::Closed => Some("[CLOSED] "),
-                gitlab::IssueState::Reopened => None,
-            }
-        }
-    }
-
-    impl From<ProjectMR> for ItemResults {
-        fn from(f: ProjectMR) -> Self {
-            Self {
-                state_annotation: f.state.as_state_annotation(),
-                web_url: f.web_url,
-                title: f.title,
-            }
-        }
-    }
-
-    impl From<ProjectIssue> for ItemResults {
-        fn from(f: ProjectIssue) -> Self {
+    impl From<InternalResults> for ItemResults {
+        fn from(f: InternalResults) -> Self {
             Self {
                 state_annotation: f.state.as_state_annotation(),
                 web_url: f.web_url,
@@ -253,40 +232,41 @@ pub mod note_formatter {
         reference: &ProjectItemReference,
         client: &gitlab::Gitlab,
     ) -> Result<ItemResults, Error> {
-        match reference {
+        let query_result: Result<InternalResults, _> = match reference {
             ProjectItemReference::Issue(issue) => {
                 let endpoint = gitlab::api::projects::issues::Issue::builder()
                     .project(proj_id.value())
                     .issue(issue.get_raw_iid())
                     .build()?;
-                let query: ProjectIssue = endpoint
-                    .query(client)
-                    .map_err(|e| Error::ItemQueryError(reference.to_string(), e))?;
-                Ok(query.into())
+                endpoint.query(client)
             }
             ProjectItemReference::MergeRequest(mr) => {
                 let endpoint = gitlab::api::projects::merge_requests::MergeRequest::builder()
                     .project(proj_id.value())
                     .merge_request(mr.get_raw_iid())
                     .build()?;
-                let query: ProjectIssue = endpoint
-                    .query(client)
-                    .map_err(|e| Error::ItemQueryError(reference.to_string(), e))?;
-                Ok(query.into())
+                endpoint.query(client)
             }
-        }
+        };
+        let query_result =
+            query_result.map_err(|e| Error::ItemQueryError(reference.to_string(), e))?;
+        Ok(query_result.into())
     }
 
-    fn format_reference(reference: &ProjectItemReference, mapper: &ProjectMapper) -> String {
+    pub fn format_reference(
+        reference: &ProjectItemReference,
+        mapper: &ProjectMapper,
+        title_mangler: impl Fn(&str) -> &str,
+    ) -> String {
         match reference.get_project().project_id() {
             Some(proj_id) => match query_gitlab(proj_id, reference, mapper.gitlab_client()) {
                 Ok(info) => {
                     format!(
-                        "{}[{}]({}) {}",
-                        info.state_annotation.unwrap_or(""),
+                        "[{}]({}) {}{}",
                         reference.clone().with_formatted_project_reference(mapper),
                         info.web_url,
-                        info.title
+                        info.state_annotation.unwrap_or(""),
+                        title_mangler(info.title.as_str())
                     )
                 }
                 Err(e) => format!("{} (error in query: {})", reference, e),
@@ -295,13 +275,19 @@ pub mod note_formatter {
         }
     }
 
-    pub fn format_note(lines: Lines, mapper: &ProjectMapper) -> String {
+    pub fn format_note(
+        lines: Lines,
+        mapper: &ProjectMapper,
+        title_mangler: impl Fn(&str) -> &str,
+    ) -> String {
         lines
             .0
             .into_iter()
             .map(|line| match line {
                 LineOrReference::Line(text) => text,
-                LineOrReference::Reference(reference) => format_reference(&reference, mapper),
+                LineOrReference::Reference(reference) => {
+                    format_reference(&reference, mapper, &title_mangler)
+                }
             })
             .join("\n\u{2022} ")
     }
