@@ -23,38 +23,65 @@ impl Default for ProjectReference {
     }
 }
 
-pub(crate) trait SimpleGitLabItemReference: Clone {
-    type IidType: Copy;
-
+pub trait BaseGitLabItemReference: Clone {
     /// Get the project for this reference
     fn get_project(&self) -> &ProjectReference;
 
-    /// Get the iid (per project ID) of this reference
-    fn get_iid(&self) -> Self::IidType;
+    /// Get the project for this reference (mutable)
+    fn get_project_mut(&mut self) -> &mut ProjectReference;
 
     /// Get the iid (per project ID) of this reference
     fn get_raw_iid(&self) -> u64;
 
-    /// Get the symbol used to signify a reference of this type
-    fn get_symbol() -> &'static str;
-
     /// Clone and replace project with the given project ID
     fn with_project_id(&self, project_id: ProjectId) -> Self;
 
-    fn format(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self.get_project() {
-            ProjectReference::ProjectId(id) => {
-                write!(f, "{}{}{}", id, Self::get_symbol(), self.get_raw_iid())
-            }
-            ProjectReference::ProjectName(name) => {
-                write!(f, "{}{}{}", name, Self::get_symbol(), self.get_raw_iid())
-            }
-            ProjectReference::UnknownProject => {
-                write!(f, "{}{}", Self::get_symbol(), self.get_raw_iid())
-            }
+    /// Get the symbol used to signify a reference of the type of this instance
+    fn get_symbol(&self) -> char;
+}
+
+pub trait TypedGitLabItemReference: BaseGitLabItemReference {
+    type IidType: Copy;
+
+    /// Get the symbol used to signify a reference of this type, without an instance
+    fn get_symbol_static() -> char;
+
+    /// Get the iid (per project ID) of this reference
+    fn get_iid(&self) -> Self::IidType;
+}
+
+pub fn format_reference(
+    project: &ProjectReference,
+    symbol: char,
+    raw_iid: u64,
+    f: &mut std::fmt::Formatter<'_>,
+) -> std::fmt::Result {
+    match project {
+        ProjectReference::ProjectId(id) => {
+            write!(f, "{}{}{}", id, symbol, raw_iid)
+        }
+        ProjectReference::ProjectName(name) => {
+            write!(f, "{}{}{}", name, symbol, raw_iid)
+        }
+        ProjectReference::UnknownProject => {
+            write!(f, "{}{}", symbol, raw_iid)
         }
     }
 }
+
+pub fn format_reference_using_trait<T: TypedGitLabItemReference>(
+    reference: &T,
+    f: &mut std::fmt::Formatter<'_>,
+) -> std::fmt::Result {
+    format_reference(
+        reference.get_project(),
+        T::get_symbol_static(),
+        reference.get_raw_iid(),
+        f,
+    )
+}
+
+const ISSUE_SYMBOL: char = '#';
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct Issue {
@@ -68,22 +95,17 @@ impl Issue {
     }
 }
 
-impl SimpleGitLabItemReference for Issue {
-    type IidType = IssueInternalId;
-
+impl BaseGitLabItemReference for Issue {
     fn get_project(&self) -> &ProjectReference {
         &self.project
     }
 
-    fn get_iid(&self) -> Self::IidType {
-        self.iid
-    }
-    fn get_raw_iid(&self) -> u64 {
-        self.iid.value()
+    fn get_project_mut(&mut self) -> &mut ProjectReference {
+        &mut self.project
     }
 
-    fn get_symbol() -> &'static str {
-        "#"
+    fn get_raw_iid(&self) -> u64 {
+        self.iid.value()
     }
 
     fn with_project_id(&self, project_id: ProjectId) -> Self {
@@ -92,11 +114,28 @@ impl SimpleGitLabItemReference for Issue {
             iid: self.iid,
         }
     }
+
+    fn get_symbol(&self) -> char {
+        Self::get_symbol_static()
+    }
 }
 
+impl TypedGitLabItemReference for Issue {
+    type IidType = IssueInternalId;
+
+    fn get_symbol_static() -> char {
+        ISSUE_SYMBOL
+    }
+
+    fn get_iid(&self) -> Self::IidType {
+        self.iid
+    }
+}
+
+// TODO: Can we blanket implement Display for anything implementing the trait?
 impl Display for Issue {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        self.format(f)
+        format_reference_using_trait(self, f)
     }
 }
 
@@ -108,6 +147,8 @@ impl Into<Issue> for gitlab::types::Issue {
         }
     }
 }
+
+const MR_SYMBOL: char = '!';
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct MergeRequest {
@@ -121,22 +162,17 @@ impl MergeRequest {
     }
 }
 
-impl SimpleGitLabItemReference for MergeRequest {
-    type IidType = MergeRequestInternalId;
-
+impl BaseGitLabItemReference for MergeRequest {
     fn get_project(&self) -> &ProjectReference {
         &self.project
     }
 
-    fn get_iid(&self) -> Self::IidType {
-        self.iid
-    }
-    fn get_raw_iid(&self) -> u64 {
-        self.iid.value()
+    fn get_project_mut(&mut self) -> &mut ProjectReference {
+        &mut self.project
     }
 
-    fn get_symbol() -> &'static str {
-        "!"
+    fn get_raw_iid(&self) -> u64 {
+        self.iid.value()
     }
 
     fn with_project_id(&self, project_id: ProjectId) -> Self {
@@ -145,11 +181,26 @@ impl SimpleGitLabItemReference for MergeRequest {
             iid: self.iid,
         }
     }
+
+    fn get_symbol(&self) -> char {
+        Self::get_symbol_static()
+    }
+}
+
+impl TypedGitLabItemReference for MergeRequest {
+    type IidType = MergeRequestInternalId;
+
+    fn get_symbol_static() -> char {
+        MR_SYMBOL
+    }
+    fn get_iid(&self) -> Self::IidType {
+        self.iid
+    }
 }
 
 impl Display for MergeRequest {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        self.format(f)
+        format_reference_using_trait(self, f)
     }
 }
 
@@ -186,6 +237,43 @@ impl Display for ProjectItemReference {
         match self {
             ProjectItemReference::Issue(issue) => issue.fmt(f),
             ProjectItemReference::MergeRequest(mr) => mr.fmt(f),
+        }
+    }
+}
+
+impl BaseGitLabItemReference for ProjectItemReference {
+    fn get_project(&self) -> &ProjectReference {
+        match self {
+            ProjectItemReference::Issue(c) => c.get_project(),
+            ProjectItemReference::MergeRequest(c) => c.get_project(),
+        }
+    }
+
+    fn get_project_mut(&mut self) -> &mut ProjectReference {
+        match self {
+            ProjectItemReference::Issue(c) => c.get_project_mut(),
+            ProjectItemReference::MergeRequest(c) => c.get_project_mut(),
+        }
+    }
+
+    fn get_raw_iid(&self) -> u64 {
+        match self {
+            ProjectItemReference::Issue(c) => c.get_raw_iid(),
+            ProjectItemReference::MergeRequest(c) => c.get_raw_iid(),
+        }
+    }
+
+    fn with_project_id(&self, project_id: ProjectId) -> Self {
+        match self {
+            ProjectItemReference::Issue(c) => c.with_project_id(project_id).into(),
+            ProjectItemReference::MergeRequest(c) => c.with_project_id(project_id).into(),
+        }
+    }
+
+    fn get_symbol(&self) -> char {
+        match self {
+            ProjectItemReference::MergeRequest(_) => MergeRequest::get_symbol_static(),
+            ProjectItemReference::Issue(_) => Issue::get_symbol_static(),
         }
     }
 }

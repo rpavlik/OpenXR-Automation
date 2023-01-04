@@ -4,9 +4,9 @@
 //
 // Author: Ryan Pavlik <ryan.pavlik@collabora.com>
 
-use board_update::{mark_notes_for_deletion, parse_and_process_note};
+use board_update::{mark_notes_for_deletion, parse_and_process_note, parse_note};
 use clap::{Args, Parser};
-use gitlab_work::WorkUnitCollection;
+use gitlab_work::{ProjectMapper, WorkUnitCollection, LineOrReference, TypedGitLabItemReference};
 use std::path::Path;
 // use clap::{arg, command, value_parser, ArgAction, Command};
 use dotenvy::dotenv;
@@ -37,9 +37,8 @@ struct Cli {
     #[arg()]
     filename: String,
 
-    #[command(flatten, next_help_heading = "GitLab access details")]
-    // #[arg()]
-    gitlab: Option<GitlabArgs>,
+    #[command(flatten, next_help_heading = "GitLab details")]
+    gitlab: GitlabArgs,
 }
 
 fn main() -> Result<(), anyhow::Error> {
@@ -59,14 +58,34 @@ fn main() -> Result<(), anyhow::Error> {
     //     .ok_or_else(|| anyhow!("Could not get file stem"))?;
     // let out_path = path.with_file_name(out_fn);
 
+    let gitlab =
+        gitlab::GitlabBuilder::new(args.gitlab.gitlab_url, args.gitlab.gitlab_access_token)
+            .build()?;
+    let mut mapper = ProjectMapper::new(gitlab, &args.gitlab.default_project)?;
+    if let Some(default_formatting) = args.gitlab.default_project_format_as {
+        mapper.set_project_name_formatting(None, &default_formatting)?;
+    }
+
     let board = nullboard_tools::Board::load_from_json(path)?;
 
-    let mut collection = WorkUnitCollection::default();
     let mut parsed_lists = vec![];
-    // Parse all notes and process them into work units
+    // Parse all notes
     for list in board.lists {
-        parsed_lists.push(list.map_note_text(|text| parse_and_process_note(&mut collection, text)));
+        parsed_lists.push(list.map_note_text(|text| parse_note(text)));
     }
+
+    // Map all references
+    // parsed_lists.into_iter().map(|)
+    for list in &mut parsed_lists {
+
+        // for note: &mut Vec<LineOrReference> in &mut list {
+        //     for line: &mut LineOrReference in &mut note {
+
+        //     }
+        // }
+    }
+
+    let mut collection = WorkUnitCollection::default();
 
     mark_notes_for_deletion(&mut parsed_lists, &collection)?;
     // (board.lists.iter().map(|list| GenericList { title: list.title.clone(),notes: }))

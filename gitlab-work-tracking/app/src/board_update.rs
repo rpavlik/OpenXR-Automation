@@ -5,21 +5,71 @@
 // Author: Ryan Pavlik <ryan.pavlik@collabora.com>
 
 use anyhow::Error;
-use gitlab_work::{note::LineOrReference, ProjectItemReference, UnitId, WorkUnitCollection};
+use gitlab_work::{
+    note::LineOrReference, ProjectItemReference, ProjectMapper, UnitId, WorkUnitCollection,
+};
 use log::warn;
 use nullboard_tools::GenericList;
 use std::collections::{hash_map::Entry, HashMap};
 
 #[derive(Debug)]
+pub struct Lines(pub Vec<LineOrReference>);
+
+#[derive(Debug)]
 pub struct ProcessedNote {
     unit_id: Option<UnitId>,
-    lines: Vec<LineOrReference>,
+    lines: Lines,
     deleted: bool,
 }
 
-pub fn parse_and_process_note(collection: &mut WorkUnitCollection, s: &str) -> ProcessedNote {
-    let lines: Vec<_> = s.split('\n').map(LineOrReference::parse_line).collect();
+fn map_line_or_reference_to_id(
+    mapper: &mut ProjectMapper,
+) -> impl FnMut(&LineOrReference) -> Result<LineOrReference, Error> {
+    move |line_or_ref| {
+        if let LineOrReference::Reference(reference) = line_or_ref {
+            let project = reference.get_project();
+            let id = mapper.map_project_to_id(project)?;
+            return Ok(LineOrReference::Reference(reference.with_project_id(id)));
+        }
+        Ok(line_or_ref)
+    }
+}
 
+impl Lines {
+    // pub fn iter(&self) -> _ {
+    //     self.0.iter()
+    // }
+
+    pub fn map_projects_to_id(&self, mapper: &mut ProjectMapper) -> Result<Lines, Error> {
+        let x: Vec<LineOrReference> = self
+            .0
+            .iter()
+            .map(map_line_or_reference_to_id(mapper))
+            .try_collect()?;
+        Ok(Lines(x))
+    }
+
+    pub fn map_projects_to_formatted_name(
+        &self,
+        mapper: &mut ProjectMapper,
+    ) -> Result<Lines, Error> {
+        let x: Vec<LineOrReference> = self
+            .0
+            .iter()
+            .map(map_line_or_reference_to_id(mapper))
+            .try_collect()?;
+        Ok(Lines(x))
+    }
+}
+
+pub fn parse_note(s: &str) -> Lines {
+    Lines(s.split('\n').map(LineOrReference::parse_line).collect())
+}
+
+pub fn process_note_and_associate_work_unit(
+    collection: &mut WorkUnitCollection,
+    lines: Lines,
+) -> ProcessedNote {
     let refs: Vec<ProjectItemReference> = lines
         .iter()
         .filter_map(|line| match line {
@@ -43,6 +93,11 @@ pub fn parse_and_process_note(collection: &mut WorkUnitCollection, s: &str) -> P
         lines,
         deleted: false,
     }
+}
+
+pub fn parse_and_process_note(collection: &mut WorkUnitCollection, s: &str) -> ProcessedNote {
+    let lines = parse_note(s);
+    process_note_and_associate_work_unit(collection, lines)
 }
 
 const RECURSE_LIMIT: usize = 5;

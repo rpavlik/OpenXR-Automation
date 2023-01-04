@@ -61,5 +61,7 @@ pub mod note;
 mod project_mapper;
 mod work_item_and_collection;
 
-pub use gitlab_refs::{ProjectItemReference, ProjectReference};
+pub use gitlab_refs::{ProjectItemReference, ProjectReference, TypedGitLabItemReference};
+pub use note::{LineOrReference, NoteLine};
+pub use project_mapper::{ProjectMapper, SimpleGitLabItemReferenceNormalize};
 pub use work_item_and_collection::{UnitId, WorkUnitCollection};

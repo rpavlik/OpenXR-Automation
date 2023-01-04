@@ -101,6 +101,17 @@ impl LineOrReference {
     pub fn parse_line(s: &str) -> Self {
         NoteLine::parse_line(s).into()
     }
+
+    pub fn try_map_reference<E: std::error::Error>(
+        &self,
+        f: &mut impl FnMut(&ProjectItemReference) -> Result<ProjectItemReference, E>,
+    ) -> Result<Self, E> {
+        if let LineOrReference::Reference(reference) = self {
+            let mapped = f(reference)?;
+            return Ok(LineOrReference::Reference(mapped));
+        }
+        Ok(self.clone())
+    }
 }
 
 impl From<NoteLine> for LineOrReference {
