@@ -69,13 +69,13 @@ impl From<String> for ProjectReference {
 
 impl From<Option<&str>> for ProjectReference {
     fn from(s: Option<&str>) -> Self {
-        s.map(|s| s.clone().into()).unwrap_or_default()
+        s.map(|s| s.into()).unwrap_or_default()
     }
 }
 
 impl From<&Option<&str>> for ProjectReference {
     fn from(s: &Option<&str>) -> Self {
-        s.clone().into()
+        (*s).into()
     }
 }
 
@@ -180,14 +180,14 @@ impl BaseGitLabItemReference for Issue {
 
     fn clone_with_project(&self, project: ProjectReference) -> Self {
         Self {
-            project: project,
+            project,
             iid: self.iid,
         }
     }
 
     fn with_project(self, project: ProjectReference) -> Self {
         Self {
-            project: project,
+            project,
             iid: self.iid,
         }
     }
@@ -216,11 +216,11 @@ impl Display for Issue {
     }
 }
 
-impl Into<Issue> for gitlab::types::Issue {
-    fn into(self) -> Issue {
-        Issue {
-            project: self.project_id.into(),
-            iid: self.iid,
+impl From<gitlab::types::Issue> for Issue {
+    fn from(issue: gitlab::types::Issue) -> Self {
+        Self {
+            project: issue.project_id.into(),
+            iid: issue.iid,
         }
     }
 }
@@ -254,14 +254,14 @@ impl BaseGitLabItemReference for MergeRequest {
 
     fn clone_with_project(&self, project: ProjectReference) -> Self {
         Self {
-            project: project,
+            project,
             iid: self.iid,
         }
     }
 
     fn with_project(self, project: ProjectReference) -> Self {
         Self {
-            project: project,
+            project,
             iid: self.iid,
         }
     }

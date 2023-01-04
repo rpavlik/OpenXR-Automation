@@ -4,10 +4,7 @@
 //
 // Author: Ryan Pavlik <ryan.pavlik@collabora.com>
 
-use crate::{
-    gitlab_refs::{ProjectReference, TypedGitLabItemReference},
-    BaseGitLabItemReference, Error,
-};
+use crate::{gitlab_refs::ProjectReference, BaseGitLabItemReference, Error};
 use gitlab::{api, api::Query, ProjectId};
 use serde::Deserialize;
 use std::collections::{hash_map::Entry, HashMap};
@@ -90,10 +87,10 @@ impl ProjectMapper {
             .insert(id, Some(project_query.path_with_namespace.clone()));
 
         // Make sure that both ways of naming a project are in the map (qualified and unqualified)
-        if &project_query.path != name {
+        if project_query.path != name {
             self.name_to_id.insert(project_query.path, id);
         }
-        if &project_query.path_with_namespace != name {
+        if project_query.path_with_namespace != name {
             self.name_to_id
                 .insert(project_query.path_with_namespace, id);
         }

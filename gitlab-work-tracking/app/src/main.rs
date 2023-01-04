@@ -6,9 +6,8 @@
 
 use anyhow::anyhow;
 use board_update::{
-    mark_notes_for_deletion, note_formatter, parse_and_process_note, parse_note,
-    process_lists_and_associate_work_units, process_note_and_associate_work_unit,
-    project_refs_to_ids, prune_notes, Lines,
+    note_formatter, parse_note, process_lists_and_associate_work_units, project_refs_to_ids,
+    prune_notes,
 };
 use clap::{Args, Parser};
 use dotenvy::dotenv;
@@ -84,7 +83,7 @@ fn main() -> Result<(), anyhow::Error> {
     let mut parsed_lists = vec![];
     // Parse all notes
     for list in board.take_lists() {
-        parsed_lists.push(list.map_notes(|text| parse_note(text)));
+        parsed_lists.push(list.map_notes(parse_note));
     }
 
     info!("Normalizing item references");
@@ -98,12 +97,6 @@ fn main() -> Result<(), anyhow::Error> {
 
     info!("Pruning notes");
     let lists = prune_notes(&mut collection, lists);
-    // (board.lists.iter().map(|list| GenericList { title: list.title.clone(),notes: }))
-    // for note in notes_iter {
-    //     let lines = parse_note(&note.text);
-    //     let note = process_note(&mut collection, lines)?;
-    //     info!("{:?}", note);
-    // }
 
     info!("Re-generating notes for export");
     let updated_board =

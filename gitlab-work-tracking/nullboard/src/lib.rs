@@ -57,9 +57,10 @@ const FORMAT: u32 = 20190412;
 impl Board {
     /// Make a new board with a given title
     pub fn new(title: &str) -> Self {
-        let mut ret: Self = Default::default();
-        ret.title = title.to_owned();
-        ret
+        Self {
+            title: title.to_owned(),
+            ..Default::default()
+        }
     }
 
     /// Load a board from a JSON file
@@ -117,7 +118,7 @@ impl Board {
             revision: self.revision,
             title: self.title.clone(),
             lists: lists.into_iter().map(List::from).collect(),
-            history: self.history.clone(),
+            history: self.history,
         };
         ret.increment_revision();
         ret
