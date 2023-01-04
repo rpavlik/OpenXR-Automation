@@ -17,6 +17,42 @@ pub enum ProjectReference {
     UnknownProject,
 }
 
+impl From<ProjectId> for ProjectReference {
+    fn from(id: ProjectId) -> Self {
+        ProjectReference::ProjectId(id)
+    }
+}
+
+impl From<&ProjectId> for ProjectReference {
+    fn from(id: &ProjectId) -> Self {
+        ProjectReference::ProjectId(*id)
+    }
+}
+
+impl From<&str> for ProjectReference {
+    fn from(s: &str) -> Self {
+        ProjectReference::ProjectName(s.to_owned())
+    }
+}
+
+impl From<String> for ProjectReference {
+    fn from(s: String) -> Self {
+        ProjectReference::ProjectName(s)
+    }
+}
+
+impl From<Option<&str>> for ProjectReference {
+    fn from(s: Option<&str>) -> Self {
+        s.map(|s| s.clone().into()).unwrap_or_default()
+    }
+}
+
+impl From<&Option<&str>> for ProjectReference {
+    fn from(s: &Option<&str>) -> Self {
+        s.clone().into()
+    }
+}
+
 impl Default for ProjectReference {
     fn default() -> Self {
         ProjectReference::UnknownProject
@@ -33,11 +69,16 @@ pub trait BaseGitLabItemReference: Clone {
     /// Get the iid (per project ID) of this reference
     fn get_raw_iid(&self) -> u64;
 
-    /// Clone and replace project with the given project ID
-    fn with_project_id(&self, project_id: ProjectId) -> Self;
+    /// Clone and replace project with the given project reference
+    fn with_project(&self, project: ProjectReference) -> Self;
 
     /// Get the symbol used to signify a reference of the type of this instance
     fn get_symbol(&self) -> char;
+
+    /// Clone and replace project with the given project ID
+    fn with_project_id(&self, project_id: ProjectId) -> Self {
+        self.with_project(project_id.into())
+    }
 }
 
 pub trait TypedGitLabItemReference: BaseGitLabItemReference {
@@ -108,9 +149,9 @@ impl BaseGitLabItemReference for Issue {
         self.iid.value()
     }
 
-    fn with_project_id(&self, project_id: ProjectId) -> Self {
+    fn with_project(&self, project: ProjectReference) -> Self {
         Self {
-            project: ProjectReference::ProjectId(project_id),
+            project: project,
             iid: self.iid,
         }
     }
@@ -142,7 +183,7 @@ impl Display for Issue {
 impl Into<Issue> for gitlab::types::Issue {
     fn into(self) -> Issue {
         Issue {
-            project: ProjectReference::ProjectId(self.project_id),
+            project: self.project_id.into(),
             iid: self.iid,
         }
     }
@@ -175,9 +216,9 @@ impl BaseGitLabItemReference for MergeRequest {
         self.iid.value()
     }
 
-    fn with_project_id(&self, project_id: ProjectId) -> Self {
+    fn with_project(&self, project: ProjectReference) -> Self {
         Self {
-            project: ProjectReference::ProjectId(project_id),
+            project: project,
             iid: self.iid,
         }
     }
@@ -263,10 +304,10 @@ impl BaseGitLabItemReference for ProjectItemReference {
         }
     }
 
-    fn with_project_id(&self, project_id: ProjectId) -> Self {
+    fn with_project(&self, project: ProjectReference) -> Self {
         match self {
-            ProjectItemReference::Issue(c) => c.with_project_id(project_id).into(),
-            ProjectItemReference::MergeRequest(c) => c.with_project_id(project_id).into(),
+            ProjectItemReference::Issue(c) => c.with_project(project).into(),
+            ProjectItemReference::MergeRequest(c) => c.with_project(project).into(),
         }
     }
 

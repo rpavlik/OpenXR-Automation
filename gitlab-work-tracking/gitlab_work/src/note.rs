@@ -102,6 +102,25 @@ impl LineOrReference {
         NoteLine::parse_line(s).into()
     }
 
+    pub fn reference(&self) -> Option<&ProjectItemReference> {
+        if let LineOrReference::Reference(reference) = self {
+            Some(reference)
+        } else {
+            None
+        }
+    }
+
+    pub fn map_reference(
+        &self,
+        f: &mut impl FnMut(&ProjectItemReference) -> ProjectItemReference,
+    ) -> Self {
+        if let LineOrReference::Reference(reference) = self {
+            let mapped = f(reference);
+            return LineOrReference::Reference(mapped);
+        }
+        self.clone()
+    }
+
     pub fn try_map_reference<E: std::error::Error>(
         &self,
         f: &mut impl FnMut(&ProjectItemReference) -> Result<ProjectItemReference, E>,

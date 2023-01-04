@@ -4,9 +4,12 @@
 //
 // Author: Ryan Pavlik <ryan.pavlik@collabora.com>
 
-use board_update::{mark_notes_for_deletion, parse_and_process_note, parse_note};
+use board_update::{
+    mark_notes_for_deletion, parse_and_process_note, parse_note,
+    process_note_and_associate_work_unit, Lines,
+};
 use clap::{Args, Parser};
-use gitlab_work::{ProjectMapper, WorkUnitCollection, LineOrReference, TypedGitLabItemReference};
+use gitlab_work::{LineOrReference, ProjectMapper, TypedGitLabItemReference, WorkUnitCollection};
 use std::path::Path;
 // use clap::{arg, command, value_parser, ArgAction, Command};
 use dotenvy::dotenv;
@@ -63,7 +66,7 @@ fn main() -> Result<(), anyhow::Error> {
             .build()?;
     let mut mapper = ProjectMapper::new(gitlab, &args.gitlab.default_project)?;
     if let Some(default_formatting) = args.gitlab.default_project_format_as {
-        mapper.set_project_name_formatting(None, &default_formatting)?;
+        mapper.try_set_project_name_formatting(None, &default_formatting)?;
     }
 
     let board = nullboard_tools::Board::load_from_json(path)?;
@@ -87,7 +90,15 @@ fn main() -> Result<(), anyhow::Error> {
 
     let mut collection = WorkUnitCollection::default();
 
-    mark_notes_for_deletion(&mut parsed_lists, &collection)?;
+    let mut processed_lists = vec![];
+
+    for list in parsed_lists {
+        processed_lists.push(list.map_note_text(|text| {
+            process_note_and_associate_work_unit(&mut collection, Lines(text.0.clone()))
+        }));
+    }
+
+    mark_notes_for_deletion(&mut processed_lists, &collection)?;
     // (board.lists.iter().map(|list| GenericList { title: list.title.clone(),notes: }))
     // for note in notes_iter {
     //     let lines = parse_note(&note.text);

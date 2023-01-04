@@ -6,7 +6,8 @@
 
 use anyhow::Error;
 use gitlab_work::{
-    note::LineOrReference, ProjectItemReference, ProjectMapper, UnitId, WorkUnitCollection,
+    note::LineOrReference, BaseGitLabItemReference, GitLabItemReferenceNormalize,
+    ProjectItemReference, ProjectMapper, UnitId, WorkUnitCollection,
 };
 use log::warn;
 use nullboard_tools::GenericList;
@@ -24,15 +25,37 @@ pub struct ProcessedNote {
 
 fn map_line_or_reference_to_id(
     mapper: &mut ProjectMapper,
-) -> impl FnMut(&LineOrReference) -> Result<LineOrReference, Error> {
+) -> impl FnMut(&LineOrReference) -> Result<LineOrReference, Error> + '_ {
     move |line_or_ref| {
         if let LineOrReference::Reference(reference) = line_or_ref {
             let project = reference.get_project();
-            let id = mapper.map_project_to_id(project)?;
+            let id = mapper.try_map_project_to_id(project)?;
             return Ok(LineOrReference::Reference(reference.with_project_id(id)));
         }
-        Ok(line_or_ref)
+        Ok(line_or_ref.clone())
     }
+}
+
+fn map_reference_to_id(
+    mapper: &mut ProjectMapper,
+) -> impl FnMut(&ProjectItemReference) -> Result<ProjectItemReference, gitlab_work::Error> + '_ {
+    move |reference| reference.try_with_normalized_project_reference(mapper)
+}
+
+fn map_line_or_reference_to_id2(
+    mapper: &mut ProjectMapper,
+) -> impl FnMut(&LineOrReference) -> Result<LineOrReference, Error> + '_ {
+    let mut f = map_reference_to_id(mapper);
+    move |line_or_ref| Ok(line_or_ref.try_map_reference(&mut f)?)
+}
+
+fn map_line_or_reference_to_formatted(
+    mapper: &ProjectMapper,
+) -> impl FnMut(&LineOrReference) -> LineOrReference + '_ {
+    let mut f = |item_reference: &ProjectItemReference| {
+        item_reference.with_formatted_project_reference(mapper)
+    };
+    move |line_or_ref| line_or_ref.map_reference(&mut f)
 }
 
 impl Lines {
@@ -45,20 +68,17 @@ impl Lines {
             .0
             .iter()
             .map(map_line_or_reference_to_id(mapper))
-            .try_collect()?;
+            .collect::<Result<Vec<LineOrReference>, Error>>()?;
         Ok(Lines(x))
     }
 
-    pub fn map_projects_to_formatted_name(
-        &self,
-        mapper: &mut ProjectMapper,
-    ) -> Result<Lines, Error> {
+    pub fn map_projects_to_formatted_name(&self, mapper: &ProjectMapper) -> Lines {
         let x: Vec<LineOrReference> = self
             .0
             .iter()
-            .map(map_line_or_reference_to_id(mapper))
-            .try_collect()?;
-        Ok(Lines(x))
+            .map(map_line_or_reference_to_formatted(mapper))
+            .collect();
+        Lines(x)
     }
 }
 
@@ -71,11 +91,9 @@ pub fn process_note_and_associate_work_unit(
     lines: Lines,
 ) -> ProcessedNote {
     let refs: Vec<ProjectItemReference> = lines
+        .0
         .iter()
-        .filter_map(|line| match line {
-            LineOrReference::Line(_) => None,
-            LineOrReference::Reference(reference) => Some(reference),
-        })
+        .filter_map(LineOrReference::reference)
         .cloned()
         .collect();
 
