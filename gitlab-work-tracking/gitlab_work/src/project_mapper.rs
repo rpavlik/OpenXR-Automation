@@ -27,7 +27,7 @@ pub(crate) struct ProjectMapper {
 }
 
 impl ProjectMapper {
-    pub(crate) fn new(client: gitlab::Gitlab, default_project: &str) -> Self {
+    pub fn new(client: gitlab::Gitlab, default_project: &str) -> Self {
         Self {
             client,
             default_project_name: default_project.to_owned(),
