@@ -288,11 +288,11 @@ impl Display for MergeRequest {
     }
 }
 
-impl Into<MergeRequest> for gitlab::types::MergeRequest {
-    fn into(self) -> MergeRequest {
+impl From<gitlab::types::MergeRequest> for MergeRequest {
+    fn from(src: gitlab::types::MergeRequest) -> Self {
         MergeRequest {
-            project: ProjectReference::ProjectId(self.project_id),
-            iid: self.iid,
+            project: src.project_id.into(),
+            iid: src.iid,
         }
     }
 }
@@ -304,15 +304,15 @@ pub enum ProjectItemReference {
     MergeRequest(MergeRequest),
 }
 
-impl Into<ProjectItemReference> for Issue {
-    fn into(self) -> ProjectItemReference {
-        ProjectItemReference::Issue(self)
+impl From<MergeRequest> for ProjectItemReference {
+    fn from(other: MergeRequest) -> Self {
+        ProjectItemReference::MergeRequest(other)
     }
 }
 
-impl Into<ProjectItemReference> for MergeRequest {
-    fn into(self) -> ProjectItemReference {
-        ProjectItemReference::MergeRequest(self)
+impl From<Issue> for ProjectItemReference {
+    fn from(other: Issue) -> Self {
+        ProjectItemReference::Issue(other)
     }
 }
 

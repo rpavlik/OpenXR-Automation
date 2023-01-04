@@ -22,7 +22,7 @@ pub enum Error {
 }
 
 /// A single "note" or "card" in a Nullboard-compatible format
-#[derive(Debug, Clone, Deserialize, Serialize, PartialEq, Eq)]
+#[derive(Debug, Clone, Deserialize, Serialize, PartialEq, Eq, Default)]
 pub struct Note {
     /// Contents of the note
     pub text: String,
@@ -144,16 +144,6 @@ impl Note {
     pub fn new(contents: &str) -> Self {
         Self {
             text: contents.to_owned(),
-            raw: false,
-            min: false,
-        }
-    }
-}
-
-impl Default for Note {
-    fn default() -> Self {
-        Self {
-            text: Default::default(),
             raw: false,
             min: false,
         }
