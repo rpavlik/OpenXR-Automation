@@ -431,7 +431,13 @@ where
 // }
 
 /// Trait to add `map_note_data` method to iterators over lists and map their note data
-pub trait ListsMapNoteData<T>: Iterator<Item = GenericList<T>> {
+pub trait ListsMapNoteData<T>: Sized {
+    fn map_note_data<B, F: FnMut(T) -> B>(self, f: F) -> ListsNoteDataMap<F, Self>;
+}
+impl<T, U> ListsMapNoteData<T> for U
+where
+    U: Iterator<Item = GenericList<T>>,
+{
     fn map_note_data<B, F: FnMut(T) -> B>(self, f: F) -> ListsNoteDataMap<F, Self>
     where
         Self: Sized,
@@ -461,11 +467,15 @@ impl<T, B, F: FnMut(T) -> B, I: Iterator<Item = GenericNote<T>>> Iterator for No
 }
 
 /// Trait to add `map_note_data` method to iterators over notes
-pub trait MapNoteData<T>: Iterator<Item = GenericNote<T>> {
-    fn map_note_data<B, F: FnMut(T) -> B>(self, f: F) -> NoteDataMap<F, Self>
-    where
-        Self: Sized,
-    {
+pub trait MapNoteData<T>: Sized {
+    fn map_note_data<B, F: FnMut(T) -> B>(self, f: F) -> NoteDataMap<F, Self>;
+}
+
+impl<T, U> MapNoteData<T> for U
+where
+    U: Iterator<Item = GenericNote<T>>,
+{
+    fn map_note_data<B, F: FnMut(T) -> B>(self, f: F) -> NoteDataMap<F, Self> {
         NoteDataMap::new(self, f)
     }
 }
