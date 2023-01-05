@@ -6,15 +6,15 @@
 
 use anyhow::anyhow;
 use board_update::{
-    note_formatter, parse_note, process_lists_and_associate_work_units, project_refs_to_ids,
-    prune_notes,
+    note_formatter, parse_note, process_lists_and_associate_work_units,
+    process_note_and_associate_work_unit, project_refs_to_ids, prune_notes,
 };
 use clap::{Args, Parser};
 use dotenvy::dotenv;
 use env_logger::Env;
 use gitlab_work::{ProjectMapper, WorkUnitCollection};
 use log::info;
-use nullboard_tools::{map_note_data_in_lists, IntoGeneric, MapNoteData};
+use nullboard_tools::{map_note_data_in_lists, IntoGeneric, ListsMapNoteData, MapNoteData};
 use std::path::{Path, PathBuf};
 
 #[derive(Args, Debug, Clone)]
@@ -99,7 +99,7 @@ fn main() -> Result<(), anyhow::Error> {
     let mut board = nullboard_tools::Board::load_from_json(path)?;
 
     info!("Parsing notes");
-    let parsed_lists: Vec<_> =
+    let parsed_lists: Vec<_> = //board.take_lists().into_generic().map_
         map_note_data_in_lists(board.take_lists().into_generic(), parse_note).collect();
 
     info!("Normalizing item references");
@@ -108,8 +108,12 @@ fn main() -> Result<(), anyhow::Error> {
     info!("Processing notes and associating with work units");
     let mut collection = WorkUnitCollection::default();
 
-    let lists: Vec<_> = parsed_lists.into_iter().map_note_data()
-        process_lists_and_associate_work_units(&mut collection, parsed_lists).collect();
+    let lists: Vec<_> = parsed_lists
+        .into_iter()
+        .map_note_data(|note_data| process_note_and_associate_work_unit(&mut collection, note_data))
+        .collect();
+
+    // process_lists_and_associate_work_units(&mut collection, parsed_lists).collect();
 
     info!("Pruning notes");
     let lists = prune_notes(&mut collection, lists);

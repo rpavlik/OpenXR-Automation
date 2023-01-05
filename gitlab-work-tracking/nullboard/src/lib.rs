@@ -390,26 +390,22 @@ pub fn map_note_data_in_lists<'a, T, B, F: 'a + FnMut(T) -> B>(
     lists.into_iter().map(map_list)
 }
 
-pub struct NoteDataMap<'a, F, I> {
+/// Iterator over lists with their note data mapped/transformed
+pub struct ListsNoteDataMap<F, I> {
     iter: I,
     f: F,
-    phantom: PhantomData<&'a F>,
 }
 
-impl<'a, F, I> NoteDataMap<'a, F, I> {
+impl<F, I> ListsNoteDataMap<F, I> {
     pub fn new(iter: I, f: F) -> Self {
-        NoteDataMap {
-            iter,
-            f,
-            phantom: PhantomData,
-        }
+        ListsNoteDataMap { iter, f }
     }
 }
 
-impl<'a, F, I, T, B> Iterator for NoteDataMap<'a, F, I>
+impl<F, I, T, B> Iterator for ListsNoteDataMap<F, I>
 where
-    F: 'a + FnMut(T) -> B,
-    I: Iterator<Item = GenericList<T>>,
+    F: FnMut(T) -> B,
+    I: Iterator<Item = GenericList<T>> + Sized,
 {
     type Item = GenericList<B>;
 
@@ -420,8 +416,53 @@ where
     }
 }
 
-pub trait MapNoteData<'a, T, B>: 'a + Iterator<Item = GenericList<T>> {
-    fn map_note_data<F: 'a + FnMut(T) -> B>(self, f: F) -> NoteDataMap<'a, F, Self>
+// impl<F, I, B> Iterator for ListsNoteDataMap<F, I>
+// where
+//     F: FnMut(String) -> B,
+//     I: Iterator<Item = List>,
+// {
+//     type Item = GenericList<B>;
+
+//     fn next(&mut self) -> Option<Self::Item> {
+//         self.iter
+//             .next()
+//             .map(|list: List| -> GenericList<B> { list.into_generic().map_notes(&mut self.f) })
+//     }
+// }
+
+/// Trait to add `map_note_data` method to iterators over lists and map their note data
+pub trait ListsMapNoteData<T>: Iterator<Item = GenericList<T>> {
+    fn map_note_data<B, F: FnMut(T) -> B>(self, f: F) -> ListsNoteDataMap<F, Self>
+    where
+        Self: Sized,
+    {
+        ListsNoteDataMap::new(self, f)
+    }
+}
+
+/// Iterator over mapping/transforming note data in a list.
+pub struct NoteDataMap<F, I> {
+    iter: I,
+    f: F,
+}
+
+impl<F, I> NoteDataMap<F, I> {
+    pub fn new(iter: I, f: F) -> Self {
+        NoteDataMap { iter, f }
+    }
+}
+
+impl<T, B, F: FnMut(T) -> B, I: Iterator<Item = GenericNote<T>>> Iterator for NoteDataMap<F, I> {
+    type Item = GenericNote<B>;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        self.iter.next().map(|note| note.map(&mut self.f))
+    }
+}
+
+/// Trait to add `map_note_data` method to iterators over notes
+pub trait MapNoteData<T>: Iterator<Item = GenericNote<T>> {
+    fn map_note_data<B, F: FnMut(T) -> B>(self, f: F) -> NoteDataMap<F, Self>
     where
         Self: Sized,
     {
