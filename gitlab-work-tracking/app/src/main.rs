@@ -6,15 +6,15 @@
 
 use anyhow::anyhow;
 use board_update::{
-    note_formatter, parse_note, process_lists_and_associate_work_units,
-    process_note_and_associate_work_unit, project_refs_to_ids, prune_notes,
+    note_formatter, note_project_refs_to_ids, parse_note, process_note_and_associate_work_unit,
+    prune_notes,
 };
 use clap::{Args, Parser};
 use dotenvy::dotenv;
 use env_logger::Env;
 use gitlab_work::{ProjectMapper, WorkUnitCollection};
 use log::info;
-use nullboard_tools::{map_note_data_in_lists, IntoGeneric, ListsMapNoteData, MapNoteData};
+use nullboard_tools::{IntoGeneric, ListsMapNoteData};
 use std::path::{Path, PathBuf};
 
 #[derive(Args, Debug, Clone)]
@@ -99,13 +99,19 @@ fn main() -> Result<(), anyhow::Error> {
     let mut board = nullboard_tools::Board::load_from_json(path)?;
 
     info!("Parsing notes");
-    let parsed_lists: Vec<_> = //board.take_lists().into_generic().map_
-        map_note_data_in_lists(board.take_lists().into_generic(), parse_note).collect();
+    let parsed_lists: Vec<_> = board
+        .take_lists()
+        .into_generic()
+        .map_note_data(parse_note)
+        .collect();
 
     info!("Normalizing item references");
-    let parsed_lists: Vec<_> = project_refs_to_ids(&mut mapper, parsed_lists).collect();
+    let parsed_lists: Vec<_> = parsed_lists
+        .into_iter()
+        .map_note_data(|data| note_project_refs_to_ids(&mut mapper, data))
+        .collect();
 
-    info!("Processing notes and associating with work units");
+    info!("Normalizing item references and associating with work units");
     let mut collection = WorkUnitCollection::default();
 
     let lists: Vec<_> = parsed_lists
@@ -113,14 +119,12 @@ fn main() -> Result<(), anyhow::Error> {
         .map_note_data(|note_data| process_note_and_associate_work_unit(&mut collection, note_data))
         .collect();
 
-    // process_lists_and_associate_work_units(&mut collection, parsed_lists).collect();
-
     info!("Pruning notes");
-    let lists = prune_notes(&mut collection, lists);
+    let lists = prune_notes(&mut collection, lists); // lists.into_iter().map(|list| list.notes).collect();
 
     info!("Re-generating notes for export");
     let updated_board =
-        board.make_new_revision_with_lists(map_note_data_in_lists(lists, |proc_note| {
+        board.make_new_revision_with_lists(lists.into_iter().map_note_data(|proc_note| {
             note_formatter::format_note(proc_note.into(), &mapper, |title| {
                 title
                     .trim_start_matches("Release checklist for ")

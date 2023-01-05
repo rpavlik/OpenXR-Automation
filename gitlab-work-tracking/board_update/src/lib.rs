@@ -9,7 +9,7 @@ use gitlab_work::{
     UnitId, WorkUnitCollection,
 };
 use log::warn;
-use nullboard_tools::{map_note_data_in_lists, GenericList, GenericNote};
+use nullboard_tools::{GenericList, GenericNote};
 use std::collections::{hash_map::Entry, HashMap};
 
 pub mod note_formatter;
@@ -80,7 +80,7 @@ fn normalize_line_or_reference(
     }
 }
 
-fn note_project_refs_to_ids(mapper: &mut ProjectMapper, lines: Lines) -> Lines {
+pub fn note_project_refs_to_ids(mapper: &mut ProjectMapper, lines: Lines) -> Lines {
     let lines = lines
         .0
         .into_iter()
@@ -89,24 +89,6 @@ fn note_project_refs_to_ids(mapper: &mut ProjectMapper, lines: Lines) -> Lines {
     Lines(lines)
 }
 
-pub fn project_refs_to_ids<'a>(
-    mapper: &'a mut ProjectMapper,
-    lists: impl IntoIterator<Item = GenericList<Lines>> + 'a,
-) -> impl Iterator<Item = GenericList<Lines>> + 'a {
-    map_note_data_in_lists(lists, |note_lines| {
-        note_project_refs_to_ids(mapper, note_lines)
-    })
-}
-
-// fn format_notes<'a>(
-//     mapper: &'a ProjectMapper,
-//     lists: impl IntoIterator<Item = GenericList<Lines>> + 'a,
-// )-> impl Iterator<Item = GenericList<String>> + 'a {
-//     map_note_data_in_lists(lists, |lines| lines.0.into_iter().map(|line| match line {
-//         LineOrReference::Line(text) => text,
-//         LineOrReference::Reference(reference) => format!("{}" reference.with_formatted_project_reference(mapper),
-//     }))
-// }
 const RECURSE_LIMIT: usize = 5;
 
 // fn filter_note(
