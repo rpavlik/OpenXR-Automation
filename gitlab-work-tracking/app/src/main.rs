@@ -61,6 +61,8 @@ fn compute_default_output_filename(path: &Path) -> Result<PathBuf, anyhow::Error
         .ok_or_else(|| anyhow!("Could not get file stem"))
 }
 
+// We need extra collect calls to make sure some things are evaluated eagerly.
+#[allow(clippy::needless_collect)]
 fn main() -> Result<(), anyhow::Error> {
     // Load .env file if available for credentials and config
     dotenv()?;

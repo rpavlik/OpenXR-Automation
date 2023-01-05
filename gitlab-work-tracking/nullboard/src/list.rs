@@ -5,7 +5,6 @@
 // Author: Ryan Pavlik <ryan.pavlik@collabora.com>
 
 use serde::{Deserialize, Serialize};
-use std::{fs, io, path::Path};
 
 use crate::{note::map_note_text, GenericNote, Note};
 

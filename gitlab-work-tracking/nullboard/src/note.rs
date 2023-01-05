@@ -5,7 +5,6 @@
 // Author: Ryan Pavlik <ryan.pavlik@collabora.com>
 
 use serde::{Deserialize, Serialize};
-use std::{fs, io, path::Path};
 
 /// Iterator over mapping/transforming note data iterating over notes.
 pub struct NoteDataMap<F, I> {
