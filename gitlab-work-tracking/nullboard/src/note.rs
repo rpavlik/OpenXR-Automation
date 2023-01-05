@@ -6,45 +6,11 @@
 
 use serde::{Deserialize, Serialize};
 
-/// Iterator over mapping/transforming note data iterating over notes.
-pub struct NoteDataMap<F, I> {
-    iter: I,
-    f: F,
-}
-
-impl<F, I> NoteDataMap<F, I> {
-    pub fn new(iter: I, f: F) -> Self {
-        NoteDataMap { iter, f }
-    }
-}
-
-impl<T, B, F: FnMut(T) -> B, I: Iterator<Item = GenericNote<T>>> Iterator for NoteDataMap<F, I> {
-    type Item = GenericNote<B>;
-
-    fn next(&mut self) -> Option<Self::Item> {
-        self.iter.next().map(|note| note.map(&mut self.f))
-    }
-}
-
-/// Trait to add `map_note_data` method to iterators over notes
-pub trait MapNoteData<T>: Sized {
-    fn map_note_data<B, F: FnMut(T) -> B>(self, f: F) -> NoteDataMap<F, Self>;
-}
-
-impl<T, U> MapNoteData<T> for U
-where
-    U: Iterator<Item = GenericNote<T>>,
-{
-    fn map_note_data<B, F: FnMut(T) -> B>(self, f: F) -> NoteDataMap<F, Self> {
-        NoteDataMap::new(self, f)
-    }
-}
-
 pub(crate) fn map_note_text<B>(
     mut f: impl FnMut(&str) -> B,
 ) -> impl FnMut(&Note) -> GenericNote<B> {
     move |note| GenericNote {
-        text: f(&note.text),
+        data: f(&note.text),
         raw: note.raw,
         min: note.min,
     }
@@ -61,12 +27,13 @@ pub struct Note {
     pub min: bool,
 }
 
-/// Nullboard list note, with arbitrary text type
+/// Nullboard list note, with arbitrary data type
 ///
 /// See also `Note`
+#[derive(Clone, PartialEq, Eq, Default)]
 pub struct GenericNote<T> {
-    /// Contents of the note
-    pub text: T,
+    /// Data of the note - corresponds to `text` in `Note`
+    pub data: T,
     /// Whether the note is shown "raw" (without a border, makes it look like a sub-header)
     pub raw: bool,
     /// Whether the note is shown minimized/collapsed
@@ -74,6 +41,7 @@ pub struct GenericNote<T> {
 }
 
 impl Note {
+    /// Create a new note
     pub fn new(contents: &str) -> Self {
         Self {
             text: contents.to_owned(),
@@ -81,11 +49,35 @@ impl Note {
             min: false,
         }
     }
-    pub fn map<B, F: Fn(String) -> B>(self, f: F) -> GenericNote<B> {
-        let text = f(self.text);
+
+    /// Create a generic note from this one by applying a mapping transform to its text
+    pub fn map<B>(self, f: impl FnOnce(String) -> B) -> GenericNote<B> {
+        let data = f(self.text);
 
         GenericNote {
-            text,
+            data,
+            raw: self.raw,
+            min: self.min,
+        }
+    }
+}
+
+impl<T> GenericNote<T> {
+    /// Create a new generic note
+    pub fn new(data: T) -> Self {
+        Self {
+            data,
+            raw: false,
+            min: false,
+        }
+    }
+
+    /// Map the data of a note
+    pub fn map<B>(self, f: impl FnOnce(T) -> B) -> GenericNote<B> {
+        let data = f(self.data);
+
+        GenericNote {
+            data,
             raw: self.raw,
             min: self.min,
         }
@@ -95,38 +87,17 @@ impl Note {
 impl<T: core::fmt::Debug> core::fmt::Debug for GenericNote<T> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("GenericNote")
-            .field("text", &self.text)
+            .field("data", &self.data)
             .field("raw", &self.raw)
             .field("min", &self.min)
             .finish()
     }
 }
 
-impl<T> GenericNote<T> {
-    pub fn new(contents: T) -> Self {
-        Self {
-            text: contents,
-            raw: false,
-            min: false,
-        }
-    }
-
-    /// Map the "text" (data) of a note
-    pub fn map<B>(self, f: impl FnOnce(T) -> B) -> GenericNote<B> {
-        let text = f(self.text);
-
-        GenericNote {
-            text,
-            raw: self.raw,
-            min: self.min,
-        }
-    }
-}
-
 impl From<GenericNote<String>> for Note {
     fn from(note: GenericNote<String>) -> Self {
         Self {
-            text: note.text,
+            text: note.data,
             raw: note.raw,
             min: note.min,
         }
@@ -136,7 +107,7 @@ impl From<GenericNote<String>> for Note {
 impl From<Note> for GenericNote<String> {
     fn from(note: Note) -> Self {
         Self {
-            text: note.text,
+            data: note.text,
             raw: note.raw,
             min: note.min,
         }

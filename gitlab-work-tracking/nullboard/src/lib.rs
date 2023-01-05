@@ -19,12 +19,14 @@ pub enum Error {
 }
 
 pub mod board;
+pub mod iterators;
 pub mod list;
 pub mod note;
 
 pub use board::Board;
-pub use list::{GenericList, IntoGeneric, List, ListsIntoGeneric, ListsMapNoteData};
-pub use note::{GenericNote, MapNoteData, Note};
+pub use iterators::{IntoGeneric, ListIteratorAdapters, NoteIteratorAdapters};
+pub use list::{GenericList, List};
+pub use note::{GenericNote, Note};
 
 /// A structure representing the lists in a board, with arbitrary note type
 #[derive(Default)]

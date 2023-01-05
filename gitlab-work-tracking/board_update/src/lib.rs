@@ -61,7 +61,7 @@ pub fn process_lists_and_associate_work_units<'a>(
     lists: impl IntoIterator<Item = GenericList<Lines>> + 'a,
 ) -> impl Iterator<Item = GenericList<ProcessedNote>> + 'a {
     lists.into_iter().map(move |list| {
-        list.map_notes(|text| process_note_and_associate_work_unit(collection, text))
+        list.map_note_data(|text| process_note_and_associate_work_unit(collection, text))
     })
 }
 
@@ -110,14 +110,14 @@ pub fn prune_notes<'a>(
     // Mark those notes which should be skipped because they refer to a work unit that already has a card.
     let mut units_handled: HashMap<UnitId, ()> = Default::default();
     let mut filter_note = |note: &GenericNote<ProcessedNote>| {
-        if let Some(id) = &note.text.unit_id {
+        if let Some(id) = &note.data.unit_id {
             match collection.get_unit_id_following_extinction(*id, RECURSE_LIMIT) {
                 Ok(id) => match units_handled.entry(id) {
                     Entry::Occupied(_) => {
                         // note.text.deleted = true;
                         warn!(
                             "Deleting note because its work unit was already handled: {} {:?}",
-                            id, note.text.lines
+                            id, note.data.lines
                         );
                         false
                     }
