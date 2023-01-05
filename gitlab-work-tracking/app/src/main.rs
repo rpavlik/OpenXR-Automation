@@ -12,34 +12,37 @@ use board_update::{
 use clap::{Args, Parser};
 use dotenvy::dotenv;
 use gitlab_work::{ProjectMapper, WorkUnitCollection};
-use log::info;
 use nullboard_tools::map_note_data_in_lists;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 #[derive(Args, Debug, Clone)]
-// #[command(PARENT CMD ATTRIBUTE)]
-// #[command(next_help_heading = "GitLab access details")]
 struct GitlabArgs {
+    /// Domain name hosting your GitLab instance
     #[arg(long = "gitlab", env = "GL_DOMAIN")]
     gitlab_domain: String,
 
-    #[arg(long = "username", env = "GL_USERNAME")]
-    gitlab_username: String,
-
+    /// Private access token to use when accessing GitLab.
     #[arg(long = "token", env = "GL_ACCESS_TOKEN", hide_env_values = true)]
     gitlab_access_token: String,
 
+    /// Fully qualified project name to assume for MRs and issues with no project specified
     #[arg(long, short = 'p', env = "GL_DEFAULT_PROJECT")]
     default_project: String,
 
+    /// How to format the default project in the output. If not specified, the default project name is omitted from exported text references.
     #[arg(long, env = "GL_DEFAULT_PROJECT_FORMAT_AS")]
     default_project_format_as: Option<String>,
 }
 
 #[derive(Parser)]
 struct Cli {
+    /// The JSON export from Nullboard (or compatible format) - usually ends in .nbx
     #[arg()]
-    filename: String,
+    filename: PathBuf,
+
+    /// Output filename: the extension .nbx is suggested. Will be computed if not specified.
+    #[arg(short, long)]
+    output: Option<PathBuf>,
 
     #[command(flatten, next_help_heading = "GitLab details")]
     gitlab: GitlabArgs,
@@ -52,17 +55,23 @@ fn main() -> Result<(), anyhow::Error> {
 
     let path = Path::new(&args.filename);
 
-    let out_fn = path
-        .file_stem()
-        .map(|p| {
-            let mut p = p.to_owned();
-            p.push(".updated.json");
-            p
-        })
-        .ok_or_else(|| anyhow!("Could not get file stem"))?;
-    let out_path = path.with_file_name(out_fn);
+    let out_path = args.output.map_or_else(
+        // come up with a default output name
+        || {
+            path.file_stem()
+                .map(|p| {
+                    let mut p = p.to_owned();
+                    p.push(".updated.nbx");
+                    p
+                })
+                .map(|file_name| path.with_file_name(file_name))
+                .ok_or_else(|| anyhow!("Could not get file stem"))
+        },
+        // or wrap our existing one in Ok
+        Ok,
+    )?;
 
-    info!("Connecting to GitLab: {}", &args.gitlab.gitlab_domain);
+    println!("Connecting to GitLab: {}", &args.gitlab.gitlab_domain);
 
     let gitlab =
         gitlab::GitlabBuilder::new(args.gitlab.gitlab_domain, args.gitlab.gitlab_access_token)
@@ -72,30 +81,30 @@ fn main() -> Result<(), anyhow::Error> {
         mapper.try_set_project_name_formatting(None, &default_formatting)?;
     }
 
-    info!("Loading board from {}", path.display());
+    println!("Loading board from {}", path.display());
 
     let mut board = nullboard_tools::Board::load_from_json(path)?;
 
-    info!("Parsing notes");
+    println!("Parsing notes");
     let mut parsed_lists = vec![];
     // Parse all notes
     for list in board.take_lists() {
         parsed_lists.push(list.map_notes(parse_note));
     }
 
-    info!("Normalizing item references");
+    println!("Normalizing item references");
     let parsed_lists: Vec<_> = project_refs_to_ids(&mut mapper, parsed_lists).collect();
 
-    info!("Processing notes and associating with work units");
+    println!("Processing notes and associating with work units");
     let mut collection = WorkUnitCollection::default();
 
     let lists: Vec<_> =
         process_lists_and_associate_work_units(&mut collection, parsed_lists).collect();
 
-    info!("Pruning notes");
+    println!("Pruning notes");
     let lists = prune_notes(&mut collection, lists);
 
-    info!("Re-generating notes for export");
+    println!("Re-generating notes for export");
     let updated_board =
         board.make_new_revision_with_lists(map_note_data_in_lists(lists, |proc_note| {
             note_formatter::format_note(proc_note.into(), &mapper, |title| {
