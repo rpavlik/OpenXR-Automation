@@ -5,7 +5,7 @@
 // Author: Ryan Pavlik <ryan.pavlik@collabora.com>
 
 use serde::{Deserialize, Serialize};
-use std::{fs, io, path::Path};
+use std::{fs, io, marker::PhantomData, path::Path};
 
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
@@ -388,6 +388,45 @@ pub fn map_note_data_in_lists<'a, T, B, F: 'a + FnMut(T) -> B>(
     let map_list = move |list: GenericList<T>| -> GenericList<B> { list.map_notes(&mut f) };
 
     lists.into_iter().map(map_list)
+}
+
+pub struct NoteDataMap<'a, F, I> {
+    iter: I,
+    f: F,
+    phantom: PhantomData<&'a F>,
+}
+
+impl<'a, F, I> NoteDataMap<'a, F, I> {
+    pub fn new(iter: I, f: F) -> Self {
+        NoteDataMap {
+            iter,
+            f,
+            phantom: PhantomData,
+        }
+    }
+}
+
+impl<'a, F, I, T, B> Iterator for NoteDataMap<'a, F, I>
+where
+    F: 'a + FnMut(T) -> B,
+    I: Iterator<Item = GenericList<T>>,
+{
+    type Item = GenericList<B>;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        self.iter
+            .next()
+            .map(|list: GenericList<T>| -> GenericList<B> { list.map_notes(&mut self.f) })
+    }
+}
+
+pub trait MapNoteData<'a, T, B>: 'a + Iterator<Item = GenericList<T>> {
+    fn map_note_data<F: 'a + FnMut(T) -> B>(self, f: F) -> NoteDataMap<'a, F, Self>
+    where
+        Self: Sized,
+    {
+        NoteDataMap::new(self, f)
+    }
 }
 
 #[cfg(test)]

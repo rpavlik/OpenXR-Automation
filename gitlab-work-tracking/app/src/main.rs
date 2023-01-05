@@ -14,7 +14,7 @@ use dotenvy::dotenv;
 use env_logger::Env;
 use gitlab_work::{ProjectMapper, WorkUnitCollection};
 use log::info;
-use nullboard_tools::{map_note_data_in_lists, IntoGeneric};
+use nullboard_tools::{map_note_data_in_lists, IntoGeneric, MapNoteData};
 use std::path::{Path, PathBuf};
 
 #[derive(Args, Debug, Clone)]
@@ -108,7 +108,7 @@ fn main() -> Result<(), anyhow::Error> {
     info!("Processing notes and associating with work units");
     let mut collection = WorkUnitCollection::default();
 
-    let lists: Vec<_> =
+    let lists: Vec<_> = parsed_lists.into_iter().map_note_data()
         process_lists_and_associate_work_units(&mut collection, parsed_lists).collect();
 
     info!("Pruning notes");
