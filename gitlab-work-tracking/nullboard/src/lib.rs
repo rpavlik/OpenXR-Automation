@@ -7,8 +7,6 @@
 use serde::{Deserialize, Serialize};
 use std::{fs, io, path::Path};
 
-pub mod experiment;
-
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
     #[error("IO error")]
@@ -41,6 +39,8 @@ pub struct List {
     pub notes: Vec<Note>,
 }
 
+const FORMAT: u32 = 20190412;
+
 /// A structure representing a board as exported to JSON from Nullboard
 #[derive(Debug, Clone, Deserialize, Serialize, PartialEq, Eq)]
 pub struct Board {
@@ -51,8 +51,6 @@ pub struct Board {
     lists: Vec<List>,
     history: Vec<u32>,
 }
-
-const FORMAT: u32 = 20190412;
 
 impl Board {
     /// Make a new board with a given title
@@ -151,6 +149,8 @@ impl Note {
 }
 
 /// Nullboard list note, with arbitrary text type
+///
+/// See also `Note`
 pub struct GenericNote<T> {
     /// Contents of the note
     pub text: T,
@@ -181,13 +181,7 @@ impl From<GenericNote<String>> for Note {
 }
 
 impl<T> GenericNote<T> {
-    pub fn with_replacement_text<U>(&self, text: U) -> GenericNote<U> {
-        GenericNote {
-            text,
-            raw: self.raw,
-            min: self.min,
-        }
-    }
+    /// Map the "text" (data) of a note
     pub fn map<B>(self, f: impl FnOnce(T) -> B) -> GenericNote<B> {
         let text = f(self.text);
 
@@ -200,18 +194,6 @@ impl<T> GenericNote<T> {
 }
 
 impl Note {
-    pub fn with_replacement_text<T>(&self, text: T) -> GenericNote<T> {
-        GenericNote {
-            text,
-            raw: self.raw,
-            min: self.min,
-        }
-    }
-
-    pub fn map_text<T, F: Fn(&str) -> T>(&self, f: F) -> GenericNote<T> {
-        self.with_replacement_text(f(&self.text))
-    }
-
     pub fn map<B, F: Fn(String) -> B>(self, f: F) -> GenericNote<B> {
         let text = f(self.text);
 
@@ -233,19 +215,9 @@ impl From<Note> for GenericNote<String> {
     }
 }
 
-// impl<T> GenericNote<T> {
-//     pub fn map<B>(self, f: &mut impl FnMut(T) -> B) -> GenericNote<B> {
-//         let text = f(self.text);
-
-//         GenericNote {
-//             text,
-//             raw: self.raw,
-//             min: self.min,
-//         }
-//     }
-// }
-
 /// A structure representing a list in a board as exported to JSON from Nullboard, with arbitrary note text type
+///
+/// See also `List`
 pub struct GenericList<T> {
     /// Title of the list
     pub title: String,
@@ -261,21 +233,6 @@ impl<T: core::fmt::Debug> core::fmt::Debug for GenericList<T> {
             .finish()
     }
 }
-// fn map_generic_note<T, B>(
-//     f: &mut impl FnMut(T) -> B,
-// ) -> impl FnMut(GenericNote<T>) -> GenericNote<B> + '_ {
-//     // let f = &mut f;
-//     move |note| note.map(f)
-// }
-
-// impl<T> GenericList<T> {
-//     pub fn map<B>(self, f: &mut impl FnMut(T) -> B) -> GenericList<B> {
-//         GenericList {
-//             title: self.title,
-//             notes: self.notes.into_iter().map(map_generic_note(f)).collect(),
-//         }
-//     }
-// }
 
 impl From<GenericList<String>> for List {
     fn from(list: GenericList<String>) -> Self {
@@ -380,6 +337,17 @@ impl From<GenericLists<String>> for Vec<List> {
     fn from(lists: GenericLists<String>) -> Self {
         lists.0.into_iter().map(List::from).collect()
     }
+}
+
+/// Applies a function to every note in a collection of lists.
+pub fn map_note_data_in_lists<'a, T, B, F: 'a + FnMut(T) -> B>(
+    lists: impl IntoIterator<Item = GenericList<T>> + 'a,
+    mut f: F,
+) -> impl Iterator<Item = GenericList<B>> + 'a {
+    // "move" moves f into the closure, &mut avoids moving it *out* of the closure in each call
+    let map_list = move |list: GenericList<T>| -> GenericList<B> { list.map_notes(&mut f) };
+
+    lists.into_iter().map(map_list)
 }
 
 #[cfg(test)]

@@ -1,0 +1,14 @@
+[package]
+edition = "2021"
+name = "board_update"
+version = "0.1.0"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+gitlab = "0.1506.*"
+gitlab-work = {path = "../gitlab_work"}
+itertools = "0.10"
+log = "0.4"
+nullboard-tools = {path = "../nullboard"}
+serde = {version = "1.0", features = ["derive"]}

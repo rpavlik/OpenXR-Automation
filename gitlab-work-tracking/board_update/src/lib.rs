@@ -9,10 +9,10 @@ use gitlab_work::{
     UnitId, WorkUnitCollection,
 };
 use log::warn;
-use nullboard_tools::{GenericList, GenericNote};
+use nullboard_tools::{map_note_data_in_lists, GenericList, GenericNote};
 use std::collections::{hash_map::Entry, HashMap};
 
-use crate::map::map_note_data_in_lists;
+pub mod note_formatter;
 
 #[derive(Debug)]
 pub struct Lines(pub Vec<LineOrReference>);
@@ -96,122 +96,6 @@ pub fn project_refs_to_ids<'a>(
     map_note_data_in_lists(lists, |note_lines| {
         note_project_refs_to_ids(mapper, note_lines)
     })
-}
-
-pub mod note_formatter {
-
-    use super::Lines;
-    use gitlab::{api::Query, ProjectId};
-    use gitlab_work::{
-        BaseGitLabItemReference, Error, GitLabItemReferenceNormalize, LineOrReference,
-        ProjectItemReference, ProjectMapper,
-    };
-    use itertools::Itertools;
-    use serde::Deserialize;
-
-    #[derive(Debug, Deserialize)]
-    struct InternalResults {
-        state: String,
-        web_url: String,
-        title: String,
-    }
-
-    #[derive(Debug)]
-    struct ItemResults {
-        state_annotation: Option<&'static str>,
-        web_url: String,
-        title: String,
-    }
-
-    trait MakeStateAnnotation {
-        fn as_state_annotation(&self) -> Option<&'static str>;
-    }
-
-    impl MakeStateAnnotation for String {
-        fn as_state_annotation(&self) -> Option<&'static str> {
-            match self.as_str() {
-                "closed" => Some("[CLOSED] "),
-                "merged" => Some("[MERGED] "),
-                "locked" => Some("[LOCKED] "),
-                _ => None,
-            }
-        }
-    }
-
-    impl From<InternalResults> for ItemResults {
-        fn from(f: InternalResults) -> Self {
-            Self {
-                state_annotation: f.state.as_state_annotation(),
-                web_url: f.web_url,
-                title: f.title,
-            }
-        }
-    }
-
-    fn query_gitlab(
-        proj_id: ProjectId,
-        reference: &ProjectItemReference,
-        client: &gitlab::Gitlab,
-    ) -> Result<ItemResults, Error> {
-        let query_result: Result<InternalResults, _> = match reference {
-            ProjectItemReference::Issue(issue) => {
-                let endpoint = gitlab::api::projects::issues::Issue::builder()
-                    .project(proj_id.value())
-                    .issue(issue.get_raw_iid())
-                    .build()?;
-                endpoint.query(client)
-            }
-            ProjectItemReference::MergeRequest(mr) => {
-                let endpoint = gitlab::api::projects::merge_requests::MergeRequest::builder()
-                    .project(proj_id.value())
-                    .merge_request(mr.get_raw_iid())
-                    .build()?;
-                endpoint.query(client)
-            }
-        };
-        let query_result =
-            query_result.map_err(|e| Error::ItemQueryError(reference.to_string(), e))?;
-        Ok(query_result.into())
-    }
-
-    pub fn format_reference(
-        reference: &ProjectItemReference,
-        mapper: &ProjectMapper,
-        title_mangler: impl Fn(&str) -> &str,
-    ) -> String {
-        match reference.get_project().project_id() {
-            Some(proj_id) => match query_gitlab(proj_id, reference, mapper.gitlab_client()) {
-                Ok(info) => {
-                    format!(
-                        "[{}]({}) {}{}",
-                        reference.clone().with_formatted_project_reference(mapper),
-                        info.web_url,
-                        info.state_annotation.unwrap_or(""),
-                        title_mangler(info.title.as_str())
-                    )
-                }
-                Err(e) => format!("{} (error in query: {})", reference, e),
-            },
-            None => format!("{} (missing project ID)", reference),
-        }
-    }
-
-    pub fn format_note(
-        lines: Lines,
-        mapper: &ProjectMapper,
-        title_mangler: impl Fn(&str) -> &str,
-    ) -> String {
-        lines
-            .0
-            .into_iter()
-            .map(|line| match line {
-                LineOrReference::Line(text) => text,
-                LineOrReference::Reference(reference) => {
-                    format_reference(&reference, mapper, &title_mangler)
-                }
-            })
-            .join("\n\u{2022} ")
-    }
 }
 
 // fn format_notes<'a>(

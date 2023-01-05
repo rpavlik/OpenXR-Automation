@@ -13,11 +13,8 @@ use clap::{Args, Parser};
 use dotenvy::dotenv;
 use gitlab_work::{ProjectMapper, WorkUnitCollection};
 use log::info;
-use map::map_note_data_in_lists;
+use nullboard_tools::map_note_data_in_lists;
 use std::path::Path;
-
-mod board_update;
-mod map;
 
 #[derive(Args, Debug, Clone)]
 // #[command(PARENT CMD ATTRIBUTE)]

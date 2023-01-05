@@ -4,6 +4,7 @@
 members = [
     "nullboard",
     "gitlab_work",
+    "board_update",
     "app",
 ]
 

@@ -102,6 +102,7 @@ impl LineOrReference {
         NoteLine::parse_line(s).into()
     }
 
+    /// Get the stored reference, or None
     pub fn reference(&self) -> Option<&ProjectItemReference> {
         if let LineOrReference::Reference(reference) = self {
             Some(reference)
@@ -110,6 +111,7 @@ impl LineOrReference {
         }
     }
 
+    /// Clone and transform the stored reference, if any
     pub fn map_reference(
         &self,
         mut f: impl FnMut(&ProjectItemReference) -> ProjectItemReference,
@@ -121,6 +123,7 @@ impl LineOrReference {
         self.clone()
     }
 
+    /// Clone and try to transform the stored reference, if any
     pub fn try_map_reference<E: std::error::Error>(
         &self,
         mut f: impl FnMut(&ProjectItemReference) -> Result<ProjectItemReference, E>,
@@ -130,6 +133,14 @@ impl LineOrReference {
             return Ok(LineOrReference::Reference(mapped));
         }
         Ok(self.clone())
+    }
+
+    /// Turn this enum into a string, calling the provided function if it is an item reference
+    pub fn format_to_string(self, f: impl FnOnce(ProjectItemReference) -> String) -> String {
+        match self {
+            LineOrReference::Line(text) => text,
+            LineOrReference::Reference(reference) => f(reference),
+        }
     }
 }
 
