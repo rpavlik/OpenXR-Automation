@@ -24,22 +24,6 @@ pub mod list;
 pub mod note;
 
 pub use board::Board;
-pub use iterators::{IntoGeneric, ListIteratorAdapters, NoteIteratorAdapters};
+pub use iterators::{ListIteratorAdapters, NoteIteratorAdapters, VecIntoGeneric};
 pub use list::{GenericList, List};
 pub use note::{GenericNote, Note};
-
-/// A structure representing the lists in a board, with arbitrary note type
-#[derive(Default)]
-pub struct GenericLists<T>(pub Vec<GenericList<T>>);
-
-impl<T> GenericLists<T> {
-    pub fn new() -> Self {
-        Self(Default::default())
-    }
-}
-
-impl From<GenericLists<String>> for Vec<List> {
-    fn from(lists: GenericLists<String>) -> Self {
-        lists.0.into_iter().map(List::from).collect()
-    }
-}

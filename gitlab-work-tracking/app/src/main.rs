@@ -14,7 +14,7 @@ use dotenvy::dotenv;
 use env_logger::Env;
 use gitlab_work::{ProjectMapper, WorkUnitCollection};
 use log::info;
-use nullboard_tools::{IntoGeneric, ListIteratorAdapters};
+use nullboard_tools::{ListIteratorAdapters, VecIntoGeneric};
 use std::path::{Path, PathBuf};
 
 #[derive(Args, Debug, Clone)]

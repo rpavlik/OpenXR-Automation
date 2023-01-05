@@ -6,47 +6,7 @@
 
 use crate::{GenericList, GenericNote, List};
 
-// -- into_generic() -- //
-
-/// Iterator adapter to convert an iterator of List to an iterator of GenericList<String>
-///
-/// Exists as a struct to work around not being able to name the return type of calling .map()
-/// on an arbitrary iterator in the trait.
-pub struct ListsIntoGeneric<I> {
-    iter: I,
-}
-
-impl<I> ListsIntoGeneric<I> {
-    fn new(iter: I) -> Self {
-        Self { iter }
-    }
-}
-
-impl<I: Iterator<Item = List>> Iterator for ListsIntoGeneric<I> {
-    type Item = GenericList<String>;
-
-    fn next(&mut self) -> Option<Self::Item> {
-        self.iter.next().map(List::into_generic)
-    }
-}
-
-/// Trait to add an `into_generic()` method to the result of `Board::take_lists()`
-pub trait IntoGeneric {
-    type Iter;
-
-    /// Converts each List to a GenericList<String>
-    fn into_generic(self) -> Self::Iter;
-}
-
-impl IntoGeneric for Vec<List> {
-    type Iter = ListsIntoGeneric<std::vec::IntoIter<List>>;
-
-    fn into_generic(self) -> Self::Iter {
-        ListsIntoGeneric::new(self.into_iter())
-    }
-}
-
-// -- map_note_data() on iterators over notes -- //
+// -- adapters for iterators over notes -- //
 
 pub mod over_notes {
     use crate::GenericNote;
@@ -71,8 +31,15 @@ pub mod over_notes {
     {
         type Item = GenericNote<B>;
 
+        #[inline]
         fn next(&mut self) -> Option<Self::Item> {
             self.iter.next().map(|note| note.map(&mut self.f))
+        }
+
+        #[inline]
+        fn size_hint(&self) -> (usize, Option<usize>) {
+            // no change
+            self.iter.size_hint()
         }
     }
 }
@@ -93,10 +60,36 @@ where
     }
 }
 
-// -- map_note_data() on iterators over lists -- //
-
+/// Adapters for iterators over lists
 pub mod over_lists {
-    use crate::GenericList;
+    use crate::{GenericList, List};
+    /// Iterator adapter to convert an iterator of List to an iterator of GenericList<String>
+    ///
+    /// Exists as a struct to work around not being able to name the return type of calling .map()
+    /// on an arbitrary iterator in the trait.
+    pub struct IntoGeneric<I> {
+        iter: I,
+    }
+
+    impl<I> IntoGeneric<I> {
+        pub(super) fn new(iter: I) -> Self {
+            Self { iter }
+        }
+    }
+
+    impl<I: Iterator<Item = List>> Iterator for IntoGeneric<I> {
+        type Item = GenericList<String>;
+
+        #[inline]
+        fn next(&mut self) -> Option<Self::Item> {
+            self.iter.next().map(List::into_generic)
+        }
+        #[inline]
+        fn size_hint(&self) -> (usize, Option<usize>) {
+            // no change
+            self.iter.size_hint()
+        }
+    }
 
     /// Iterator adapter for mapping note data when iterating over lists.
     #[must_use = "iterators are lazy"]
@@ -118,11 +111,19 @@ pub mod over_lists {
     {
         type Item = GenericList<B>;
 
+        #[inline]
         fn next(&mut self) -> Option<Self::Item> {
             self.iter.next().map(|list| list.map_note_data(&mut self.f))
         }
+
+        #[inline]
+        fn size_hint(&self) -> (usize, Option<usize>) {
+            // no change
+            self.iter.size_hint()
+        }
     }
 
+    /// Iterator adapter for filtering notes (by their data) when iterating over lists.
     #[must_use = "iterators are lazy"]
     pub struct NoteFilter<I, P> {
         iter: I,
@@ -142,15 +143,22 @@ pub mod over_lists {
     {
         type Item = I::Item;
 
+        #[inline]
         fn next(&mut self) -> Option<Self::Item> {
             self.iter
                 .next()
                 .map(|list| list.filter_notes(&mut self.predicate))
         }
+
+        #[inline]
+        fn size_hint(&self) -> (usize, Option<usize>) {
+            // Only know the upper bound
+            (0, self.iter.size_hint().1)
+        }
     }
 }
 
-/// Trait to add `map_note_data` method to iterators over lists and map their note data
+/// Trait to add adapter methods to iterators over lists
 pub trait ListIteratorAdapters<T>: Sized {
     /// Maps the data of the notes in each list (like calling `GenericList::map_note_data` on each list)
     fn map_note_data<B, F: FnMut(T) -> B>(self, f: F) -> over_lists::NoteDataMap<Self, F>;
@@ -160,9 +168,9 @@ pub trait ListIteratorAdapters<T>: Sized {
 }
 
 // This impl cannot be combined with the trait declaration above or it won't work.
-impl<T, U> ListIteratorAdapters<T> for U
+impl<T, I> ListIteratorAdapters<T> for I
 where
-    U: Iterator<Item = GenericList<T>>,
+    I: Iterator<Item = GenericList<T>>,
 {
     fn map_note_data<B, F: FnMut(T) -> B>(self, f: F) -> over_lists::NoteDataMap<Self, F> {
         over_lists::NoteDataMap::new(self, f)
@@ -170,5 +178,36 @@ where
 
     fn filter_notes<P: FnMut(&T) -> bool>(self, predicate: P) -> over_lists::NoteFilter<Self, P> {
         over_lists::NoteFilter::new(self, predicate)
+    }
+}
+
+/// Trait to add an `into_generic()` method to the result of `Board::take_lists()`
+pub trait VecIntoGeneric {
+    type Iter;
+
+    /// Converts each List to a GenericList<String>
+    fn into_generic(self) -> Self::Iter;
+}
+
+impl VecIntoGeneric for Vec<List> {
+    type Iter = over_lists::IntoGeneric<std::vec::IntoIter<List>>;
+
+    fn into_generic(self) -> over_lists::IntoGeneric<std::vec::IntoIter<List>> {
+        over_lists::IntoGeneric::new(self.into_iter())
+    }
+}
+
+/// Trait to add an `into_generic()` method to an iterator over a collection of `List`
+pub trait IterIntoGeneric: Sized {
+    /// Converts each List to a GenericList<String>
+    fn into_generic(self) -> over_lists::IntoGeneric<Self>;
+}
+
+impl<I> IterIntoGeneric for I
+where
+    I: Iterator<Item = List>,
+{
+    fn into_generic(self) -> over_lists::IntoGeneric<Self> {
+        over_lists::IntoGeneric::new(self)
     }
 }
