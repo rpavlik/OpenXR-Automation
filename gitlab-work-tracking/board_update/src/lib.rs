@@ -29,7 +29,7 @@ impl From<ProcessedNote> for Lines {
     }
 }
 
-pub fn parse_note(s: &str) -> Lines {
+pub fn parse_note(s: String) -> Lines {
     Lines(s.split('\n').map(LineOrReference::parse_line).collect())
 }
 

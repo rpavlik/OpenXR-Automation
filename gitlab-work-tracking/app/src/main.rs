@@ -14,7 +14,7 @@ use dotenvy::dotenv;
 use env_logger::Env;
 use gitlab_work::{ProjectMapper, WorkUnitCollection};
 use log::info;
-use nullboard_tools::map_note_data_in_lists;
+use nullboard_tools::{map_note_data_in_lists, IntoGeneric};
 use std::path::{Path, PathBuf};
 
 #[derive(Args, Debug, Clone)]
@@ -99,11 +99,8 @@ fn main() -> Result<(), anyhow::Error> {
     let mut board = nullboard_tools::Board::load_from_json(path)?;
 
     info!("Parsing notes");
-    let mut parsed_lists = vec![];
-    // Parse all notes
-    for list in board.take_lists() {
-        parsed_lists.push(list.map_notes(parse_note));
-    }
+    let parsed_lists: Vec<_> =
+        map_note_data_in_lists(board.take_lists().into_generic(), parse_note).collect();
 
     info!("Normalizing item references");
     let parsed_lists: Vec<_> = project_refs_to_ids(&mut mapper, parsed_lists).collect();

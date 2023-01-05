@@ -138,6 +138,7 @@ impl Default for Board {
         }
     }
 }
+
 impl Note {
     pub fn new(contents: &str) -> Self {
         Self {
@@ -148,6 +149,45 @@ impl Note {
     }
 }
 
+impl List {
+    pub fn into_generic(self) -> GenericList<String> {
+        GenericList {
+            title: self.title,
+            notes: self.notes.into_iter().map(|note| note.into()).collect(),
+        }
+    }
+}
+
+pub struct ListsIntoGeneric<I> {
+    iter: I,
+}
+
+impl<I> ListsIntoGeneric<I> {
+    fn new(iter: I) -> Self {
+        Self { iter }
+    }
+}
+
+impl<I: Iterator<Item = List>> Iterator for ListsIntoGeneric<I> {
+    type Item = GenericList<String>;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        self.iter.next().map(List::into_generic)
+    }
+}
+
+/// Trait to add an `into_generic()` method to the result of `Board::take_lists()`
+pub trait IntoGeneric {
+    type Iter;
+    fn into_generic(self) -> Self::Iter;
+}
+
+impl IntoGeneric for Vec<List> {
+    type Iter = ListsIntoGeneric<std::vec::IntoIter<List>>;
+    fn into_generic(self) -> Self::Iter {
+        ListsIntoGeneric::new(self.into_iter())
+    }
+}
 /// Nullboard list note, with arbitrary text type
 ///
 /// See also `Note`
