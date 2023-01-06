@@ -6,7 +6,7 @@
 
 use gitlab_work::{
     note::LineOrReference, GitLabItemReferenceNormalize, ProjectItemReference, ProjectMapper,
-    UnitId, WorkUnitCollection,
+    RefAddOutcome, UnitId, WorkUnitCollection,
 };
 use log::{info, warn};
 use nullboard_tools::{GenericList, IntoGenericIter, List, ListIteratorAdapters};
@@ -25,6 +25,12 @@ pub struct Lines<'a>(pub Vec<LineOrReference<'a>>);
 pub struct ProcessedNote<'a> {
     unit_id: Option<UnitId>,
     lines: Lines<'a>,
+}
+
+impl<'a> ProcessedNote<'a> {
+    pub fn new(unit_id: Option<UnitId>, lines: Lines<'a>) -> Self {
+        Self { unit_id, lines }
+    }
 }
 
 impl<'a> From<ProcessedNote<'a>> for Lines<'a> {
@@ -66,11 +72,10 @@ pub fn associate_work_unit_with_note<'a>(
     collection: &mut WorkUnitCollection,
     lines: Lines<'a>,
 ) -> ProcessedNote<'a> {
-    let refs: Vec<ProjectItemReference> = lines
+    let refs: Vec<&ProjectItemReference> = lines
         .0
         .iter()
         .filter_map(LineOrReference::as_reference)
-        .cloned()
         .collect();
 
     let unit_id = if refs.is_empty() {
@@ -80,7 +85,7 @@ pub fn associate_work_unit_with_note<'a>(
         if let Err(e) = &result {
             warn!("Problem calling add/get unit for refs: {}", e);
         }
-        result.ok()
+        result.ok().map(RefAddOutcome::into_inner_unit_id)
     };
     ProcessedNote { unit_id, lines }
 }

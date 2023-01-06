@@ -4,9 +4,11 @@
 //
 // Author: Ryan Pavlik <ryan.pavlik@collabora.com>
 
-use std::fmt::Display;
-
 use gitlab::{api::common::NameOrId, IssueInternalId, MergeRequestInternalId, ProjectId};
+use lazy_static::lazy_static;
+use log::error;
+use regex::Regex;
+use std::fmt::Display;
 
 /// A way of referring to a project.
 /// More than one name may correspond to a single project ID.
@@ -163,6 +165,13 @@ impl Issue {
     pub fn new(project: ProjectReference, iid: IssueInternalId) -> Self {
         Self { project, iid }
     }
+
+    pub fn from_string_and_integer(project: &str, iid: u64) -> Self {
+        Self {
+            project: ProjectReference::ProjectName(project.to_owned()),
+            iid: IssueInternalId::new(iid),
+        }
+    }
 }
 
 impl BaseGitLabItemReference for Issue {
@@ -236,6 +245,13 @@ pub struct MergeRequest {
 impl MergeRequest {
     pub fn new(project: ProjectReference, iid: MergeRequestInternalId) -> Self {
         Self { project, iid }
+    }
+
+    pub fn from_string_and_integer(project: &str, iid: u64) -> Self {
+        Self {
+            project: ProjectReference::ProjectName(project.to_owned()),
+            iid: MergeRequestInternalId::new(iid),
+        }
     }
 }
 
@@ -366,5 +382,74 @@ impl BaseGitLabItemReference for ProjectItemReference {
             ProjectItemReference::MergeRequest(_) => MergeRequest::symbol_static(),
             ProjectItemReference::Issue(_) => Issue::symbol_static(),
         }
+    }
+}
+
+pub fn find_refs(input: &str) -> impl Iterator<Item = ProjectItemReference> + '_ {
+    lazy_static! {
+        static ref RE: Regex = Regex::new(
+            r"(?x)
+                (?P<proj>[-._a-zA-Z0-9]+[-./_a-zA-Z0-9]+)?
+                (?P<symbol>[\#!])
+                (?P<iid>[1-9][0-9]+)
+            "
+        )
+        .expect("valid regex");
+    }
+    RE.captures_iter(input).filter_map(|cap| {
+        // this should always be found and parse right
+        let iid = cap.name("iid")?;
+        let iid = iid.as_str().parse().ok()?;
+
+        // this might not be specified
+        let project = cap
+            .name("proj")
+            .map(|p| ProjectReference::ProjectName(p.as_str().to_owned()))
+            .unwrap_or_default();
+
+        // this should always match one of the known cases
+        match cap.name("symbol")?.as_str() {
+            "!" => Some(MergeRequest::new(project, MergeRequestInternalId::new(iid)).into()),
+            "#" => Some(Issue::new(project, IssueInternalId::new(iid)).into()),
+            _ => {
+                // should never happen
+                error!("Got an unrecognized symbol!");
+                None
+            }
+        }
+    })
+}
+
+#[derive(Debug, thiserror::Error, PartialEq, Eq)]
+#[error("Error parsing reference: {0}")]
+pub struct RefParseError(String);
+
+impl TryFrom<&str> for ProjectItemReference {
+    type Error = RefParseError;
+
+    fn try_from(value: &str) -> Result<Self, Self::Error> {
+        find_refs(value)
+            .next()
+            .ok_or_else(|| RefParseError(value.to_owned()))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::{refs::MergeRequest, ProjectItemReference};
+
+    use super::Issue;
+
+    #[test]
+    fn test_find_refs() {
+        assert_eq!(
+            ProjectItemReference::try_from("asdf#123"),
+            Ok(Issue::from_string_and_integer("asdf", 123).into())
+        );
+
+        assert_eq!(
+            ProjectItemReference::try_from("asdf!123"),
+            Ok(MergeRequest::from_string_and_integer("asdf", 123).into())
+        );
     }
 }

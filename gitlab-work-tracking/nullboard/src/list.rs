@@ -14,18 +14,7 @@ pub struct List {
     /// Title of the list
     pub title: String,
     /// Notes in the list
-    pub notes: Vec<Note>,
-}
-
-/// A structure representing a list in a board as exported to JSON from Nullboard, with arbitrary note text type
-///
-/// See also `List`
-#[derive(Clone, PartialEq, Eq, Default)]
-pub struct GenericList<T> {
-    /// Title of the list
-    pub title: String,
-    /// Notes in the list
-    pub notes: Vec<GenericNote<T>>,
+    notes: Vec<Note>,
 }
 
 impl List {
@@ -39,6 +28,64 @@ impl List {
             title: self.title.clone(),
             notes: self.notes.iter().map(map_note_text(f)).collect(),
         }
+    }
+
+    pub fn notes(&self) -> &[Note] {
+        self.notes.as_ref()
+    }
+
+    pub fn notes_mut(&mut self) -> &mut Vec<Note> {
+        &mut self.notes
+    }
+}
+
+/// A structure representing a list in a board as exported to JSON from Nullboard, with arbitrary note text type
+///
+/// See also `List`
+#[derive(Clone, PartialEq, Eq, Default)]
+pub struct GenericList<T> {
+    /// Title of the list
+    title: String,
+    /// Notes in the list
+    notes: Vec<GenericNote<T>>,
+}
+
+impl<T> GenericList<T> {
+    pub fn notes(&self) -> &[GenericNote<T>] {
+        self.notes.as_ref()
+    }
+
+    /// Clone this list, transforming the notes by passing a reference to the provided function
+    pub fn map_notes_as_ref<U, F: FnMut(&T) -> U>(&self, f: F) -> GenericList<U> {
+        GenericList {
+            title: self.title.clone(),
+            notes: self.notes.iter().map(map_generic_notes_as_ref(f)).collect(),
+        }
+    }
+
+    /// Map the contents of the notes in this list to create a new list
+    pub fn map_note_data<B>(self, f: impl FnMut(T) -> B) -> GenericList<B> {
+        GenericList {
+            title: self.title,
+            notes: self.notes.into_iter().map(map_generic_notes(f)).collect(),
+        }
+    }
+
+    /// Filter notes using a predicate on their data
+    pub fn filter_notes(self, f: impl FnMut(&T) -> bool) -> Self {
+        let mut filter = filter_generic_notes(f);
+        GenericList {
+            title: self.title,
+            notes: self.notes.into_iter().filter(&mut filter).collect(),
+        }
+    }
+
+    pub fn notes_mut(&mut self) -> &mut Vec<GenericNote<T>> {
+        &mut self.notes
+    }
+
+    pub fn title(&self) -> &str {
+        self.title.as_ref()
     }
 }
 
@@ -78,33 +125,6 @@ pub fn map_note_data_in_lists<'a, T, B, F: 'a + FnMut(T) -> B>(
     let map_list = move |list: GenericList<T>| -> GenericList<B> { list.map_note_data(&mut f) };
 
     lists.into_iter().map(map_list)
-}
-
-impl<T> GenericList<T> {
-    /// Clone this list, transforming the notes by passing a reference to the provided function
-    pub fn map_notes_as_ref<U, F: FnMut(&T) -> U>(&self, f: F) -> GenericList<U> {
-        GenericList {
-            title: self.title.clone(),
-            notes: self.notes.iter().map(map_generic_notes_as_ref(f)).collect(),
-        }
-    }
-
-    /// Map the contents of the notes in this list to create a new list
-    pub fn map_note_data<B>(self, f: impl FnMut(T) -> B) -> GenericList<B> {
-        GenericList {
-            title: self.title,
-            notes: self.notes.into_iter().map(map_generic_notes(f)).collect(),
-        }
-    }
-
-    /// Filter notes using a predicate on their data
-    pub fn filter_notes(self, f: impl FnMut(&T) -> bool) -> Self {
-        let mut filter = filter_generic_notes(f);
-        GenericList {
-            title: self.title,
-            notes: self.notes.into_iter().filter(&mut filter).collect(),
-        }
-    }
 }
 
 // -- filter_notes -- //

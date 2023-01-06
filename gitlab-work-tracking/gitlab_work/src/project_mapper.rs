@@ -4,7 +4,7 @@
 //
 // Author: Ryan Pavlik <ryan.pavlik@collabora.com>
 
-use crate::{gitlab_refs::ProjectReference, BaseGitLabItemReference, Error};
+use crate::{refs::ProjectReference, BaseGitLabItemReference, Error};
 use gitlab::{api, api::Query, ProjectId};
 use serde::Deserialize;
 use std::collections::{hash_map::Entry, HashMap};

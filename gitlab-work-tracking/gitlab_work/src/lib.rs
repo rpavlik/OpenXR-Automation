@@ -14,7 +14,7 @@ use gitlab::{
     },
     Gitlab,
 };
-use work_item_and_collection::{FollowExtinctionUnitIdError, GeneralUnitIdError, GetUnitIdError};
+use work_unit_and_collection::{FollowExtinctionUnitIdError, GeneralUnitIdError, GetUnitIdError};
 
 #[derive(Debug, thiserror::Error)]
 pub enum Error {
@@ -40,13 +40,13 @@ pub enum Error {
     NoReferences,
 
     #[error(transparent)]
-    InvalidWorkUnitId(#[from] work_item_and_collection::InvalidWorkUnitId),
+    InvalidWorkUnitId(#[from] work_unit_and_collection::InvalidWorkUnitId),
 
     #[error(transparent)]
-    ExtinctWorkUnitId(#[from] work_item_and_collection::ExtinctWorkUnitId),
+    ExtinctWorkUnitId(#[from] work_unit_and_collection::ExtinctWorkUnitId),
 
     #[error(transparent)]
-    RecursionLimitReached(#[from] work_item_and_collection::RecursionLimitReached),
+    RecursionLimitReached(#[from] work_unit_and_collection::RecursionLimitReached),
 }
 
 impl From<GeneralUnitIdError> for Error {
@@ -71,14 +71,18 @@ impl From<FollowExtinctionUnitIdError> for Error {
     }
 }
 
-mod gitlab_refs;
 pub mod note;
 mod project_mapper;
-mod work_item_and_collection;
+mod refs;
+pub mod regex;
+mod work_unit_and_collection;
 
-pub use gitlab_refs::{
-    BaseGitLabItemReference, ProjectItemReference, ProjectReference, TypedGitLabItemReference,
-};
 pub use note::{LineOrReference, NoteLine};
 pub use project_mapper::{GitLabItemReferenceNormalize, ProjectMapper};
-pub use work_item_and_collection::{UnitId, WorkUnitCollection};
+pub use refs::{
+    BaseGitLabItemReference, Issue, MergeRequest, ProjectItemReference, ProjectReference,
+    TypedGitLabItemReference, ISSUE_SYMBOL, MR_SYMBOL,
+};
+pub use work_unit_and_collection::{
+    RefAddOutcome, UnitCreated, UnitId, UnitNotUpdated, UnitUpdated, WorkUnitCollection,
+};

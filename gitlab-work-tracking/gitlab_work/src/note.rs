@@ -6,47 +6,9 @@
 
 use std::borrow::Cow;
 
-use crate::gitlab_refs::{Issue, MergeRequest, ProjectItemReference, ProjectReference};
-use gitlab::{IssueInternalId, MergeRequestInternalId};
+use crate::refs::{find_refs, ProjectItemReference};
 use itertools::Itertools;
-use lazy_static::lazy_static;
-use log::{error, warn};
-use regex::Regex;
-
-fn find_refs(input: &str) -> impl Iterator<Item = ProjectItemReference> + '_ {
-    lazy_static! {
-        static ref RE: Regex = Regex::new(
-            r"(?x)
-                (?P<proj>[-._a-zA-Z0-9]+[-./_a-zA-Z0-9]+)?
-                (?P<symbol>[\#!])
-                (?P<iid>[1-9][0-9]+)
-            "
-        )
-        .expect("valid regex");
-    }
-    RE.captures_iter(input).filter_map(|cap| {
-        // this should always be found and parse right
-        let iid = cap.name("iid")?;
-        let iid = iid.as_str().parse().ok()?;
-
-        // this might not be specified
-        let project = cap
-            .name("proj")
-            .map(|p| ProjectReference::ProjectName(p.as_str().to_owned()))
-            .unwrap_or_default();
-
-        // this should always match one of the known cases
-        match cap.name("symbol")?.as_str() {
-            "!" => Some(MergeRequest::new(project, MergeRequestInternalId::new(iid)).into()),
-            "#" => Some(Issue::new(project, IssueInternalId::new(iid)).into()),
-            _ => {
-                // should never happen
-                error!("Got an unrecognized symbol!");
-                None
-            }
-        }
-    })
-}
+use log::warn;
 
 /// Association of an optional project item reference with a line in a note/card
 #[derive(Debug, Clone)]
@@ -83,6 +45,12 @@ pub enum LineOrReference<'a> {
     Line(Cow<'a, str>),
     /// A project item reference found in a line
     Reference(ProjectItemReference),
+}
+
+impl<'a> From<ProjectItemReference> for LineOrReference<'a> {
+    fn from(v: ProjectItemReference) -> Self {
+        Self::Reference(v)
+    }
 }
 
 impl LineOrReference<'_> {

@@ -4,7 +4,7 @@
 //
 // Author: Ryan Pavlik <ryan.pavlik@collabora.com>
 
-use crate::{gitlab_refs::ProjectItemReference, Error};
+use crate::{refs::ProjectItemReference, Error};
 use derive_more::{From, Into};
 use log::{debug, warn};
 use std::{
@@ -172,55 +172,196 @@ pub struct WorkUnitCollection {
     unit_by_ref: HashMap<ProjectItemReference, UnitId>,
 }
 
+/// A brand new work unit was created, with the specified number of unique refs
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub struct UnitCreated {
+    pub unit_id: UnitId,
+    pub refs_added: usize,
+}
+
+impl UnitCreated {
+    pub fn unit_id(&self) -> UnitId {
+        self.unit_id
+    }
+}
+
+/// Corresponds to an existing unit that got updated, reporting the number of added refs
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub struct UnitUpdated {
+    pub unit_id: UnitId,
+    pub refs_added: usize,
+    // how many existing work units were merged into the remaining work unit
+    pub units_merged_in: usize,
+}
+
+impl UnitUpdated {
+    pub fn unit_id(&self) -> UnitId {
+        self.unit_id
+    }
+}
+
+/// Corresponds to an existing unit that did not get updated (no refs were new)
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub struct UnitNotUpdated {
+    pub unit_id: UnitId,
+}
+
+impl UnitNotUpdated {
+    pub fn unit_id(&self) -> UnitId {
+        self.unit_id
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum RefAddOutcome {
+    Created(UnitCreated),
+    Updated(UnitUpdated),
+    NotUpdated(UnitNotUpdated),
+}
+
+impl From<UnitNotUpdated> for RefAddOutcome {
+    fn from(v: UnitNotUpdated) -> Self {
+        Self::NotUpdated(v)
+    }
+}
+
+impl From<UnitUpdated> for RefAddOutcome {
+    fn from(v: UnitUpdated) -> Self {
+        Self::Updated(v)
+    }
+}
+
+impl From<UnitCreated> for RefAddOutcome {
+    fn from(v: UnitCreated) -> Self {
+        Self::Created(v)
+    }
+}
+
+impl RefAddOutcome {
+    pub fn into_inner_unit_id(self) -> UnitId {
+        match self {
+            RefAddOutcome::Created(UnitCreated {
+                unit_id,
+                refs_added: _,
+            }) => unit_id,
+            RefAddOutcome::Updated(UnitUpdated {
+                unit_id,
+                refs_added: _,
+                units_merged_in: _,
+            }) => unit_id,
+            RefAddOutcome::NotUpdated(UnitNotUpdated { unit_id }) => unit_id,
+        }
+    }
+
+    pub fn as_inner_unit_id(&self) -> &UnitId {
+        match self {
+            RefAddOutcome::Created(UnitCreated {
+                unit_id,
+                refs_added: _,
+            }) => unit_id,
+            RefAddOutcome::Updated(UnitUpdated {
+                unit_id,
+                refs_added: _,
+                units_merged_in: _,
+            }) => unit_id,
+            RefAddOutcome::NotUpdated(UnitNotUpdated { unit_id }) => unit_id,
+        }
+    }
+
+    // pub fn created_unit_id(&self) -> Option<&UnitId> {
+    //     match self {
+    //         RefAddOutcome::Created(UnitCreated {
+    //             unit_id,
+    //             refs_added: _,
+    //         }) => Some(unit_id),
+    //         _ => None,
+    //     }
+    // }
+
+    // pub fn as_created(&self) -> Option<&UnitCreated> {
+    //     if let Self::Created(v) = self {
+    //         Some(v)
+    //     } else {
+    //         None
+    //     }
+    // }
+
+    pub fn try_into_created(self) -> Result<UnitCreated, Self> {
+        if let Self::Created(v) = self {
+            Ok(v)
+        } else {
+            Err(self)
+        }
+    }
+}
+
 impl WorkUnitCollection {
     /// Records a work unit containing the provided references (must be non-empty).
     /// If any of those references already exist in the work collection, their corresponding work units are merged.
     /// Any references not yet in the work collection are added.
-    pub fn add_or_get_unit_for_refs(
+    pub fn add_or_get_unit_for_refs<'a>(
         &mut self,
-        refs: impl IntoIterator<Item = ProjectItemReference>,
-    ) -> Result<UnitId, Error> {
-        let refs: Vec<ProjectItemReference> = refs.into_iter().collect();
+        refs: impl IntoIterator<Item = &'a ProjectItemReference>,
+    ) -> Result<RefAddOutcome, Error> {
+        let refs: Vec<&ProjectItemReference> = refs.into_iter().collect();
         debug!("Given {} refs", refs.len());
         let unit_ids = self.get_ids_for_refs(&refs);
         if let Some((&unit_id, remaining_unit_ids)) = unit_ids.split_first() {
             // we have at least one existing unit
             debug!("Will use work unit {}", unit_id);
+
+            let units_merged_in = remaining_unit_ids.len();
             for src_id in remaining_unit_ids {
                 debug!("Merging {} into {}", unit_id, src_id);
                 self.merge_work_units(unit_id, *src_id)?;
             }
-            self.add_refs_to_unit_id(unit_id, &refs[..])?;
-            Ok(unit_id)
-        } else if let Some((first_ref, rest_of_refs)) = refs.split_first() {
+            let refs_added = self.add_refs_to_unit_id(unit_id, &refs[..])?;
+            if refs_added == 0 && units_merged_in == 0 {
+                Ok(RefAddOutcome::NotUpdated(UnitNotUpdated { unit_id }))
+            } else {
+                Ok(RefAddOutcome::Updated(UnitUpdated {
+                    unit_id,
+                    refs_added,
+                    units_merged_in,
+                }))
+            }
+        } else if let Some((&first_ref, rest_of_refs)) = refs.split_first() {
             // we have some refs
             let unit_id = self.units.emplace(first_ref.clone());
 
             debug!("Created new work unit {}", unit_id);
-            self.add_refs_to_unit_id(unit_id, rest_of_refs)?;
+            let refs_added = self.add_refs_to_unit_id(unit_id, rest_of_refs)?;
 
-            Ok(unit_id)
+            Ok(RefAddOutcome::Created(UnitCreated {
+                unit_id,
+                refs_added,
+            }))
         } else {
             Err(Error::NoReferences)
         }
     }
 
+    /// Return value is number of refs added
     fn add_refs_to_unit_id(
         &mut self,
         unit_id: UnitId,
-        refs: &[ProjectItemReference],
-    ) -> Result<(), GetUnitIdError> {
-        for reference in refs {
-            self.add_ref_to_unit_id(unit_id, reference)?;
+        refs: &[&ProjectItemReference],
+    ) -> Result<usize, GetUnitIdError> {
+        let mut count: usize = 0;
+        for &reference in refs {
+            if self.add_ref_to_unit_id(unit_id, reference)? {
+                count += 1;
+            }
         }
-        Ok(())
+        Ok(count)
     }
 
+    /// Returns Ok(true) if a ref was added
     fn add_ref_to_unit_id(
         &mut self,
         id: UnitId,
         reference: &ProjectItemReference,
-    ) -> Result<(), GetUnitIdError> {
+    ) -> Result<bool, GetUnitIdError> {
         debug!("Trying to add a reference to {}: {:?}", id, reference);
         let do_insert = match self.unit_by_ref.entry(reference.clone()) {
             Entry::Occupied(mut entry) => {
@@ -244,13 +385,13 @@ impl WorkUnitCollection {
                 true
             }
         };
-        let unit = self.units.get_unit_mut(id)?;
-
         if do_insert {
+            let unit = self.units.get_unit_mut(id)?;
+
             debug!("New reference added to {}: {:?}", id, reference);
             unit.refs.push(reference.clone());
         }
-        Ok(())
+        Ok(do_insert)
     }
 
     fn merge_work_units(&mut self, id: UnitId, src_id: UnitId) -> Result<(), GetUnitIdError> {
@@ -285,7 +426,7 @@ impl WorkUnitCollection {
     }
 
     /// Find the set of unit IDs corresponding to the refs, if any.
-    fn get_ids_for_refs(&self, refs: &Vec<ProjectItemReference>) -> Vec<UnitId> {
+    fn get_ids_for_refs(&self, refs: &[&ProjectItemReference]) -> Vec<UnitId> {
         let mut units: Vec<UnitId> = vec![];
         let mut retrieved_ids: HashSet<UnitId> = Default::default();
 
@@ -293,15 +434,15 @@ impl WorkUnitCollection {
             "Finding units for a collection of {} references",
             refs.len()
         );
-        for reference in refs {
+        for &reference in refs {
             if let Some(&id) = self.unit_by_ref.get(reference) {
-                debug!("Found id {} for: {:#?}", id, &reference);
+                debug!("Found id {} for: {:?}", id, &reference);
                 if retrieved_ids.insert(id) {
                     debug!("Adding {} to our return set", id);
                     units.push(id);
                 }
             } else {
-                debug!("Do not yet know {:#?}", &reference)
+                debug!("Do not yet know {:?}", &reference)
             }
         }
         debug!(
