@@ -4,19 +4,18 @@
 //
 // Author: Ryan Pavlik <ryan.pavlik@collabora.com>
 
-use anyhow::anyhow;
 use board_update::{
     associate_work_unit_with_note,
     cli::{GitlabArgs, InputOutputArgs, ProjectArgs},
-    note_formatter, note_refs_to_ids, parse_note, parse_notes, prune_notes,
+    note_formatter, note_refs_to_ids, parse_note, prune_notes,
 };
-use clap::{Args, Parser};
+use clap::Parser;
 use dotenvy::dotenv;
 use env_logger::Env;
-use gitlab_work::{Error, ProjectMapper, WorkUnitCollection};
+use gitlab_work::{ProjectMapper, WorkUnitCollection};
 use log::info;
 use nullboard_tools::{IntoGenericIter, ListIteratorAdapters};
-use std::path::{Path, PathBuf};
+use std::path::Path;
 
 #[derive(Parser)]
 struct Cli {
@@ -53,24 +52,20 @@ fn main() -> Result<(), anyhow::Error> {
 
     let mut board = nullboard_tools::Board::load_from_json(path)?;
 
-    let parsed_lists: Vec<_> = parse_notes(board.take_lists());
-
-    info!("Normalizing item references");
-    let parsed_lists: Vec<_> = parsed_lists
-        .into_iter()
-        .map_note_data(|data| note_refs_to_ids(&mut mapper, data))
-        .collect();
-
-    info!("Normalizing item references and associating with work units");
     let mut collection = WorkUnitCollection::default();
 
-    let lists: Vec<_> = parsed_lists
+    info!("Processing board notes");
+    let lists: Vec<_> = board
+        .take_lists()
+        .into_generic_iter()
+        .map_note_data(parse_note)
         .into_iter()
+        .map_note_data(|data| note_refs_to_ids(&mut mapper, data))
         .map_note_data(|note_data| associate_work_unit_with_note(&mut collection, note_data))
         .collect();
 
     info!("Pruning notes");
-    let lists = prune_notes(&mut collection, lists); // lists.into_iter().map(|list| list.notes).collect();
+    let lists = prune_notes(&collection, lists);
 
     info!("Re-generating notes for export");
     let updated_board =

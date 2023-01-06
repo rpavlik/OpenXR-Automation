@@ -62,8 +62,9 @@ impl<'a> ProjectMapper<'a> {
         Ok(self)
     }
 
+    /// Access the gitlab client we use
     pub fn gitlab_client(&self) -> &gitlab::Gitlab {
-        &self.client
+        self.client
     }
 
     pub(crate) fn try_lookup_name(&mut self, name: Option<&str>) -> Result<ProjectId, Error> {

@@ -69,10 +69,6 @@ pub fn associate_work_unit_with_note(
     ProcessedNote { unit_id, lines }
 }
 
-// pub fn associate_work_unit_with_notes(
-//     collection: &mut WorkUnitCollection,)
-// {}
-
 /// Transform an item reference line into its "normalized" state, with a numeric project ID
 ///
 /// Turns any errors into an error message in the line.
@@ -101,24 +97,25 @@ pub fn note_refs_to_ids(mapper: &mut ProjectMapper, lines: Lines) -> Lines {
     Lines(lines)
 }
 
+// I think this should be more than enough: in normal operation I don't actually see this used at all.
 const RECURSE_LIMIT: usize = 5;
 
-/// Iterate through lists, removing notes that refer to a work unit
-/// which already had a note output.
-pub fn prune_notes<'a>(
-    collection: &'a mut WorkUnitCollection,
-    lists: impl IntoIterator<Item = GenericList<ProcessedNote>> + 'a,
-) -> Vec<GenericList<ProcessedNote>> {
-    // Mark those notes which should be skipped because they refer to a work unit that already has a card.
+/// Returns a closure that will filter notes based on whether another note with the same UnitId has been seen.
+pub fn make_note_pruner(
+    collection: &'_ WorkUnitCollection,
+) -> impl '_ + FnMut(&ProcessedNote) -> bool {
+    // Mark those notes which should be skipped because they refer to a work unit that already has a note.
     let mut units_handled: HashMap<UnitId, ()> = Default::default();
-    let filter_note = move |note: &ProcessedNote| {
+
+    // here we are creating and immediately returning this closure.
+    // `move` moves the HashMap into the closure.
+    move |note: &ProcessedNote| {
         if let Some(id) = &note.unit_id {
             match collection.get_unit_id_following_extinction(*id, RECURSE_LIMIT) {
                 Ok(id) => match units_handled.entry(id) {
                     Entry::Occupied(_) => {
-                        // note.text.deleted = true;
                         warn!(
-                            "Deleting note because its work unit was already handled: {} {:?}",
+                            "Skipping note because its work unit was already handled: {} {:?}",
                             id, note.lines
                         );
                         false
@@ -136,7 +133,17 @@ pub fn prune_notes<'a>(
         } else {
             true
         }
-    };
+    }
+}
 
-    lists.into_iter().filter_notes(filter_note).collect()
+/// Iterate through lists, removing notes that refer to a work unit
+/// which already had a note output.
+pub fn prune_notes(
+    collection: &WorkUnitCollection,
+    lists: impl IntoIterator<Item = GenericList<ProcessedNote>>,
+) -> Vec<GenericList<ProcessedNote>> {
+    lists
+        .into_iter()
+        .filter_notes(make_note_pruner(collection))
+        .collect()
 }

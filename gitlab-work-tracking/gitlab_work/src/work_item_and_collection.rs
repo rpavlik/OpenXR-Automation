@@ -6,7 +6,7 @@
 
 use crate::{gitlab_refs::ProjectItemReference, Error};
 use derive_more::{From, Into};
-use log::debug;
+use log::{debug, warn};
 use std::{
     collections::{hash_map::Entry, HashMap, HashSet},
     fmt::Display,
@@ -150,6 +150,10 @@ impl UnitContainer {
             let unit = self.0.get(result_id).ok_or(InvalidWorkUnitId(id))?;
             match &unit.extincted_by {
                 Some(successor) => {
+                    warn!(
+                        "Following extinction pointer: {} to {}",
+                        &result_id, successor
+                    );
                     result_id = *successor;
                 }
                 None => return Ok(result_id),
