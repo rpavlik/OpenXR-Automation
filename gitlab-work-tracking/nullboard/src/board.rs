@@ -7,7 +7,10 @@
 use serde::{Deserialize, Serialize};
 use std::{fs, path::Path};
 
-use crate::{list::List, Error, GenericList};
+use crate::{
+    list::{self, BasicList},
+    Error, GenericList,
+};
 
 const FORMAT: u32 = 20190412;
 
@@ -18,7 +21,7 @@ pub struct Board {
     id: u64,
     revision: u32,
     pub title: String,
-    lists: Vec<List>,
+    lists: Vec<list::BasicList>,
     history: Vec<u32>,
 }
 
@@ -71,7 +74,7 @@ impl Board {
         self.revision
     }
 
-    pub fn take_lists(&mut self) -> Vec<List> {
+    pub fn take_lists(&mut self) -> Vec<BasicList> {
         std::mem::take(&mut self.lists)
     }
 
@@ -85,7 +88,7 @@ impl Board {
             id: self.id,
             revision: self.revision,
             title: self.title.clone(),
-            lists: lists.into_iter().map(List::from).collect(),
+            lists: lists.into_iter().map(BasicList::from).collect(),
             history: self.history,
         };
         ret.increment_revision();

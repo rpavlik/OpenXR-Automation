@@ -4,6 +4,8 @@
 //
 // Author: Ryan Pavlik <ryan.pavlik@collabora.com>
 
+use crate::GenericList;
+
 /// Data access methods applicable to all types that resemble a list of notes/Kanban board column
 pub trait List {
     type Note: Note;
@@ -20,6 +22,8 @@ pub trait List {
 
     /// Filter notes using a predicate on their data
     fn filter_notes<F: FnMut(&Self::NoteData) -> bool>(self, f: F) -> Self;
+
+    fn map_note_data<B, F: FnMut(Self::NoteData) -> B>(self, f: F) -> GenericList<B>;
 }
 
 /// Data access methods applicable to all types that resemble a note/card on a Kanban board (or sub-headings)

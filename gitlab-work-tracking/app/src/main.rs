@@ -8,14 +8,14 @@ use crate::find_more::{find_new_checklists, find_new_notes};
 use board_update::{
     associate_work_unit_with_note,
     cli::{GitlabArgs, InputOutputArgs, ProjectArgs},
-    note_formatter, note_refs_to_ids, parse_owned_note, prune_notes,
+    note_formatter, note_refs_to_ids, parse_owned_note, prune_notes, ProcessedNote,
 };
 use clap::Parser;
 use dotenvy::dotenv;
 use env_logger::Env;
 use gitlab_work::{ProjectMapper, WorkUnitCollection};
 use log::info;
-use nullboard_tools::{GenericNote, IntoGenericIter, ListIteratorAdapters};
+use nullboard_tools::{GenericNote, List, ListIteratorAdapters};
 use std::path::Path;
 
 mod find_more;
@@ -60,7 +60,7 @@ fn main() -> Result<(), anyhow::Error> {
     info!("Processing board notes");
     let mut lists: Vec<_> = board
         .take_lists()
-        .into_generic_iter()
+        .into_iter()
         .map_note_data(parse_owned_note)
         .map_note_data(|data| note_refs_to_ids(&mut mapper, data))
         .map_note_data(|note_data| associate_work_unit_with_note(&mut collection, note_data))
@@ -79,14 +79,15 @@ fn main() -> Result<(), anyhow::Error> {
     let lists = prune_notes(&collection, lists);
 
     info!("Re-generating notes for export");
-    let updated_board =
-        board.make_new_revision_with_lists(lists.into_iter().map_note_data(|proc_note| {
+    let updated_board = board.make_new_revision_with_lists(lists.into_iter().map_note_data(
+        |proc_note: ProcessedNote| {
             note_formatter::format_note(proc_note.into(), &mapper, |title| {
                 title
                     .trim_start_matches("Release checklist for ")
                     .trim_start_matches("Resolve ")
             })
-        }));
+        },
+    ));
 
     info!("Writing to {}", out_path.display());
     updated_board.save_to_json(&out_path)?;

@@ -8,7 +8,7 @@ use serde::{Deserialize, Serialize};
 
 /// A single "note" or "card" in a Nullboard-compatible format
 #[derive(Debug, Clone, Deserialize, Serialize, PartialEq, Eq, Default)]
-pub struct Note {
+pub struct BasicNote {
     /// Contents of the note
     text: String,
     /// Whether the note is shown "raw" (without a border, makes it look like a sub-header)
@@ -17,7 +17,7 @@ pub struct Note {
     min: bool,
 }
 
-impl crate::traits::Note for Note {
+impl crate::traits::Note for BasicNote {
     type Data = String;
 
     fn min(&self) -> bool {
@@ -37,7 +37,7 @@ impl crate::traits::Note for Note {
     }
 }
 
-impl Note {
+impl BasicNote {
     /// Create a new note
     pub fn new(contents: &str) -> Self {
         Self {
@@ -116,9 +116,19 @@ impl<T> GenericNote<T> {
 
 pub(crate) fn map_note_text<B>(
     mut f: impl FnMut(&str) -> B,
-) -> impl FnMut(&Note) -> GenericNote<B> {
+) -> impl FnMut(&BasicNote) -> GenericNote<B> {
     move |note| GenericNote {
         data: f(&note.text),
+        raw: note.raw,
+        min: note.min,
+    }
+}
+
+pub(crate) fn map_note_data_string<B>(
+    mut f: impl FnMut(String) -> B,
+) -> impl FnMut(BasicNote) -> GenericNote<B> {
+    move |note| GenericNote {
+        data: f(note.text),
         raw: note.raw,
         min: note.min,
     }
@@ -133,7 +143,7 @@ impl<T: core::fmt::Debug> core::fmt::Debug for GenericNote<T> {
     }
 }
 
-impl From<GenericNote<String>> for Note {
+impl From<GenericNote<String>> for BasicNote {
     fn from(note: GenericNote<String>) -> Self {
         Self {
             text: note.data,
@@ -143,8 +153,8 @@ impl From<GenericNote<String>> for Note {
     }
 }
 
-impl From<Note> for GenericNote<String> {
-    fn from(note: Note) -> Self {
+impl From<BasicNote> for GenericNote<String> {
+    fn from(note: BasicNote) -> Self {
         Self {
             data: note.text,
             raw: note.raw,

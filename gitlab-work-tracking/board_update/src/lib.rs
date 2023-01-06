@@ -9,7 +9,7 @@ use gitlab_work::{
     RefAddOutcome, UnitId, WorkUnitCollection,
 };
 use log::{info, warn};
-use nullboard_tools::{list::List, GenericList, IntoGenericIter, ListIteratorAdapters};
+use nullboard_tools::{list::BasicList, GenericList, ListIteratorAdapters};
 use std::{
     borrow::Cow,
     collections::{hash_map::Entry, HashMap},
@@ -59,12 +59,9 @@ pub fn parse_owned_note<'a>(s: String) -> Lines<'a> {
 
 /// Parse lists of notes, each containing a (possibly multiline) string into
 /// lists of notes with data `Lines` that are each LineOrReference
-pub fn parse_notes<'a>(lists: Vec<List>) -> Vec<GenericList<Lines<'a>>> {
+pub fn parse_notes<'a>(lists: Vec<BasicList>) -> Vec<GenericList<Lines<'a>>> {
     info!("Parsing notes");
-    lists
-        .into_generic_iter()
-        .map_note_data(parse_owned_note)
-        .collect()
+    lists.into_iter().map_note_data(parse_owned_note).collect()
 }
 
 /// Associate a work unit with these lines
