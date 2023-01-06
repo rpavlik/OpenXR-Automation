@@ -4,7 +4,7 @@
 //
 // Author: Ryan Pavlik <ryan.pavlik@collabora.com>
 
-use crate::GenericList;
+use crate::{GenericList, GenericNote};
 
 /// Data access methods applicable to all types that resemble a list of notes/Kanban board column
 pub trait List {
@@ -42,4 +42,7 @@ pub trait Note {
 
     /// Mutably borrow the contents/text of the note
     fn data_mut(&mut self) -> &mut Self::Data;
+
+    /// Create a new note from this one by applying a mapping/transform to its text/data
+    fn map_note_data<B, F: FnMut(Self::Data) -> B>(self, f: F) -> GenericNote<B>;
 }

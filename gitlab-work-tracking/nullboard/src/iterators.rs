@@ -6,10 +6,9 @@
 
 use crate::{List, Note};
 
-// -- adapters for iterators over notes -- //
-
+/// Adapters for iterators over notes
 pub mod over_notes {
-    use crate::GenericNote;
+    use crate::{GenericNote, Note};
 
     /// Iterator adapter for mapping note data when iterating over notes.
     #[must_use = "iterators are lazy"]
@@ -18,22 +17,23 @@ pub mod over_notes {
         f: F,
     }
 
-    impl<F, I> MapNoteData<I, F> {
+    impl<I, F> MapNoteData<I, F> {
         pub(super) fn new(iter: I, f: F) -> Self {
             MapNoteData { iter, f }
         }
     }
 
-    impl<B, T, F, I> Iterator for MapNoteData<I, F>
+    impl<B, I, F> Iterator for MapNoteData<I, F>
     where
-        F: FnMut(T) -> B,
-        I: Iterator<Item = GenericNote<T>>,
+        I: Iterator,
+        I::Item: Note,
+        F: FnMut(<I::Item as Note>::Data) -> B,
     {
         type Item = GenericNote<B>;
 
         #[inline]
         fn next(&mut self) -> Option<Self::Item> {
-            self.iter.next().map(|note| note.map(&mut self.f))
+            self.iter.next().map(|note| note.map_note_data(&mut self.f))
         }
 
         #[inline]
@@ -45,18 +45,18 @@ pub mod over_notes {
 }
 
 /// Trait to add `map_note_data` method to iterators over notes
-pub trait NoteIteratorAdapters<N: Note>: Sized {
+pub trait NoteIteratorAdapters<T>: Sized {
     /// Maps the data of the notes (like calling GenericNote::map on each element)
-    fn map_note_data<B, F: FnMut(N::Data) -> B>(self, f: F) -> over_notes::MapNoteData<Self, F>;
+    fn map_note_data<B, F: FnMut(T) -> B>(self, f: F) -> over_notes::MapNoteData<Self, F>;
 }
 
 // This impl cannot be combined with the trait declaration above or it won't work.
-impl<N, U> NoteIteratorAdapters<N> for U
+impl<T, I> NoteIteratorAdapters<T> for I
 where
-    U: Iterator<Item = N>,
-    N: Note,
+    I: Iterator,
+    I::Item: Note<Data = T>,
 {
-    fn map_note_data<B, F: FnMut(N::Data) -> B>(self, f: F) -> over_notes::MapNoteData<Self, F> {
+    fn map_note_data<B, F: FnMut(T) -> B>(self, f: F) -> over_notes::MapNoteData<Self, F> {
         over_notes::MapNoteData::new(self, f)
     }
 }
@@ -64,6 +64,7 @@ where
 /// Adapters for iterators over lists
 pub mod over_lists {
     use crate::{GenericList, List};
+
     /// Iterator adapter for mapping note data when iterating over lists.
     #[must_use = "iterators are lazy"]
     pub struct MapNoteData<I, F> {
@@ -71,17 +72,17 @@ pub mod over_lists {
         f: F,
     }
 
-    impl<F, I> MapNoteData<I, F> {
+    impl<I, F> MapNoteData<I, F> {
         pub(super) fn new(iter: I, f: F) -> Self {
             MapNoteData { iter, f }
         }
     }
 
-    impl<F, I, L, B> Iterator for MapNoteData<I, F>
+    impl<B, I, F> Iterator for MapNoteData<I, F>
     where
-        F: FnMut(L::NoteData) -> B,
-        L: List,
-        I: Iterator<Item = L> + Sized,
+        F: FnMut(<I::Item as List>::NoteData) -> B,
+        I: Iterator + Sized,
+        I::Item: List,
     {
         type Item = GenericList<B>;
 
@@ -110,11 +111,11 @@ pub mod over_lists {
         }
     }
 
-    impl<I, L, P> Iterator for FilterNotes<I, P>
+    impl<I, P> Iterator for FilterNotes<I, P>
     where
-        L: List,
-        I: Iterator<Item = L> + Sized,
-        P: FnMut(&L::NoteData) -> bool,
+        I: Iterator + Sized,
+        I::Item: List,
+        P: FnMut(&<I::Item as List>::NoteData) -> bool,
     {
         type Item = I::Item;
 
@@ -143,10 +144,10 @@ pub trait ListIteratorAdapters<T>: Sized {
 }
 
 // This impl cannot be combined with the trait declaration above or it won't work.
-impl<T, I, L> ListIteratorAdapters<T> for I
+impl<T, I> ListIteratorAdapters<T> for I
 where
-    L: List,
-    I: Iterator<Item = L>,
+    I: Iterator,
+    I::Item: List<NoteData = T>,
 {
     fn map_note_data<B, F: FnMut(T) -> B>(self, f: F) -> over_lists::MapNoteData<Self, F> {
         over_lists::MapNoteData::new(self, f)

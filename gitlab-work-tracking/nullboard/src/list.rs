@@ -8,10 +8,7 @@ use std::borrow::Cow;
 
 use serde::{Deserialize, Serialize};
 
-use crate::{
-    note::{map_note_data_string, BasicNote},
-    GenericNote, List, Note,
-};
+use crate::{note::BasicNote, GenericNote, List, Note, NoteIteratorAdapters};
 
 /// A structure representing a list in a board as exported to JSON from Nullboard
 #[derive(Debug, Clone, Deserialize, Serialize, PartialEq, Eq, Default)]
@@ -55,11 +52,7 @@ impl List for BasicList {
     fn map_note_data<B, F: FnMut(Self::NoteData) -> B>(self, f: F) -> GenericList<B> {
         GenericList {
             title: self.title.clone(),
-            notes: self
-                .notes
-                .into_iter()
-                .map(map_note_data_string(f))
-                .collect(),
+            notes: self.notes.into_iter().map_note_data(f).collect(),
         }
     }
 }

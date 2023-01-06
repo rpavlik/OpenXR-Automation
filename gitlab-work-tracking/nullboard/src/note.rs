@@ -35,6 +35,16 @@ impl crate::traits::Note for BasicNote {
     fn data_mut(&mut self) -> &mut Self::Data {
         &mut self.text
     }
+
+    fn map_note_data<B, F: FnMut(Self::Data) -> B>(self, mut f: F) -> GenericNote<B> {
+        let data = f(self.text);
+
+        GenericNote {
+            data,
+            raw: self.raw,
+            min: self.min,
+        }
+    }
 }
 
 impl BasicNote {
@@ -44,17 +54,6 @@ impl BasicNote {
             text: contents.to_owned(),
             raw: false,
             min: false,
-        }
-    }
-
-    /// Create a generic note from this one by applying a mapping transform to its text
-    pub fn map<B>(self, f: impl FnOnce(String) -> B) -> GenericNote<B> {
-        let data = f(self.text);
-
-        GenericNote {
-            data,
-            raw: self.raw,
-            min: self.min,
         }
     }
 }
@@ -90,6 +89,15 @@ impl<T> crate::traits::Note for GenericNote<T> {
     fn data_mut(&mut self) -> &mut Self::Data {
         &mut self.data
     }
+    fn map_note_data<B, F: FnMut(Self::Data) -> B>(self, mut f: F) -> GenericNote<B> {
+        let data = f(self.data);
+
+        GenericNote {
+            data,
+            raw: self.raw,
+            min: self.min,
+        }
+    }
 }
 
 impl<T> GenericNote<T> {
@@ -101,38 +109,8 @@ impl<T> GenericNote<T> {
             min: false,
         }
     }
-
-    /// Map the data of a note
-    pub fn map<B>(self, f: impl FnOnce(T) -> B) -> GenericNote<B> {
-        let data = f(self.data);
-
-        GenericNote {
-            data,
-            raw: self.raw,
-            min: self.min,
-        }
-    }
 }
 
-pub(crate) fn map_note_text<B>(
-    mut f: impl FnMut(&str) -> B,
-) -> impl FnMut(&BasicNote) -> GenericNote<B> {
-    move |note| GenericNote {
-        data: f(&note.text),
-        raw: note.raw,
-        min: note.min,
-    }
-}
-
-pub(crate) fn map_note_data_string<B>(
-    mut f: impl FnMut(String) -> B,
-) -> impl FnMut(BasicNote) -> GenericNote<B> {
-    move |note| GenericNote {
-        data: f(note.text),
-        raw: note.raw,
-        min: note.min,
-    }
-}
 impl<T: core::fmt::Debug> core::fmt::Debug for GenericNote<T> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("GenericNote")
