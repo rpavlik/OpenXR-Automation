@@ -4,6 +4,7 @@
 //
 // Author: Ryan Pavlik <ryan.pavlik@collabora.com>
 
+use crate::find_more::{find_new_checklists, find_new_notes};
 use board_update::{
     associate_work_unit_with_note,
     cli::{GitlabArgs, InputOutputArgs, ProjectArgs},
@@ -14,8 +15,10 @@ use dotenvy::dotenv;
 use env_logger::Env;
 use gitlab_work::{ProjectMapper, WorkUnitCollection};
 use log::info;
-use nullboard_tools::{IntoGenericIter, ListIteratorAdapters};
+use nullboard_tools::{GenericNote, IntoGenericIter, ListIteratorAdapters};
 use std::path::Path;
+
+mod find_more;
 
 #[derive(Parser)]
 struct Cli {
@@ -55,13 +58,22 @@ fn main() -> Result<(), anyhow::Error> {
     let mut collection = WorkUnitCollection::default();
 
     info!("Processing board notes");
-    let lists: Vec<_> = board
+    let mut lists: Vec<_> = board
         .take_lists()
         .into_generic_iter()
         .map_note_data(parse_owned_note)
         .map_note_data(|data| note_refs_to_ids(&mut mapper, data))
         .map_note_data(|note_data| associate_work_unit_with_note(&mut collection, note_data))
         .collect();
+
+    info!("Looking for new checklists");
+    if let Ok(new_checklists) = find_new_checklists(&gitlab, &args.project.default_project) {
+        let list = &mut lists[1];
+        for (issue_data, note) in find_new_notes(&mut collection, new_checklists) {
+            info!("Adding note for {}", issue_data.title());
+            list.notes_mut().push(GenericNote::new(note));
+        }
+    }
 
     info!("Pruning notes");
     let lists = prune_notes(&collection, lists);
