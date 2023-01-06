@@ -99,7 +99,7 @@ impl Default for Board {
             format: FORMAT,
             id: std::time::SystemTime::now()
                 .duration_since(std::time::UNIX_EPOCH)
-                .unwrap()
+                .expect("could not determine time since unix epoch")
                 .as_secs(),
             revision: 1,
             title: Default::default(),

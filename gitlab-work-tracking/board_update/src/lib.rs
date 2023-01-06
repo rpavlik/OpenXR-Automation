@@ -66,7 +66,7 @@ pub fn normalize_line_or_reference(
         Ok(mapped) => mapped,
         Err(_) => LineOrReference::Line(format!(
             "Failed trying to normalize reference {}",
-            line.as_reference().unwrap()
+            line.as_reference().expect("only references can error")
         )),
     }
 }

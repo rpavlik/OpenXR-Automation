@@ -20,7 +20,7 @@ fn find_refs(input: &str) -> impl Iterator<Item = ProjectItemReference> + '_ {
                 (?P<iid>[1-9][0-9]+)
             "
         )
-        .unwrap();
+        .expect("valid regex");
     }
     RE.captures_iter(input).filter_map(|cap| {
         // this should always be found and parse right

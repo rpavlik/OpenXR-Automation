@@ -80,7 +80,7 @@ pub fn format_reference(
                     "[{}]({}) {}{}",
                     reference.clone().with_formatted_project_reference(mapper),
                     info.web_url,
-                    info.state_annotation.unwrap_or(""),
+                    info.state_annotation.unwrap_or_default(),
                     title_mangler(info.title.as_str())
                 )
             }
