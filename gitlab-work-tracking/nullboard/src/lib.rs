@@ -24,6 +24,6 @@ pub mod list;
 pub mod note;
 
 pub use board::Board;
-pub use iterators::{ListIteratorAdapters, NoteIteratorAdapters, VecIntoGeneric};
+pub use iterators::{IntoGenericIter, ListIteratorAdapters, NoteIteratorAdapters};
 pub use list::{GenericList, List};
 pub use note::{GenericNote, Note};

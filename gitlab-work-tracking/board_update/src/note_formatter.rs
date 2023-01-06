@@ -52,14 +52,14 @@ fn query_gitlab(
         ProjectItemReference::Issue(issue) => {
             let endpoint = gitlab::api::projects::issues::Issue::builder()
                 .project(proj_id.value())
-                .issue(issue.get_raw_iid())
+                .issue(issue.raw_iid())
                 .build()?;
             endpoint.query(client)
         }
         ProjectItemReference::MergeRequest(mr) => {
             let endpoint = gitlab::api::projects::merge_requests::MergeRequest::builder()
                 .project(proj_id.value())
-                .merge_request(mr.get_raw_iid())
+                .merge_request(mr.raw_iid())
                 .build()?;
             endpoint.query(client)
         }
@@ -73,7 +73,7 @@ pub fn format_reference(
     mapper: &ProjectMapper,
     title_mangler: impl Fn(&str) -> &str,
 ) -> String {
-    match reference.get_project().project_id() {
+    match reference.project().project_id() {
         Some(proj_id) => match query_gitlab(proj_id, reference, mapper.gitlab_client()) {
             Ok(info) => {
                 format!(

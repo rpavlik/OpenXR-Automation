@@ -143,12 +143,12 @@ where
         &self,
         mapper: &mut ProjectMapper,
     ) -> Result<Self, Error> {
-        let id = mapper.try_map_project_to_id(self.get_project())?;
-        Ok(self.with_project_id(id))
+        let id = mapper.try_map_project_to_id(self.project())?;
+        Ok(self.clone_with_project_id(id))
     }
 
     fn with_formatted_project_reference(self, mapper: &ProjectMapper) -> Self {
-        let id = self.get_project();
+        let id = self.project();
         let formatted = mapper.map_id_to_formatted_project(id);
         self.with_project(formatted)
     }

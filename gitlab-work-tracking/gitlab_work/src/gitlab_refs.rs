@@ -87,13 +87,13 @@ impl Default for ProjectReference {
 
 pub trait BaseGitLabItemReference: Clone {
     /// Get the project for this reference
-    fn get_project(&self) -> &ProjectReference;
+    fn project(&self) -> &ProjectReference;
 
     /// Get the project for this reference (mutable)
-    fn get_project_mut(&mut self) -> &mut ProjectReference;
+    fn project_mut(&mut self) -> &mut ProjectReference;
 
     /// Get the iid (per project ID) of this reference
-    fn get_raw_iid(&self) -> u64;
+    fn raw_iid(&self) -> u64;
 
     /// Clone and replace project with the given project reference
     fn clone_with_project(&self, project: ProjectReference) -> Self;
@@ -102,10 +102,10 @@ pub trait BaseGitLabItemReference: Clone {
     fn with_project(self, project: ProjectReference) -> Self;
 
     /// Get the symbol used to signify a reference of the type of this instance
-    fn get_symbol(&self) -> char;
+    fn symbol(&self) -> char;
 
     /// Clone and replace project with the given project ID
-    fn with_project_id(&self, project_id: ProjectId) -> Self {
+    fn clone_with_project_id(&self, project_id: ProjectId) -> Self {
         self.clone_with_project(project_id.into())
     }
 }
@@ -114,10 +114,10 @@ pub trait TypedGitLabItemReference: BaseGitLabItemReference {
     type IidType: Copy;
 
     /// Get the symbol used to signify a reference of this type, without an instance
-    fn get_symbol_static() -> char;
+    fn symbol_static() -> char;
 
     /// Get the iid (per project ID) of this reference
-    fn get_iid(&self) -> Self::IidType;
+    fn iid(&self) -> Self::IidType;
 }
 
 pub fn format_reference(
@@ -144,14 +144,14 @@ pub fn format_reference_using_trait<T: TypedGitLabItemReference>(
     f: &mut std::fmt::Formatter<'_>,
 ) -> std::fmt::Result {
     format_reference(
-        reference.get_project(),
-        T::get_symbol_static(),
-        reference.get_raw_iid(),
+        reference.project(),
+        T::symbol_static(),
+        reference.raw_iid(),
         f,
     )
 }
 
-const ISSUE_SYMBOL: char = '#';
+pub const ISSUE_SYMBOL: char = '#';
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct Issue {
@@ -166,15 +166,15 @@ impl Issue {
 }
 
 impl BaseGitLabItemReference for Issue {
-    fn get_project(&self) -> &ProjectReference {
+    fn project(&self) -> &ProjectReference {
         &self.project
     }
 
-    fn get_project_mut(&mut self) -> &mut ProjectReference {
+    fn project_mut(&mut self) -> &mut ProjectReference {
         &mut self.project
     }
 
-    fn get_raw_iid(&self) -> u64 {
+    fn raw_iid(&self) -> u64 {
         self.iid.value()
     }
 
@@ -192,19 +192,19 @@ impl BaseGitLabItemReference for Issue {
         }
     }
 
-    fn get_symbol(&self) -> char {
-        Self::get_symbol_static()
+    fn symbol(&self) -> char {
+        Self::symbol_static()
     }
 }
 
 impl TypedGitLabItemReference for Issue {
     type IidType = IssueInternalId;
 
-    fn get_symbol_static() -> char {
+    fn symbol_static() -> char {
         ISSUE_SYMBOL
     }
 
-    fn get_iid(&self) -> Self::IidType {
+    fn iid(&self) -> Self::IidType {
         self.iid
     }
 }
@@ -225,7 +225,7 @@ impl From<gitlab::types::Issue> for Issue {
     }
 }
 
-const MR_SYMBOL: char = '!';
+pub const MR_SYMBOL: char = '!';
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct MergeRequest {
@@ -240,15 +240,15 @@ impl MergeRequest {
 }
 
 impl BaseGitLabItemReference for MergeRequest {
-    fn get_project(&self) -> &ProjectReference {
+    fn project(&self) -> &ProjectReference {
         &self.project
     }
 
-    fn get_project_mut(&mut self) -> &mut ProjectReference {
+    fn project_mut(&mut self) -> &mut ProjectReference {
         &mut self.project
     }
 
-    fn get_raw_iid(&self) -> u64 {
+    fn raw_iid(&self) -> u64 {
         self.iid.value()
     }
 
@@ -266,18 +266,18 @@ impl BaseGitLabItemReference for MergeRequest {
         }
     }
 
-    fn get_symbol(&self) -> char {
-        Self::get_symbol_static()
+    fn symbol(&self) -> char {
+        Self::symbol_static()
     }
 }
 
 impl TypedGitLabItemReference for MergeRequest {
     type IidType = MergeRequestInternalId;
 
-    fn get_symbol_static() -> char {
+    fn symbol_static() -> char {
         MR_SYMBOL
     }
-    fn get_iid(&self) -> Self::IidType {
+    fn iid(&self) -> Self::IidType {
         self.iid
     }
 }
@@ -326,24 +326,24 @@ impl Display for ProjectItemReference {
 }
 
 impl BaseGitLabItemReference for ProjectItemReference {
-    fn get_project(&self) -> &ProjectReference {
+    fn project(&self) -> &ProjectReference {
         match self {
-            ProjectItemReference::Issue(c) => c.get_project(),
-            ProjectItemReference::MergeRequest(c) => c.get_project(),
+            ProjectItemReference::Issue(c) => c.project(),
+            ProjectItemReference::MergeRequest(c) => c.project(),
         }
     }
 
-    fn get_project_mut(&mut self) -> &mut ProjectReference {
+    fn project_mut(&mut self) -> &mut ProjectReference {
         match self {
-            ProjectItemReference::Issue(c) => c.get_project_mut(),
-            ProjectItemReference::MergeRequest(c) => c.get_project_mut(),
+            ProjectItemReference::Issue(c) => c.project_mut(),
+            ProjectItemReference::MergeRequest(c) => c.project_mut(),
         }
     }
 
-    fn get_raw_iid(&self) -> u64 {
+    fn raw_iid(&self) -> u64 {
         match self {
-            ProjectItemReference::Issue(c) => c.get_raw_iid(),
-            ProjectItemReference::MergeRequest(c) => c.get_raw_iid(),
+            ProjectItemReference::Issue(c) => c.raw_iid(),
+            ProjectItemReference::MergeRequest(c) => c.raw_iid(),
         }
     }
 
@@ -361,10 +361,10 @@ impl BaseGitLabItemReference for ProjectItemReference {
         }
     }
 
-    fn get_symbol(&self) -> char {
+    fn symbol(&self) -> char {
         match self {
-            ProjectItemReference::MergeRequest(_) => MergeRequest::get_symbol_static(),
-            ProjectItemReference::Issue(_) => Issue::get_symbol_static(),
+            ProjectItemReference::MergeRequest(_) => MergeRequest::symbol_static(),
+            ProjectItemReference::Issue(_) => Issue::symbol_static(),
         }
     }
 }

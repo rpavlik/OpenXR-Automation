@@ -206,7 +206,7 @@ impl WorkUnitCollection {
         unit_id: UnitId,
         refs: &[ProjectItemReference],
     ) -> Result<(), GetUnitIdError> {
-        for reference in refs.iter() {
+        for reference in refs {
             self.add_ref_to_unit_id(unit_id, reference)?;
         }
         Ok(())

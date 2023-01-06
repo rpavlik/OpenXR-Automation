@@ -83,7 +83,6 @@ pub fn map_note_data_in_lists<'a, T, B, F: 'a + FnMut(T) -> B>(
 impl<T> GenericList<T> {
     /// Clone this list, transforming the notes by passing a reference to the provided function
     pub fn map_notes_as_ref<U, F: FnMut(&T) -> U>(&self, f: F) -> GenericList<U> {
-        // let mut f = f;
         GenericList {
             title: self.title.clone(),
             notes: self.notes.iter().map(map_generic_notes_as_ref(f)).collect(),
@@ -100,7 +99,6 @@ impl<T> GenericList<T> {
 
     /// Filter notes using a predicate on their data
     pub fn filter_notes(self, f: impl FnMut(&T) -> bool) -> Self {
-        // let filter_whole_note = move |note: &GenericNote<T>| f(&note.text);
         let mut filter = filter_generic_notes(f);
         GenericList {
             title: self.title,
@@ -110,6 +108,7 @@ impl<T> GenericList<T> {
 }
 
 // -- filter_notes -- //
+
 fn filter_generic_notes<T>(mut f: impl FnMut(&T) -> bool) -> impl FnMut(&GenericNote<T>) -> bool {
     move |note| f(&note.data)
 }

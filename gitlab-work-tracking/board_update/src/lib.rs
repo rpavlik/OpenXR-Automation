@@ -9,7 +9,7 @@ use gitlab_work::{
     UnitId, WorkUnitCollection,
 };
 use log::warn;
-use nullboard_tools::{GenericList, GenericNote};
+use nullboard_tools::{GenericList, ListIteratorAdapters};
 use std::collections::{hash_map::Entry, HashMap};
 
 pub mod note_formatter;
@@ -40,7 +40,7 @@ pub fn process_note_and_associate_work_unit(
     let refs: Vec<ProjectItemReference> = lines
         .0
         .iter()
-        .filter_map(LineOrReference::reference)
+        .filter_map(LineOrReference::as_reference)
         .cloned()
         .collect();
 
@@ -56,26 +56,17 @@ pub fn process_note_and_associate_work_unit(
     ProcessedNote { unit_id, lines }
 }
 
-pub fn process_lists_and_associate_work_units<'a>(
-    collection: &'a mut WorkUnitCollection,
-    lists: impl IntoIterator<Item = GenericList<Lines>> + 'a,
-) -> impl Iterator<Item = GenericList<ProcessedNote>> + 'a {
-    lists.into_iter().map(move |list| {
-        list.map_note_data(|text| process_note_and_associate_work_unit(collection, text))
-    })
-}
-
-fn normalize_line_or_reference(
+pub fn normalize_line_or_reference(
     mapper: &mut ProjectMapper,
     line: LineOrReference,
 ) -> LineOrReference {
-    match line
-        .try_map_reference(|reference| reference.try_with_normalized_project_reference(mapper))
-    {
+    match line.try_map_reference_or_clone(|reference| {
+        reference.try_with_normalized_project_reference(mapper)
+    }) {
         Ok(mapped) => mapped,
         Err(_) => LineOrReference::Line(format!(
             "Failed trying to normalize reference {}",
-            line.reference().unwrap()
+            line.as_reference().unwrap()
         )),
     }
 }
@@ -91,33 +82,21 @@ pub fn note_project_refs_to_ids(mapper: &mut ProjectMapper, lines: Lines) -> Lin
 
 const RECURSE_LIMIT: usize = 5;
 
-// fn filter_note(
-//     collection: &'a mut WorkUnitCollection, )
-
-// pub fn map_note_data_in_lists<'a, T, B, F: 'a + FnMut(T) -> B>(
-//     lists: impl IntoIterator<Item = GenericList<T>> + 'a,
-//     f: F,
-// ) -> impl Iterator<Item = GenericList<B>> + 'a {
-//     let mut map_list = move |list: GenericList<T>| -> GenericList<B> { list.map_notes(f) };
-
-//     lists.into_iter().map(&map_list)
-// }
-
 pub fn prune_notes<'a>(
     collection: &'a mut WorkUnitCollection,
     lists: impl IntoIterator<Item = GenericList<ProcessedNote>> + 'a,
 ) -> Vec<GenericList<ProcessedNote>> {
     // Mark those notes which should be skipped because they refer to a work unit that already has a card.
     let mut units_handled: HashMap<UnitId, ()> = Default::default();
-    let mut filter_note = |note: &GenericNote<ProcessedNote>| {
-        if let Some(id) = &note.data.unit_id {
+    let filter_note = move |note: &ProcessedNote| {
+        if let Some(id) = &note.unit_id {
             match collection.get_unit_id_following_extinction(*id, RECURSE_LIMIT) {
                 Ok(id) => match units_handled.entry(id) {
                     Entry::Occupied(_) => {
                         // note.text.deleted = true;
                         warn!(
                             "Deleting note because its work unit was already handled: {} {:?}",
-                            id, note.data.lines
+                            id, note.lines
                         );
                         false
                     }
@@ -136,13 +115,5 @@ pub fn prune_notes<'a>(
         }
     };
 
-    lists
-        .into_iter()
-        .map(move |list| -> GenericList<ProcessedNote> {
-            GenericList {
-                title: list.title,
-                notes: list.notes.into_iter().filter(&mut filter_note).collect(),
-            }
-        })
-        .collect()
+    lists.into_iter().filter_notes(filter_note).collect()
 }

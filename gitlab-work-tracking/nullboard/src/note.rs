@@ -82,6 +82,16 @@ impl<T> GenericNote<T> {
             min: self.min,
         }
     }
+
+    /// Get a reference to the data
+    pub fn as_data(&self) -> &T {
+        &self.data
+    }
+
+    /// Get a mutable reference to the data
+    pub fn as_mut_data(&mut self) -> &mut T {
+        &mut self.data
+    }
 }
 
 impl<T: core::fmt::Debug> core::fmt::Debug for GenericNote<T> {

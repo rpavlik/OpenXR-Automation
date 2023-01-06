@@ -14,7 +14,7 @@ use dotenvy::dotenv;
 use env_logger::Env;
 use gitlab_work::{ProjectMapper, WorkUnitCollection};
 use log::info;
-use nullboard_tools::{ListIteratorAdapters, VecIntoGeneric};
+use nullboard_tools::{IntoGenericIter, ListIteratorAdapters};
 use std::path::{Path, PathBuf};
 
 #[derive(Args, Debug, Clone)]
@@ -103,7 +103,7 @@ fn main() -> Result<(), anyhow::Error> {
     info!("Parsing notes");
     let parsed_lists: Vec<_> = board
         .take_lists()
-        .into_generic()
+        .into_generic_iter()
         .map_note_data(parse_note)
         .collect();
 
