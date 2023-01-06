@@ -7,10 +7,7 @@
 use serde::{Deserialize, Serialize};
 use std::{borrow::Cow, fs, path::Path};
 
-use crate::{
-    list::{self, BasicList},
-    Error, GenericList,
-};
+use crate::{list::BasicList, Error, GenericList};
 
 const FORMAT: u32 = 20190412;
 
@@ -21,10 +18,28 @@ pub struct Board<'a> {
     id: u64,
     revision: u32,
     pub title: String,
-    lists: Vec<list::BasicList<'a>>,
+    lists: Vec<BasicList<'a>>,
     history: Vec<u32>,
 }
 
+impl<'a> Board<'a> {
+    /// Make a new revision that replaces the lists.
+    pub fn make_new_revision_with_lists(
+        self,
+        lists: impl IntoIterator<Item = GenericList<'a, String>>,
+    ) -> Board<'a> {
+        let mut ret = Self {
+            format: self.format,
+            id: self.id,
+            revision: self.revision,
+            title: self.title.clone(),
+            lists: lists.into_iter().map(BasicList::from).collect(),
+            history: self.history,
+        };
+        ret.increment_revision();
+        ret
+    }
+}
 impl Board<'_> {
     /// Make a new board with a given title
     pub fn new<'a>(title: impl Into<Cow<'a, str>>) -> Self {
@@ -33,8 +48,6 @@ impl Board<'_> {
             ..Default::default()
         }
     }
-}
-impl Board<'_> {
     /// Load a board from a JSON file
     pub fn load_from_json(filename: &Path) -> Result<Self, Error> {
         let contents = fs::read_to_string(filename)?;
@@ -77,23 +90,6 @@ impl Board<'_> {
 
     pub fn take_lists(&mut self) -> Vec<BasicList> {
         std::mem::take(&mut self.lists)
-    }
-
-    /// Make a new revision that replaces the lists.
-    pub fn make_new_revision_with_lists<'a>(
-        self,
-        lists: impl IntoIterator<Item = GenericList<'a, String>>,
-    ) -> Board<'a> {
-        let mut ret = Self {
-            format: self.format,
-            id: self.id,
-            revision: self.revision,
-            title: self.title.clone(),
-            lists: lists.into_iter().map(BasicList::from).collect(),
-            history: self.history,
-        };
-        ret.increment_revision();
-        ret
     }
 }
 

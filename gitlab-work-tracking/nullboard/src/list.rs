@@ -27,7 +27,7 @@ impl<'a> BasicList<'a> {
         }
     }
 }
-impl List for BasicList<'_> {
+impl<'a> List<'a> for BasicList<'a> {
     type Note = BasicNote;
     type NoteData = String;
 
@@ -49,7 +49,7 @@ impl List for BasicList<'_> {
             notes: self.notes.into_iter().filter(|n| f(n.data())).collect(),
         }
     }
-    fn map_note_data<'a, B, F: FnMut(Self::NoteData) -> B>(self, f: F) -> GenericList<'a, B> {
+    fn map_note_data<B, F: FnMut(Self::NoteData) -> B>(self, f: F) -> GenericList<'a, B> {
         GenericList {
             title: self.title.clone(),
             notes: self.notes.into_iter().map_note_data(f).collect(),
@@ -87,7 +87,7 @@ fn map_generic_notes<T, B>(
     }
 }
 
-impl<'a, T> List for GenericList<'a, T> {
+impl<'a, T> List<'a> for GenericList<'a, T> {
     type Note = GenericNote<T>;
 
     type NoteData = T;
@@ -111,7 +111,7 @@ impl<'a, T> List for GenericList<'a, T> {
         }
     }
 
-    fn map_note_data<'de, B, F: FnMut(Self::NoteData) -> B>(self, f: F) -> GenericList<'de, B> {
+    fn map_note_data<B, F: FnMut(Self::NoteData) -> B>(self, f: F) -> GenericList<'a, B> {
         GenericList {
             title: self.title,
             notes: self.notes.into_iter().map(map_generic_notes(f)).collect(),
@@ -129,7 +129,7 @@ impl<T: core::fmt::Debug> core::fmt::Debug for GenericList<'_, T> {
 }
 
 impl<'a> From<GenericList<'a, String>> for BasicList<'a> {
-    fn from(list: GenericList<String>) -> Self {
+    fn from(list: GenericList<'a, String>) -> Self {
         Self {
             title: list.title,
             notes: list.notes.into_iter().map(BasicNote::from).collect(),
@@ -138,7 +138,7 @@ impl<'a> From<GenericList<'a, String>> for BasicList<'a> {
 }
 
 impl<'a> From<BasicList<'a>> for GenericList<'a, String> {
-    fn from(list: BasicList) -> Self {
+    fn from(list: BasicList<'a>) -> Self {
         Self {
             title: list.title,
             notes: list.notes.into_iter().map(GenericNote::from).collect(),
@@ -146,13 +146,13 @@ impl<'a> From<BasicList<'a>> for GenericList<'a, String> {
     }
 }
 
-/// Applies a function to every note in a collection of lists.
-pub fn map_note_data_in_lists<'a, T, B, F: 'a + FnMut(T) -> B>(
-    lists: impl IntoIterator<Item = GenericList<'a, T>> + 'a,
-    mut f: F,
-) -> impl Iterator<Item = GenericList<'a, B>> + 'a {
-    // "move" moves f into the closure, &mut avoids moving it *out* of the closure in each call
-    let map_list = move |list: GenericList<T>| -> GenericList<B> { list.map_note_data(&mut f) };
+// /// Applies a function to every note in a collection of lists.
+// pub fn map_note_data_in_lists<'a, T, B, F: 'a + FnMut(T) -> B>(
+//     lists: impl IntoIterator<Item = GenericList<'a, T>> + 'a,
+//     mut f: F,
+// ) -> impl Iterator<Item = GenericList<'a, B>> + 'a {
+//     // "move" moves f into the closure, &mut avoids moving it *out* of the closure in each call
+//     let map_list = move |list: GenericList<T>| -> GenericList<B> { list.map_note_data(&mut f) };
 
-    lists.into_iter().map(map_list)
-}
+//     lists.into_iter().map(map_list)
+// }

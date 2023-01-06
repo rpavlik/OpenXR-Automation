@@ -161,8 +161,8 @@ pub fn make_note_pruner(
 /// which already had a note output.
 pub fn prune_notes<'a>(
     collection: &WorkUnitCollection,
-    lists: impl IntoIterator<Item = GenericList<ProcessedNote<'a>>>,
-) -> Vec<GenericList<ProcessedNote<'a>>> {
+    lists: impl 'a + IntoIterator<Item = GenericList<'a, ProcessedNote<'a>>>,
+) -> Vec<GenericList<'a, ProcessedNote<'a>>> {
     lists
         .into_iter()
         .filter_notes(make_note_pruner(collection))
