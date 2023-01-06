@@ -10,46 +10,62 @@ use gitlab_work::{
 };
 use log::{info, warn};
 use nullboard_tools::{GenericList, IntoGenericIter, List, ListIteratorAdapters};
-use std::collections::{hash_map::Entry, HashMap};
+use std::{
+    borrow::Cow,
+    collections::{hash_map::Entry, HashMap},
+};
 
 pub mod cli;
 pub mod note_formatter;
 
 #[derive(Debug)]
-pub struct Lines(pub Vec<LineOrReference>);
+pub struct Lines<'a>(pub Vec<LineOrReference<'a>>);
 
 #[derive(Debug)]
-pub struct ProcessedNote {
+pub struct ProcessedNote<'a> {
     unit_id: Option<UnitId>,
-    lines: Lines,
+    lines: Lines<'a>,
 }
 
-impl From<ProcessedNote> for Lines {
-    fn from(note: ProcessedNote) -> Self {
+impl<'a> From<ProcessedNote<'a>> for Lines<'a> {
+    fn from(note: ProcessedNote<'a>) -> Self {
         note.lines
     }
 }
 
 /// Parse a (possibly multiline) string into lines that are each LineOrReference
-pub fn parse_note(s: String) -> Lines {
-    Lines(s.split('\n').map(LineOrReference::parse_line).collect())
+pub fn parse_note<'a>(s: &str) -> Lines<'a> {
+    Lines(
+        s.split('\n')
+            .map(|line| LineOrReference::parse_owned_line(line.to_owned()))
+            .collect(),
+    )
+}
+
+/// Parse a (possibly multiline) string into lines that are each LineOrReference
+pub fn parse_owned_note<'a>(s: String) -> Lines<'a> {
+    Lines(
+        s.split('\n')
+            .map(|line| LineOrReference::parse_owned_line(line.to_owned()))
+            .collect(),
+    )
 }
 
 /// Parse lists of notes, each containing a (possibly multiline) string into
 /// lists of notes with data `Lines` that are each LineOrReference
-pub fn parse_notes(lists: Vec<List>) -> Vec<GenericList<Lines>> {
+pub fn parse_notes<'a>(lists: Vec<List>) -> Vec<GenericList<Lines<'a>>> {
     info!("Parsing notes");
     lists
         .into_generic_iter()
-        .map_note_data(parse_note)
+        .map_note_data(parse_owned_note)
         .collect()
 }
 
 /// Associate a work unit with these lines
-pub fn associate_work_unit_with_note(
+pub fn associate_work_unit_with_note<'a>(
     collection: &mut WorkUnitCollection,
-    lines: Lines,
-) -> ProcessedNote {
+    lines: Lines<'a>,
+) -> ProcessedNote<'a> {
     let refs: Vec<ProjectItemReference> = lines
         .0
         .iter()
@@ -72,23 +88,26 @@ pub fn associate_work_unit_with_note(
 /// Transform an item reference line into its "normalized" state, with a numeric project ID
 ///
 /// Turns any errors into an error message in the line.
-fn normalize_line_or_reference(
+fn normalize_line_or_reference<'a>(
     mapper: &mut ProjectMapper,
-    line: LineOrReference,
-) -> LineOrReference {
+    line: LineOrReference<'a>,
+) -> LineOrReference<'a> {
     match line.try_map_reference_or_clone(|reference| {
         reference.try_with_normalized_project_reference(mapper)
     }) {
         Ok(mapped) => mapped,
-        Err(_) => LineOrReference::Line(format!(
-            "Failed trying to normalize reference {}",
-            line.as_reference().expect("only references can error")
-        )),
+        Err(_) => {
+            let message = format!(
+                "Failed trying to normalize reference {}",
+                line.as_reference().expect("only references can error")
+            );
+            LineOrReference::Line(Cow::Owned(message))
+        }
     }
 }
 
 /// Normalize all project item refs in a note to use numeric project IDs
-pub fn note_refs_to_ids(mapper: &mut ProjectMapper, lines: Lines) -> Lines {
+pub fn note_refs_to_ids<'a>(mapper: &mut ProjectMapper, lines: Lines<'a>) -> Lines<'a> {
     let lines = lines
         .0
         .into_iter()
@@ -138,10 +157,10 @@ pub fn make_note_pruner(
 
 /// Iterate through lists, removing notes that refer to a work unit
 /// which already had a note output.
-pub fn prune_notes(
+pub fn prune_notes<'a>(
     collection: &WorkUnitCollection,
-    lists: impl IntoIterator<Item = GenericList<ProcessedNote>>,
-) -> Vec<GenericList<ProcessedNote>> {
+    lists: impl IntoIterator<Item = GenericList<ProcessedNote<'a>>>,
+) -> Vec<GenericList<ProcessedNote<'a>>> {
     lists
         .into_iter()
         .filter_notes(make_note_pruner(collection))
