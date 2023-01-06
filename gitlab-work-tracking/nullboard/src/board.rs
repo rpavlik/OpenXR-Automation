@@ -5,7 +5,7 @@
 // Author: Ryan Pavlik <ryan.pavlik@collabora.com>
 
 use serde::{Deserialize, Serialize};
-use std::{fs, path::Path};
+use std::{borrow::Cow, fs, path::Path};
 
 use crate::{
     list::{self, BasicList},
@@ -16,24 +16,25 @@ const FORMAT: u32 = 20190412;
 
 /// A structure representing a board as exported to JSON from Nullboard
 #[derive(Debug, Clone, Deserialize, Serialize, PartialEq, Eq)]
-pub struct Board {
+pub struct Board<'a> {
     format: u32,
     id: u64,
     revision: u32,
     pub title: String,
-    lists: Vec<list::BasicList>,
+    lists: Vec<list::BasicList<'a>>,
     history: Vec<u32>,
 }
 
-impl Board {
+impl Board<'_> {
     /// Make a new board with a given title
-    pub fn new(title: &str) -> Self {
+    pub fn new<'a>(title: impl Into<Cow<'a, str>>) -> Self {
         Self {
-            title: title.to_owned(),
+            title: title.into().into_owned(),
             ..Default::default()
         }
     }
-
+}
+impl Board<'_> {
     /// Load a board from a JSON file
     pub fn load_from_json(filename: &Path) -> Result<Self, Error> {
         let contents = fs::read_to_string(filename)?;
@@ -79,10 +80,10 @@ impl Board {
     }
 
     /// Make a new revision that replaces the lists.
-    pub fn make_new_revision_with_lists(
+    pub fn make_new_revision_with_lists<'a>(
         self,
-        lists: impl IntoIterator<Item = GenericList<String>>,
-    ) -> Self {
+        lists: impl IntoIterator<Item = GenericList<'a, String>>,
+    ) -> Board<'a> {
         let mut ret = Self {
             format: self.format,
             id: self.id,
@@ -96,7 +97,7 @@ impl Board {
     }
 }
 
-impl Default for Board {
+impl Default for Board<'_> {
     fn default() -> Self {
         Self {
             format: FORMAT,

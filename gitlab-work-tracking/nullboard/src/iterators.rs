@@ -63,6 +63,8 @@ where
 
 /// Adapters for iterators over lists
 pub mod over_lists {
+    use std::marker::PhantomData;
+
     use crate::{GenericList, List};
 
     /// Iterator adapter for mapping note data when iterating over lists.
@@ -84,7 +86,7 @@ pub mod over_lists {
         I: Iterator + Sized,
         I::Item: List,
     {
-        type Item = GenericList<B>;
+        type Item = GenericList<'a, B>;
 
         #[inline]
         fn next(&mut self) -> Option<Self::Item> {

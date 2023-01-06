@@ -12,22 +12,22 @@ use crate::{note::BasicNote, GenericNote, List, Note, NoteIteratorAdapters};
 
 /// A structure representing a list in a board as exported to JSON from Nullboard
 #[derive(Debug, Clone, Deserialize, Serialize, PartialEq, Eq, Default)]
-pub struct BasicList {
+pub struct BasicList<'a> {
     /// Title of the list
-    pub title: String,
+    title: Cow<'a, str>,
     /// Notes in the list
     notes: Vec<BasicNote>,
 }
 
-impl BasicList {
-    pub fn new<'a>(title: impl Into<Cow<'a, str>>, notes: Vec<BasicNote>) -> Self {
+impl<'a> BasicList<'a> {
+    pub fn new(title: impl Into<Cow<'a, str>>, notes: Vec<BasicNote>) -> Self {
         Self {
-            title: title.into().into_owned(),
+            title: title.into(),
             notes,
         }
     }
 }
-impl List for BasicList {
+impl List for BasicList<'_> {
     type Note = BasicNote;
     type NoteData = String;
 
@@ -49,7 +49,7 @@ impl List for BasicList {
             notes: self.notes.into_iter().filter(|n| f(n.data())).collect(),
         }
     }
-    fn map_note_data<B, F: FnMut(Self::NoteData) -> B>(self, f: F) -> GenericList<B> {
+    fn map_note_data<'a, B, F: FnMut(Self::NoteData) -> B>(self, f: F) -> GenericList<'a, B> {
         GenericList {
             title: self.title.clone(),
             notes: self.notes.into_iter().map_note_data(f).collect(),
@@ -61,17 +61,17 @@ impl List for BasicList {
 ///
 /// See also `List`
 #[derive(Clone, PartialEq, Eq, Default)]
-pub struct GenericList<T> {
+pub struct GenericList<'a, T> {
     /// Title of the list
-    title: String,
+    title: Cow<'a, str>,
     /// Notes in the list
     notes: Vec<GenericNote<T>>,
 }
 
-impl<T> GenericList<T> {
-    pub fn new<'a>(title: impl Into<Cow<'a, str>>, notes: Vec<GenericNote<T>>) -> Self {
+impl<'a, T> GenericList<'a, T> {
+    pub fn new(title: impl Into<Cow<'a, str>>, notes: Vec<GenericNote<T>>) -> Self {
         Self {
-            title: title.into().into_owned(),
+            title: title.into(),
             notes,
         }
     }
@@ -87,7 +87,7 @@ fn map_generic_notes<T, B>(
     }
 }
 
-impl<T> List for GenericList<T> {
+impl<'a, T> List for GenericList<'a, T> {
     type Note = GenericNote<T>;
 
     type NoteData = T;
@@ -111,15 +111,15 @@ impl<T> List for GenericList<T> {
         }
     }
 
-    fn map_note_data<B, F: FnMut(Self::NoteData) -> B>(self, f: F) -> GenericList<B> {
+    fn map_note_data<'de, B, F: FnMut(Self::NoteData) -> B>(self, f: F) -> GenericList<'de, B> {
         GenericList {
-            title: self.title.clone(),
+            title: self.title,
             notes: self.notes.into_iter().map(map_generic_notes(f)).collect(),
         }
     }
 }
 
-impl<T: core::fmt::Debug> core::fmt::Debug for GenericList<T> {
+impl<T: core::fmt::Debug> core::fmt::Debug for GenericList<'_, T> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("GenericList")
             .field("title", &self.title)
@@ -128,7 +128,7 @@ impl<T: core::fmt::Debug> core::fmt::Debug for GenericList<T> {
     }
 }
 
-impl From<GenericList<String>> for BasicList {
+impl<'a> From<GenericList<'a, String>> for BasicList<'a> {
     fn from(list: GenericList<String>) -> Self {
         Self {
             title: list.title,
@@ -137,7 +137,7 @@ impl From<GenericList<String>> for BasicList {
     }
 }
 
-impl From<BasicList> for GenericList<String> {
+impl<'a> From<BasicList<'a>> for GenericList<'a, String> {
     fn from(list: BasicList) -> Self {
         Self {
             title: list.title,
@@ -148,9 +148,9 @@ impl From<BasicList> for GenericList<String> {
 
 /// Applies a function to every note in a collection of lists.
 pub fn map_note_data_in_lists<'a, T, B, F: 'a + FnMut(T) -> B>(
-    lists: impl IntoIterator<Item = GenericList<T>> + 'a,
+    lists: impl IntoIterator<Item = GenericList<'a, T>> + 'a,
     mut f: F,
-) -> impl Iterator<Item = GenericList<B>> + 'a {
+) -> impl Iterator<Item = GenericList<'a, B>> + 'a {
     // "move" moves f into the closure, &mut avoids moving it *out* of the closure in each call
     let map_list = move |list: GenericList<T>| -> GenericList<B> { list.map_note_data(&mut f) };
 

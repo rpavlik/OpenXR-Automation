@@ -7,7 +7,7 @@
 use crate::{GenericList, GenericNote};
 
 /// Data access methods applicable to all types that resemble a list of notes/Kanban board column
-pub trait List {
+pub trait List<'a> {
     type Note: Note;
     type NoteData;
 
@@ -23,7 +23,7 @@ pub trait List {
     /// Filter notes using a predicate on their data
     fn filter_notes<F: FnMut(&Self::NoteData) -> bool>(self, f: F) -> Self;
 
-    fn map_note_data<B, F: FnMut(Self::NoteData) -> B>(self, f: F) -> GenericList<B>;
+    fn map_note_data<B, F: FnMut(Self::NoteData) -> B>(self, f: F) -> GenericList<'a, B>;
 }
 
 /// Data access methods applicable to all types that resemble a note/card on a Kanban board (or sub-headings)
