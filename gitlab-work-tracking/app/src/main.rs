@@ -6,59 +6,28 @@
 
 use anyhow::anyhow;
 use board_update::{
-    note_formatter, note_project_refs_to_ids, parse_note, process_note_and_associate_work_unit,
-    prune_notes,
+    associate_work_unit_with_note,
+    cli::{GitlabArgs, InputOutputArgs, ProjectArgs},
+    note_formatter, note_refs_to_ids, parse_note, parse_notes, prune_notes,
 };
 use clap::{Args, Parser};
 use dotenvy::dotenv;
 use env_logger::Env;
-use gitlab_work::{ProjectMapper, WorkUnitCollection};
+use gitlab_work::{Error, ProjectMapper, WorkUnitCollection};
 use log::info;
 use nullboard_tools::{IntoGenericIter, ListIteratorAdapters};
 use std::path::{Path, PathBuf};
 
-#[derive(Args, Debug, Clone)]
-struct GitlabArgs {
-    /// Domain name hosting your GitLab instance
-    #[arg(long = "gitlab", env = "GL_DOMAIN")]
-    gitlab_domain: String,
-
-    /// Private access token to use when accessing GitLab.
-    #[arg(long = "token", env = "GL_ACCESS_TOKEN", hide_env_values = true)]
-    gitlab_access_token: String,
-
-    /// Fully qualified project name to assume for MRs and issues with no project specified
-    #[arg(long, short = 'p', env = "GL_DEFAULT_PROJECT")]
-    default_project: String,
-
-    /// How to format the default project in the output. If not specified, the default project name is omitted from exported text references.
-    #[arg(long, env = "GL_DEFAULT_PROJECT_FORMAT_AS")]
-    default_project_format_as: Option<String>,
-}
-
 #[derive(Parser)]
 struct Cli {
-    /// The JSON export from Nullboard (or compatible format) - usually ends in .nbx
-    #[arg()]
-    filename: PathBuf,
+    #[command(flatten, next_help_heading = "Input/output")]
+    input_output: InputOutputArgs,
 
-    /// Output filename: the extension .nbx is suggested. Will be computed if not specified.
-    #[arg(short, long)]
-    output: Option<PathBuf>,
-
-    #[command(flatten, next_help_heading = "GitLab details")]
+    #[command(flatten, next_help_heading = "GitLab")]
     gitlab: GitlabArgs,
-}
 
-fn compute_default_output_filename(path: &Path) -> Result<PathBuf, anyhow::Error> {
-    path.file_stem()
-        .map(|p| {
-            let mut p = p.to_owned();
-            p.push(".updated.nbx");
-            p
-        })
-        .map(|file_name| path.with_file_name(file_name))
-        .ok_or_else(|| anyhow!("Could not get file stem"))
+    #[command(flatten, next_help_heading = "Project")]
+    project: ProjectArgs,
 }
 
 // We need extra collect calls to make sure some things are evaluated eagerly.
@@ -72,45 +41,24 @@ fn main() -> Result<(), anyhow::Error> {
 
     let args = Cli::parse();
 
-    let path = Path::new(&args.filename);
+    let path = Path::new(&args.input_output.filename);
 
-    let out_path = args.output.map_or_else(
-        // come up with a default output name
-        || compute_default_output_filename(path),
-        // or wrap our existing one in Ok
-        Ok,
-    )?;
+    let out_path = args.input_output.try_output_path()?;
 
-    info!("Connecting to GitLab: {}", &args.gitlab.gitlab_domain);
+    let gitlab = args.gitlab.as_gitlab_builder().build()?;
 
-    let gitlab =
-        gitlab::GitlabBuilder::new(args.gitlab.gitlab_domain, args.gitlab.gitlab_access_token)
-            .build()?;
-
-    info!(
-        "Setting up project mapper and querying default project {}",
-        &args.gitlab.default_project
-    );
-    let mut mapper = ProjectMapper::new(gitlab, &args.gitlab.default_project)?;
-    if let Some(default_formatting) = args.gitlab.default_project_format_as {
-        mapper.try_set_project_name_formatting(None, &default_formatting)?;
-    }
+    let mut mapper: ProjectMapper = args.project.to_project_mapper(&gitlab)?;
 
     info!("Loading board from {}", path.display());
 
     let mut board = nullboard_tools::Board::load_from_json(path)?;
 
-    info!("Parsing notes");
-    let parsed_lists: Vec<_> = board
-        .take_lists()
-        .into_generic_iter()
-        .map_note_data(parse_note)
-        .collect();
+    let parsed_lists: Vec<_> = parse_notes(board.take_lists());
 
     info!("Normalizing item references");
     let parsed_lists: Vec<_> = parsed_lists
         .into_iter()
-        .map_note_data(|data| note_project_refs_to_ids(&mut mapper, data))
+        .map_note_data(|data| note_refs_to_ids(&mut mapper, data))
         .collect();
 
     info!("Normalizing item references and associating with work units");
@@ -118,7 +66,7 @@ fn main() -> Result<(), anyhow::Error> {
 
     let lists: Vec<_> = parsed_lists
         .into_iter()
-        .map_note_data(|note_data| process_note_and_associate_work_unit(&mut collection, note_data))
+        .map_note_data(|note_data| associate_work_unit_with_note(&mut collection, note_data))
         .collect();
 
     info!("Pruning notes");

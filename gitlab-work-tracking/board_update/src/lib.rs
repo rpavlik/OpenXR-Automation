@@ -8,10 +8,11 @@ use gitlab_work::{
     note::LineOrReference, GitLabItemReferenceNormalize, ProjectItemReference, ProjectMapper,
     UnitId, WorkUnitCollection,
 };
-use log::warn;
-use nullboard_tools::{GenericList, ListIteratorAdapters};
+use log::{info, warn};
+use nullboard_tools::{GenericList, IntoGenericIter, List, ListIteratorAdapters};
 use std::collections::{hash_map::Entry, HashMap};
 
+pub mod cli;
 pub mod note_formatter;
 
 #[derive(Debug)]
@@ -29,11 +30,23 @@ impl From<ProcessedNote> for Lines {
     }
 }
 
+/// Parse a (possibly multiline) string into lines that are each LineOrReference
 pub fn parse_note(s: String) -> Lines {
     Lines(s.split('\n').map(LineOrReference::parse_line).collect())
 }
 
-pub fn process_note_and_associate_work_unit(
+/// Parse lists of notes, each containing a (possibly multiline) string into
+/// lists of notes with data `Lines` that are each LineOrReference
+pub fn parse_notes(lists: Vec<List>) -> Vec<GenericList<Lines>> {
+    info!("Parsing notes");
+    lists
+        .into_generic_iter()
+        .map_note_data(parse_note)
+        .collect()
+}
+
+/// Associate a work unit with these lines
+pub fn associate_work_unit_with_note(
     collection: &mut WorkUnitCollection,
     lines: Lines,
 ) -> ProcessedNote {
@@ -56,7 +69,14 @@ pub fn process_note_and_associate_work_unit(
     ProcessedNote { unit_id, lines }
 }
 
-pub fn normalize_line_or_reference(
+// pub fn associate_work_unit_with_notes(
+//     collection: &mut WorkUnitCollection,)
+// {}
+
+/// Transform an item reference line into its "normalized" state, with a numeric project ID
+///
+/// Turns any errors into an error message in the line.
+fn normalize_line_or_reference(
     mapper: &mut ProjectMapper,
     line: LineOrReference,
 ) -> LineOrReference {
@@ -71,7 +91,8 @@ pub fn normalize_line_or_reference(
     }
 }
 
-pub fn note_project_refs_to_ids(mapper: &mut ProjectMapper, lines: Lines) -> Lines {
+/// Normalize all project item refs in a note to use numeric project IDs
+pub fn note_refs_to_ids(mapper: &mut ProjectMapper, lines: Lines) -> Lines {
     let lines = lines
         .0
         .into_iter()
@@ -82,6 +103,8 @@ pub fn note_project_refs_to_ids(mapper: &mut ProjectMapper, lines: Lines) -> Lin
 
 const RECURSE_LIMIT: usize = 5;
 
+/// Iterate through lists, removing notes that refer to a work unit
+/// which already had a note output.
 pub fn prune_notes<'a>(
     collection: &'a mut WorkUnitCollection,
     lists: impl IntoIterator<Item = GenericList<ProcessedNote>> + 'a,

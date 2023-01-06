@@ -17,17 +17,17 @@ struct ProjectQuery {
 }
 
 #[derive(Debug)]
-pub struct ProjectMapper {
-    client: gitlab::Gitlab,
+pub struct ProjectMapper<'a> {
+    client: &'a gitlab::Gitlab,
     default_project_name: String,
     name_to_id: HashMap<String, ProjectId>,
     /// `None` indicates this is the default project and should just be implied, not named
     id_to_formatted_name: HashMap<ProjectId, Option<String>>,
 }
 
-impl ProjectMapper {
+impl<'a> ProjectMapper<'a> {
     /// Create new project mapper object
-    pub fn new(client: gitlab::Gitlab, default_project: &str) -> Result<Self, Error> {
+    pub fn new(client: &'a gitlab::Gitlab, default_project: &str) -> Result<Self, Error> {
         let mut ret = Self {
             client,
             default_project_name: default_project.to_owned(),
@@ -75,7 +75,7 @@ impl ProjectMapper {
             Entry::Vacant(entry) => {
                 let endpoint = api::projects::Project::builder().project(name).build()?;
                 let project_query: ProjectQuery = endpoint
-                    .query(&self.client)
+                    .query(self.client)
                     .map_err(|e| Error::ProjectQueryError(name.to_owned(), e))?;
                 entry.insert(project_query.id);
                 project_query
