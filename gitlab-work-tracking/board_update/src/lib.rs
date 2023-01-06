@@ -9,7 +9,7 @@ use gitlab_work::{
     RefAddOutcome, UnitId, WorkUnitCollection,
 };
 use log::{info, warn};
-use nullboard_tools::{GenericList, IntoGenericIter, List, ListIteratorAdapters};
+use nullboard_tools::{list::List, GenericList, IntoGenericIter, ListIteratorAdapters};
 use std::{
     borrow::Cow,
     collections::{hash_map::Entry, HashMap},

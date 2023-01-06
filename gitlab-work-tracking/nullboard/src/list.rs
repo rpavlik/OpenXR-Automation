@@ -6,7 +6,11 @@
 
 use serde::{Deserialize, Serialize};
 
-use crate::{note::map_note_text, GenericNote, Note};
+use crate::{
+    note::{self, map_note_text},
+    traits::{self, Note},
+    GenericNote,
+};
 
 /// A structure representing a list in a board as exported to JSON from Nullboard
 #[derive(Debug, Clone, Deserialize, Serialize, PartialEq, Eq, Default)]
@@ -14,7 +18,31 @@ pub struct List {
     /// Title of the list
     pub title: String,
     /// Notes in the list
-    notes: Vec<Note>,
+    notes: Vec<note::Note>,
+}
+
+impl traits::List for List {
+    type Note = note::Note;
+    type NoteData = String;
+
+    fn title(&self) -> &str {
+        &self.title
+    }
+
+    fn notes(&self) -> &[Self::Note] {
+        &self.notes
+    }
+
+    fn notes_mut(&mut self) -> &mut Vec<Self::Note> {
+        &mut self.notes
+    }
+
+    fn filter_notes<F: FnMut(&Self::NoteData) -> bool>(self, mut f: F) -> Self {
+        Self {
+            title: self.title,
+            notes: self.notes.into_iter().filter(|n| f(n.data())).collect(),
+        }
+    }
 }
 
 impl List {
@@ -23,19 +51,10 @@ impl List {
         self.into()
     }
     pub fn map_notes<B>(&self, f: impl FnMut(&str) -> B) -> GenericList<B> {
-        // let mut f = f;
         GenericList {
             title: self.title.clone(),
             notes: self.notes.iter().map(map_note_text(f)).collect(),
         }
-    }
-
-    pub fn notes(&self) -> &[Note] {
-        self.notes.as_ref()
-    }
-
-    pub fn notes_mut(&mut self) -> &mut Vec<Note> {
-        &mut self.notes
     }
 }
 
@@ -50,11 +69,32 @@ pub struct GenericList<T> {
     notes: Vec<GenericNote<T>>,
 }
 
-impl<T> GenericList<T> {
-    pub fn notes(&self) -> &[GenericNote<T>] {
-        self.notes.as_ref()
+impl<T> traits::List for GenericList<T> {
+    type Note = note::GenericNote<T>;
+
+    type NoteData = T;
+
+    fn title(&self) -> &str {
+        &self.title
     }
 
+    fn notes(&self) -> &[Self::Note] {
+        &self.notes
+    }
+
+    fn notes_mut(&mut self) -> &mut Vec<Self::Note> {
+        &mut self.notes
+    }
+
+    fn filter_notes<F: FnMut(&Self::NoteData) -> bool>(self, mut f: F) -> Self {
+        Self {
+            title: self.title,
+            notes: self.notes.into_iter().filter(|n| f(n.data())).collect(),
+        }
+    }
+}
+
+impl<T> GenericList<T> {
     /// Clone this list, transforming the notes by passing a reference to the provided function
     pub fn map_notes_as_ref<U, F: FnMut(&T) -> U>(&self, f: F) -> GenericList<U> {
         GenericList {
@@ -102,7 +142,7 @@ impl From<GenericList<String>> for List {
     fn from(list: GenericList<String>) -> Self {
         Self {
             title: list.title,
-            notes: list.notes.into_iter().map(Note::from).collect(),
+            notes: list.notes.into_iter().map(note::Note::from).collect(),
         }
     }
 }

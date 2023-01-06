@@ -7,7 +7,7 @@
 use serde::{Deserialize, Serialize};
 use std::{fs, path::Path};
 
-use crate::{Error, GenericList, List};
+use crate::{list::List, Error, GenericList};
 
 const FORMAT: u32 = 20190412;
 

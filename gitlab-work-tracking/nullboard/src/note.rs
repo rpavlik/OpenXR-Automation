@@ -6,38 +6,35 @@
 
 use serde::{Deserialize, Serialize};
 
-pub(crate) fn map_note_text<B>(
-    mut f: impl FnMut(&str) -> B,
-) -> impl FnMut(&Note) -> GenericNote<B> {
-    move |note| GenericNote {
-        data: f(&note.text),
-        raw: note.raw,
-        min: note.min,
-    }
-}
-
 /// A single "note" or "card" in a Nullboard-compatible format
 #[derive(Debug, Clone, Deserialize, Serialize, PartialEq, Eq, Default)]
 pub struct Note {
     /// Contents of the note
-    pub text: String,
+    text: String,
     /// Whether the note is shown "raw" (without a border, makes it look like a sub-header)
-    pub raw: bool,
+    raw: bool,
     /// Whether the note is shown minimized/collapsed
-    pub min: bool,
+    min: bool,
 }
 
-/// Nullboard list note, with arbitrary data type
-///
-/// See also `Note`
-#[derive(Clone, PartialEq, Eq, Default)]
-pub struct GenericNote<T> {
-    /// Data of the note - corresponds to `text` in `Note`
-    pub data: T,
-    /// Whether the note is shown "raw" (without a border, makes it look like a sub-header)
-    pub raw: bool,
-    /// Whether the note is shown minimized/collapsed
-    pub min: bool,
+impl crate::traits::Note for Note {
+    type Data = String;
+
+    fn min(&self) -> bool {
+        self.min
+    }
+
+    fn raw(&self) -> bool {
+        self.raw
+    }
+
+    fn data(&self) -> &Self::Data {
+        &self.text
+    }
+
+    fn data_mut(&mut self) -> &mut Self::Data {
+        &mut self.text
+    }
 }
 
 impl Note {
@@ -62,6 +59,39 @@ impl Note {
     }
 }
 
+/// Nullboard list note, with arbitrary data type
+///
+/// See also `Note`
+#[derive(Clone, PartialEq, Eq, Default)]
+pub struct GenericNote<T> {
+    /// Data of the note - corresponds to `text` in `Note`
+    pub data: T,
+    /// Whether the note is shown "raw" (without a border, makes it look like a sub-header)
+    pub raw: bool,
+    /// Whether the note is shown minimized/collapsed
+    pub min: bool,
+}
+
+impl<T> crate::traits::Note for GenericNote<T> {
+    type Data = T;
+
+    fn min(&self) -> bool {
+        self.min
+    }
+
+    fn raw(&self) -> bool {
+        self.raw
+    }
+
+    fn data(&self) -> &Self::Data {
+        &self.data
+    }
+
+    fn data_mut(&mut self) -> &mut Self::Data {
+        &mut self.data
+    }
+}
+
 impl<T> GenericNote<T> {
     /// Create a new generic note
     pub fn new(data: T) -> Self {
@@ -82,18 +112,17 @@ impl<T> GenericNote<T> {
             min: self.min,
         }
     }
-
-    /// Get a reference to the data
-    pub fn as_data(&self) -> &T {
-        &self.data
-    }
-
-    /// Get a mutable reference to the data
-    pub fn as_mut_data(&mut self) -> &mut T {
-        &mut self.data
-    }
 }
 
+pub(crate) fn map_note_text<B>(
+    mut f: impl FnMut(&str) -> B,
+) -> impl FnMut(&Note) -> GenericNote<B> {
+    move |note| GenericNote {
+        data: f(&note.text),
+        raw: note.raw,
+        min: note.min,
+    }
+}
 impl<T: core::fmt::Debug> core::fmt::Debug for GenericNote<T> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("GenericNote")

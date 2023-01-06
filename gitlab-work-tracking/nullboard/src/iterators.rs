@@ -4,7 +4,7 @@
 //
 // Author: Ryan Pavlik <ryan.pavlik@collabora.com>
 
-use crate::{GenericList, GenericNote, List};
+use crate::{list::List, GenericList, GenericNote};
 
 // -- adapters for iterators over notes -- //
 
@@ -62,7 +62,7 @@ where
 
 /// Adapters for iterators over lists
 pub mod over_lists {
-    use crate::{GenericList, List};
+    use crate::{list::List, traits, GenericList};
     /// Iterator adapter to convert an iterator of List to an iterator of GenericList<String>
     ///
     /// Exists as a struct to work around not being able to name the return type of calling .map()
@@ -136,10 +136,11 @@ pub mod over_lists {
         }
     }
 
-    impl<I, T, P> Iterator for FilterNotes<I, P>
+    impl<I, L, P> Iterator for FilterNotes<I, P>
     where
-        I: Iterator<Item = GenericList<T>> + Sized,
-        P: FnMut(&T) -> bool,
+        L: traits::List,
+        I: Iterator<Item = L> + Sized,
+        P: FnMut(&L::NoteData) -> bool,
     {
         type Item = I::Item;
 

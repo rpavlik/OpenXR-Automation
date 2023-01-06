@@ -22,8 +22,9 @@ pub mod board;
 pub mod iterators;
 pub mod list;
 pub mod note;
+pub mod traits;
 
 pub use board::Board;
 pub use iterators::{IntoGenericIter, ListIteratorAdapters, NoteIteratorAdapters};
-pub use list::{GenericList, List};
-pub use note::{GenericNote, Note};
+pub use list::GenericList;
+pub use note::GenericNote;
