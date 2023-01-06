@@ -10,9 +10,8 @@ use itertools::Itertools;
 use lazy_static::lazy_static;
 use log::{error, warn};
 use regex::Regex;
-use std::collections::VecDeque;
 
-fn find_refs(input: &str) -> VecDeque<ProjectItemReference> {
+fn find_refs(input: &str) -> impl Iterator<Item = ProjectItemReference> + '_ {
     lazy_static! {
         static ref RE: Regex = Regex::new(
             r"(?x)
@@ -23,30 +22,28 @@ fn find_refs(input: &str) -> VecDeque<ProjectItemReference> {
         )
         .unwrap();
     }
-    RE.captures_iter(input)
-        .filter_map(|cap| {
-            // this should always be found and parse right
-            let iid = cap.name("iid")?;
-            let iid = iid.as_str().parse().ok()?;
+    RE.captures_iter(input).filter_map(|cap| {
+        // this should always be found and parse right
+        let iid = cap.name("iid")?;
+        let iid = iid.as_str().parse().ok()?;
 
-            // this might not be specified
-            let project = cap
-                .name("proj")
-                .map(|p| ProjectReference::ProjectName(p.as_str().to_owned()))
-                .unwrap_or_default();
+        // this might not be specified
+        let project = cap
+            .name("proj")
+            .map(|p| ProjectReference::ProjectName(p.as_str().to_owned()))
+            .unwrap_or_default();
 
-            // this should always match one of the known cases
-            match cap.name("symbol")?.as_str() {
-                "!" => Some(MergeRequest::new(project, MergeRequestInternalId::new(iid)).into()),
-                "#" => Some(Issue::new(project, IssueInternalId::new(iid)).into()),
-                _ => {
-                    // should never happen
-                    error!("Got an unrecognized symbol!");
-                    None
-                }
+        // this should always match one of the known cases
+        match cap.name("symbol")?.as_str() {
+            "!" => Some(MergeRequest::new(project, MergeRequestInternalId::new(iid)).into()),
+            "#" => Some(Issue::new(project, IssueInternalId::new(iid)).into()),
+            _ => {
+                // should never happen
+                error!("Got an unrecognized symbol!");
+                None
             }
-        })
-        .collect()
+        }
+    })
 }
 
 /// Association of an optional project item reference with a line in a note/card
@@ -61,27 +58,14 @@ pub struct NoteLine {
 impl NoteLine {
     /// Parse a single line of text into a NoteLine instance
     pub fn parse_line(s: &str) -> Self {
-        let mut refs = find_refs(s);
-        if refs.is_empty() {
-            Self {
-                line: s.to_owned(),
-                reference: None,
-            }
-        } else if refs.len() == 1 {
-            Self {
-                line: s.to_owned(),
-                reference: refs.pop_front(),
-            }
-        } else {
-            let front = refs.pop_front();
-            warn!(
-                "Found more than one ref in a single line: {}",
-                refs.iter().format(", ")
-            );
-            Self {
-                line: s.to_owned(),
-                reference: front,
-            }
+        let mut refs = find_refs(s).peekable();
+        let first_ref = refs.next();
+        if first_ref.is_some() && refs.peek().is_some() {
+            warn!("Found extra refs in a single line: {}", refs.format(", "));
+        }
+        Self {
+            line: s.to_owned(),
+            reference: first_ref,
         }
     }
 }
@@ -103,16 +87,23 @@ impl LineOrReference {
     }
 
     /// Get the stored reference, or None
-    pub fn reference(&self) -> Option<&ProjectItemReference> {
-        if let LineOrReference::Reference(reference) = self {
-            Some(reference)
-        } else {
-            None
+    pub fn into_reference(self) -> Option<ProjectItemReference> {
+        match self {
+            LineOrReference::Reference(reference) => Some(reference),
+            _ => None,
+        }
+    }
+
+    /// Get the stored reference, or None
+    pub fn as_reference(&self) -> Option<&ProjectItemReference> {
+        match self {
+            LineOrReference::Reference(reference) => Some(reference),
+            _ => None,
         }
     }
 
     /// Clone and transform the stored reference, if any
-    pub fn map_reference(
+    pub fn map_reference_or_clone(
         &self,
         mut f: impl FnMut(&ProjectItemReference) -> ProjectItemReference,
     ) -> Self {
@@ -123,8 +114,22 @@ impl LineOrReference {
         self.clone()
     }
 
+    /// Transform the stored reference, if any
+    pub fn map_reference(
+        self,
+        mut f: impl FnMut(ProjectItemReference) -> ProjectItemReference,
+    ) -> Self {
+        match self {
+            LineOrReference::Reference(reference) => {
+                let mapped = f(reference);
+                LineOrReference::Reference(mapped)
+            }
+            LineOrReference::Line(line) => LineOrReference::Line(line),
+        }
+    }
+
     /// Clone and try to transform the stored reference, if any
-    pub fn try_map_reference<E: std::error::Error>(
+    pub fn try_map_reference_or_clone<E: std::error::Error>(
         &self,
         mut f: impl FnMut(&ProjectItemReference) -> Result<ProjectItemReference, E>,
     ) -> Result<Self, E> {
