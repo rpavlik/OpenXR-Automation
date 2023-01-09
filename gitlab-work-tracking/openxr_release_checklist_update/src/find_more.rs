@@ -5,12 +5,11 @@
 // Author: Ryan Pavlik <ryan.pavlik@collabora.com>
 
 use anyhow::anyhow;
-use board_update::{Lines, ProcessedNote};
 use gitlab::{
     api::{common::NameOrId, endpoint_prelude::Method, Endpoint, Query},
     IssueInternalId, MergeRequestInternalId, ProjectId,
 };
-use gitlab_work::{
+use gitlab_work_units::{
     regex::{PROJECT_NAME_PATTERN, REFERENCE_IID_PATTERN},
     LineOrReference, MergeRequest, ProjectItemReference, ProjectReference, WorkUnitCollection,
 };
@@ -18,6 +17,7 @@ use lazy_static::lazy_static;
 use log::{debug, warn};
 use regex::Regex;
 use serde::Deserialize;
+use workboard_update::{Lines, ProcessedNote};
 
 // #[derive(Debug, Deserialize)]
 // pub struct TaskCompletionStatus {
@@ -71,13 +71,13 @@ impl From<&References> for ProjectItemReference {
 
 impl From<&IssueData> for ProjectItemReference {
     fn from(data: &IssueData) -> Self {
-        gitlab_work::Issue::new(data.project_id.into(), data.iid).into()
+        gitlab_work_units::Issue::new(data.project_id.into(), data.iid).into()
     }
 }
 
 impl From<&MRData> for ProjectItemReference {
     fn from(data: &MRData) -> Self {
-        gitlab_work::MergeRequest::new(data.project_id.into(), data.iid).into()
+        gitlab_work_units::MergeRequest::new(data.project_id.into(), data.iid).into()
     }
 }
 

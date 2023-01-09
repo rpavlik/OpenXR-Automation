@@ -5,7 +5,7 @@
 // Author: Ryan Pavlik <ryan.pavlik@collabora.com>
 
 use gitlab::{api::Query, ProjectId};
-use gitlab_work::{
+use gitlab_work_units::{
     BaseGitLabItemReference, Error, GitLabItemReferenceNormalize, LineOrReference,
     ProjectItemReference, ProjectMapper,
 };

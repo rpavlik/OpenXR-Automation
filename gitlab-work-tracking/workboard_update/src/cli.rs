@@ -6,7 +6,7 @@
 
 use clap::Args;
 use gitlab::GitlabBuilder;
-use gitlab_work::ProjectMapper;
+use gitlab_work_units::ProjectMapper;
 use log::info;
 use std::path::{Path, PathBuf};
 
@@ -81,7 +81,7 @@ impl ProjectArgs {
     pub fn to_project_mapper<'a>(
         &self,
         client: &'a gitlab::Gitlab,
-    ) -> Result<ProjectMapper<'a>, gitlab_work::Error> {
+    ) -> Result<ProjectMapper<'a>, gitlab_work_units::Error> {
         info!(
             "Setting up project mapper and querying default project {}",
             &self.default_project

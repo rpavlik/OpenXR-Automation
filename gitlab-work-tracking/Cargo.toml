@@ -1,11 +1,12 @@
 # SPDX-FileCopyrightText: 2022, Collabora, Ltd.
 # SPDX-License-Identifier: CC0-1.0
+
 [workspace]
 members = [
-    "nullboard",
-    "gitlab_work",
-    "board_update",
-    "app",
+  "nullboard_tools",
+  "gitlab_work_units",
+  "workboard_update",
+  "openxr_release_checklist_update",
 ]
 
 resolver = "2"

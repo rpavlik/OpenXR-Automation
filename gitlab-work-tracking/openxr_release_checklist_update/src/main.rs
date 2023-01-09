@@ -5,20 +5,20 @@
 // Author: Ryan Pavlik <ryan.pavlik@collabora.com>
 
 use crate::find_more::{find_new_checklists, find_new_notes};
-use board_update::{
-    associate_work_unit_with_note,
-    cli::{GitlabArgs, InputOutputArgs, ProjectArgs},
-    note_formatter, note_refs_to_ids, parse_note, prune_notes, ProcessedNote,
-};
 use clap::Parser;
 use dotenvy::dotenv;
 use env_logger::Env;
-use gitlab_work::{ProjectMapper, WorkUnitCollection};
+use gitlab_work_units::{ProjectMapper, WorkUnitCollection};
 use log::info;
 use nullboard_tools::{
     list::BasicList, Board, GenericNote, List, ListCollection, ListIteratorAdapters,
 };
 use std::path::Path;
+use workboard_update::{
+    associate_work_unit_with_note,
+    cli::{GitlabArgs, InputOutputArgs, ProjectArgs},
+    note_formatter, note_refs_to_ids, parse_note, prune_notes, ProcessedNote,
+};
 
 mod find_more;
 

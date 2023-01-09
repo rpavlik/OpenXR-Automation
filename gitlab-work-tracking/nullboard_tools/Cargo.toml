@@ -5,11 +5,12 @@
 # Author: Ryan Pavlik <ryan.pavlik@collabora.com>
 
 [package]
+authors = ["Ryan Pavlik <ryan.pavlik@collabora.com>"]
+description = "Functionality to work with Kanban-style workboards like those exported/imported by Nullboard"
 edition = "2021"
-name = "nullboard-tools"
+license = "BSL-1.0"
+name = "nullboard_tools"
 version = "0.1.0"
-
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
 serde = {version = "1.0", features = ["derive"]}

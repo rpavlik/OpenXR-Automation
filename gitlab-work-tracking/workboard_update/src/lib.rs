@@ -4,7 +4,7 @@
 //
 // Author: Ryan Pavlik <ryan.pavlik@collabora.com>
 
-use gitlab_work::{
+use gitlab_work_units::{
     note::LineOrReference, GitLabItemReferenceNormalize, ProjectItemReference, ProjectMapper,
     RefAddOutcome, UnitId, WorkUnitCollection,
 };

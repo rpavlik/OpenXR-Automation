@@ -5,11 +5,12 @@
 # Author: Ryan Pavlik <ryan.pavlik@collabora.com>
 
 [package]
+authors = ["Ryan Pavlik <ryan.pavlik@collabora.com>"]
+description = "Functionality for associating GitLab issues and merge requests as grouped 'work units'"
 edition = "2021"
-name = "gitlab-work"
+license = "BSL-1.0"
+name = "gitlab_work_units"
 version = "0.1.0"
-
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
 derive_more = "0.99"

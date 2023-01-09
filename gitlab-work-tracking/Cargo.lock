@@ -62,20 +62,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "bef38d45163c2f1dde094a7dfd33ccf595c92905c8f8f4fdc18d06fb1037718a"
 
 [[package]]
-name = "board_update"
-version = "0.1.0"
-dependencies = [
- "clap",
- "gitlab",
- "gitlab-work",
- "itertools",
- "log",
- "nullboard-tools",
- "serde",
- "thiserror",
-]
-
-[[package]]
 name = "bumpalo"
 version = "3.11.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -457,7 +443,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "gitlab-work"
+name = "gitlab_work_units"
 version = "0.1.0"
 dependencies = [
  "derive_more",
@@ -469,25 +455,6 @@ dependencies = [
  "serde",
  "thiserror",
  "typed-index-collections",
-]
-
-[[package]]
-name = "gitlab-work-tracking"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "board_update",
- "clap",
- "dotenvy",
- "env_logger",
- "gitlab",
- "gitlab-work",
- "itertools",
- "lazy_static",
- "log",
- "nullboard-tools",
- "regex",
- "serde",
 ]
 
 [[package]]
@@ -828,7 +795,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "nullboard-tools"
+name = "nullboard_tools"
 version = "0.1.0"
 dependencies = [
  "serde",
@@ -870,6 +837,25 @@ name = "once_cell"
 version = "1.17.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "6f61fba1741ea2b3d6a1e3178721804bb716a68a6aeba1149b5d52e3d464ea66"
+
+[[package]]
+name = "openxr_release_checklist_update"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "clap",
+ "dotenvy",
+ "env_logger",
+ "gitlab",
+ "gitlab_work_units",
+ "itertools",
+ "lazy_static",
+ "log",
+ "nullboard_tools",
+ "regex",
+ "serde",
+ "workboard_update",
+]
 
 [[package]]
 name = "os_str_bytes"
@@ -1560,4 +1546,18 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "80d0f4e272c85def139476380b12f9ac60926689dd2e01d4923222f40580869d"
 dependencies = [
  "winapi",
+]
+
+[[package]]
+name = "workboard_update"
+version = "0.1.0"
+dependencies = [
+ "clap",
+ "gitlab",
+ "gitlab_work_units",
+ "itertools",
+ "log",
+ "nullboard_tools",
+ "serde",
+ "thiserror",
 ]
