@@ -6,6 +6,48 @@
 
 use crate::{GenericList, GenericNote};
 
+/// Things that are collections of lists but not necessarily having all the data of a Board.
+pub trait ListCollection {
+    type List: List;
+    type NoteData;
+
+    /// Try getting a list named the given string, if one exists
+    fn named_list(&self, name: &str) -> Option<&Self::List>;
+
+    /// Try getting a list named the given string, if one exists
+    fn named_list_mut(&mut self, name: &str) -> Option<&mut Self::List>;
+
+    /// Append a new list
+    fn push_list(&mut self, list: Self::List);
+}
+
+/// Trait implemented by things that look like boards.
+pub trait Board: ListCollection {
+    /// Title of the board
+    fn title(&self) -> &str;
+
+    /// ID of the board
+    fn id(&self) -> u64;
+
+    /// History slice
+    fn history(&self) -> &[u32];
+
+    /// Get the current revision number
+    fn revision(&self) -> u32;
+
+    /// Return a clone of this board, with an updated revision number and history.
+    fn make_new_revision(&self) -> Self;
+
+    /// Increment the revision number, and place the old one on the history list.
+    fn increment_revision(&mut self);
+
+    /// Make a new revision that replaces the lists.
+    fn make_new_revision_with_lists(self, lists: impl IntoIterator<Item = Self::List>) -> Self;
+
+    /// Take all the lists
+    fn take_lists(&mut self) -> Vec<Self::List>;
+}
+
 /// Data access methods applicable to all types that resemble a list of notes/Kanban board column
 pub trait List {
     type Note: Note;

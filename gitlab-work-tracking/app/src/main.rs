@@ -53,7 +53,7 @@ fn main() -> Result<(), anyhow::Error> {
 
     info!("Loading board from {}", path.display());
 
-    let mut board = nullboard_tools::Board::load_from_json(path)?;
+    let mut board = nullboard_tools::GenericBoard::load_from_json(path)?;
 
     let mut collection = WorkUnitCollection::default();
 

@@ -9,14 +9,15 @@ use std::{fs, path::Path};
 
 use crate::{
     list::{self, BasicList},
-    Error, GenericList,
+    traits::{Board, ListCollection},
+    Error, GenericList, List,
 };
 
 const FORMAT: u32 = 20190412;
 
 /// A structure representing a board as exported to JSON from Nullboard
 #[derive(Debug, Clone, Deserialize, Serialize, PartialEq, Eq)]
-pub struct Board {
+pub struct BasicBoard {
     format: u32,
     id: u64,
     revision: u32,
@@ -25,7 +26,74 @@ pub struct Board {
     history: Vec<u32>,
 }
 
-impl Board {
+impl ListCollection for BasicBoard {
+    type List = list::BasicList;
+
+    type NoteData = <Self::List as List>::NoteData;
+
+    fn named_list(&self, name: &str) -> Option<&Self::List> {
+        self.lists.iter().find(|&list| list.title == name)
+    }
+
+    fn named_list_mut(&mut self, name: &str) -> Option<&mut Self::List> {
+        self.lists.iter_mut().find(|&list| list.title == name)
+    }
+
+    fn push_list(&mut self, list: Self::List) {
+        self.lists.push(list)
+    }
+}
+
+impl Board for BasicBoard {
+    fn title(&self) -> &str {
+        &self.title
+    }
+
+    fn id(&self) -> u64 {
+        todo!()
+    }
+
+    /// Increment the revision number, and place the old one on the history list.
+    fn increment_revision(&mut self) {
+        self.history.insert(0, self.revision);
+        self.revision += 1;
+    }
+
+    /// Return a clone of this board, with an updated revision number and history.
+    fn make_new_revision(&self) -> Self {
+        let mut ret = self.clone();
+        ret.increment_revision();
+        ret
+    }
+
+    /// Get the current revision number
+    fn revision(&self) -> u32 {
+        self.revision
+    }
+
+    fn history(&self) -> &[u32] {
+        self.history.as_ref()
+    }
+    fn take_lists(&mut self) -> Vec<BasicList> {
+        std::mem::take(&mut self.lists)
+    }
+
+    /// Make a new revision that replaces the lists.
+    fn make_new_revision_with_lists(self, lists: impl IntoIterator<Item = Self::List>) -> Self {
+        let mut ret = Self {
+            format: self.format,
+            id: self.id,
+            revision: self.revision,
+            title: self.title.clone(),
+            lists: lists.into_iter().map(BasicList::from).collect(),
+            history: self.history,
+        };
+        ret.increment_revision();
+        ret
+    }
+}
+
+impl BasicBoard {
     /// Make a new board with a given title
     pub fn new(title: &str) -> Self {
         Self {
@@ -55,48 +123,9 @@ impl Board {
     fn check_format(&self) -> bool {
         self.format == FORMAT
     }
-
-    /// Increment the revision number, and place the old one on the history list.
-    pub fn increment_revision(&mut self) {
-        self.history.insert(0, self.revision);
-        self.revision += 1;
-    }
-
-    /// Return a clone of this board, with an updated revision number and history.
-    pub fn make_new_revision(&self) -> Self {
-        let mut ret = self.clone();
-        ret.increment_revision();
-        ret
-    }
-
-    /// Get the current revision number
-    pub fn get_revision(&self) -> u32 {
-        self.revision
-    }
-
-    pub fn take_lists(&mut self) -> Vec<BasicList> {
-        std::mem::take(&mut self.lists)
-    }
-
-    /// Make a new revision that replaces the lists.
-    pub fn make_new_revision_with_lists(
-        self,
-        lists: impl IntoIterator<Item = GenericList<String>>,
-    ) -> Self {
-        let mut ret = Self {
-            format: self.format,
-            id: self.id,
-            revision: self.revision,
-            title: self.title.clone(),
-            lists: lists.into_iter().map(BasicList::from).collect(),
-            history: self.history,
-        };
-        ret.increment_revision();
-        ret
-    }
 }
 
-impl Default for Board {
+impl Default for BasicBoard {
     fn default() -> Self {
         Self {
             format: FORMAT,
@@ -118,7 +147,7 @@ mod tests {
 
     #[test]
     fn basic_board_ops() {
-        let board: Board = Default::default();
+        let board: BasicBoard = Default::default();
         assert_ne!(board.id, 0);
         assert_eq!(board.format, FORMAT);
         assert_eq!(board.revision, 1);
