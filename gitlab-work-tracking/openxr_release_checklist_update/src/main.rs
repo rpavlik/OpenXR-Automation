@@ -8,17 +8,18 @@ use crate::find_more::{find_new_checklists, find_new_notes};
 use clap::Parser;
 use dotenvy::dotenv;
 use env_logger::Env;
-use gitlab_work_units::{ProjectMapper, WorkUnitCollection};
+use gitlab_work_units::{lookup::GitlabQueryCache, ProjectMapper, UnitId, WorkUnitCollection};
 use log::info;
 use nullboard_tools::{
-    list::BasicList, Board, GenericNote, List, ListCollection, ListIteratorAdapters,
+    list::BasicList, Board, GenericList, GenericNote, List, ListCollection, ListIteratorAdapters,
+    Note,
 };
 use std::path::Path;
 use workboard_update::{
     associate_work_unit_with_note,
     cli::{GitlabArgs, InputOutputArgs, ProjectArgs},
     line_or_reference::{self, LineOrReferenceCollection, ProcessedNote},
-    note_formatter, note_refs_to_ids, prune_notes,
+    note_formatter, note_refs_to_ids, prune_notes, GetWorkUnit,
 };
 
 mod find_more;
@@ -33,6 +34,71 @@ struct Cli {
 
     #[command(flatten, next_help_heading = "Project")]
     project: ProjectArgs,
+}
+
+#[derive(Debug)]
+enum BoardOperation {
+    NoOp,
+    AddNote {
+        list_name: String,
+        note: ProcessedNote,
+    },
+    MoveNote {
+        current_list_name: String,
+        new_list_name: String,
+        work_unit_id: UnitId,
+    },
+}
+impl Default for BoardOperation {
+    fn default() -> Self {
+        Self::NoOp
+    }
+}
+
+impl BoardOperation {
+    pub fn apply(
+        self,
+        lists: &mut impl ListCollection<List = GenericList<ProcessedNote>>,
+    ) -> Result<(), anyhow::Error> {
+        match self {
+            BoardOperation::NoOp => Ok(()),
+            BoardOperation::AddNote { list_name, note } => {
+                let list = lists
+                    .named_list_mut(&list_name)
+                    .ok_or_else(|| anyhow::anyhow!("Could not find list {}", &list_name))?;
+                list.notes_mut().push(GenericNote::new(note));
+                Ok(())
+            }
+            BoardOperation::MoveNote {
+                current_list_name,
+                new_list_name,
+                work_unit_id,
+            } => {
+                let note = {
+                    let current_list =
+                        lists.named_list_mut(&current_list_name).ok_or_else(|| {
+                            anyhow::anyhow!("Could not find current list {}", &current_list_name)
+                        })?;
+                    let needle = current_list
+                        .notes_mut()
+                        .iter()
+                        .position(|n| n.data().work_unit_id() == &Some(work_unit_id))
+                        .ok_or_else(|| {
+                            anyhow::anyhow!(
+                                "Could not find note with matching work unit id {}",
+                                work_unit_id
+                            )
+                        })?;
+                    current_list.notes_mut().remove(needle)
+                };
+                let new_list = lists
+                    .named_list_mut(&new_list_name)
+                    .ok_or_else(|| anyhow::anyhow!("Could not find new list {}", &new_list_name))?;
+                new_list.notes_mut().push(note);
+                Ok(())
+            }
+        }
+    }
 }
 
 // We need extra collect calls to make sure some things are evaluated eagerly.
@@ -74,15 +140,28 @@ fn main() -> Result<(), anyhow::Error> {
         })
         .collect();
 
+    let mut changes = vec![];
+
     info!("Looking for new checklists");
     if let Ok(new_checklists) = find_new_checklists(&gitlab, &args.project.default_project) {
-        let list = lists
-            .named_list_mut("Initial Composition")
-            .expect("need initial composition list");
+        // let list = lists
+        //     .named_list_mut("Initial Composition")
+        //     .expect("need initial composition list");
         for (issue_data, note) in find_new_notes(&mut collection, new_checklists) {
             info!("Adding note for {}", issue_data.title());
-            list.notes_mut().push(GenericNote::new(note));
+            // list.notes_mut().push(GenericNote::new(note));
+            changes.push(BoardOperation::AddNote {
+                list_name: "Initial Composition".to_owned(),
+                note,
+            })
         }
+    }
+
+    let mut cache: GitlabQueryCache = Default::default();
+
+    info!("Proposed changes:\n{:#?}", changes);
+    for change in changes {
+        change.apply(&mut lists)?;
     }
 
     info!("Pruning notes");
@@ -93,13 +172,31 @@ fn main() -> Result<(), anyhow::Error> {
         lists
             .into_iter()
             .map_note_data(|proc_note: ProcessedNote| {
-                note_formatter::format_note(proc_note.into(), &mapper, |title| {
-                    title
-                        .trim_start_matches("Release checklist for ")
-                        .trim_start_matches("Resolve ")
-                })
+                note_formatter::format_note(
+                    &gitlab,
+                    &mut cache,
+                    proc_note.into(),
+                    &mapper,
+                    |title| {
+                        title
+                            .trim_start_matches("Release checklist for ")
+                            .trim_start_matches("Resolve ")
+                    },
+                )
             })
             .map(BasicList::from),
+    );
+
+    let (hits, queries) = cache.cache_stats();
+    let percent = if queries == 0 {
+        f64::from(0)
+    } else {
+        f64::from(hits) / f64::from(queries)
+    };
+
+    info!(
+        "Cache stats: {} hits out of {} queries ({} %)",
+        hits, queries, percent
     );
 
     info!("Writing to {}", out_path.display());
