@@ -14,8 +14,11 @@ use std::fmt::Display;
 /// More than one name may correspond to a single project ID.
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum ProjectReference {
+    /// The unique numeric ID from GitLab for a project
     ProjectId(ProjectId),
+    /// Project identified by a string name: Human readable, but more than one may apply to a given project
     ProjectName(String),
+    /// Unknown project: often means the default project
     UnknownProject,
 }
 
@@ -33,6 +36,7 @@ impl ProjectReference {
 #[error("Cannot pass ProjectReference::UnknownProject into the gitlab API")]
 pub struct UnknownProjectError;
 
+// for converting to gitlab crate
 impl<'a> TryInto<NameOrId<'a>> for &'a ProjectReference {
     type Error = UnknownProjectError;
 
@@ -87,6 +91,7 @@ impl Default for ProjectReference {
     }
 }
 
+/// Slightly-type-unsafe way of generically referring to GitLab "items" - issues or MRs
 pub trait BaseGitLabItemReference: Clone {
     /// Get the project for this reference
     fn project(&self) -> &ProjectReference;
@@ -112,6 +117,7 @@ pub trait BaseGitLabItemReference: Clone {
     }
 }
 
+/// The type-safe way of referring to GitLab items, using their typed wrappers for `iid`.
 pub trait TypedGitLabItemReference: BaseGitLabItemReference {
     type IidType: Copy;
 
@@ -122,6 +128,7 @@ pub trait TypedGitLabItemReference: BaseGitLabItemReference {
     fn iid(&self) -> Self::IidType;
 }
 
+/// Format a reference to a GitLab item from its various pieces
 pub fn format_reference(
     project: &ProjectReference,
     symbol: char,
@@ -238,8 +245,8 @@ pub const MR_SYMBOL: char = '!';
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct MergeRequest {
-    pub(crate) project: ProjectReference,
-    pub(crate) iid: MergeRequestInternalId,
+    project: ProjectReference,
+    iid: MergeRequestInternalId,
 }
 
 impl MergeRequest {

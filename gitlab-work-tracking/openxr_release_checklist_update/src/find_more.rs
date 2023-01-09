@@ -11,13 +11,15 @@ use gitlab::{
 };
 use gitlab_work_units::{
     regex::{PROJECT_NAME_PATTERN, REFERENCE_IID_PATTERN},
-    LineOrReference, MergeRequest, ProjectItemReference, ProjectReference, WorkUnitCollection,
+    MergeRequest, ProjectItemReference, ProjectReference, WorkUnitCollection,
 };
 use lazy_static::lazy_static;
 use log::{debug, warn};
 use regex::Regex;
 use serde::Deserialize;
-use workboard_update::{Lines, ProcessedNote};
+use workboard_update::line_or_reference::{
+    LineOrReference, LineOrReferenceCollection, ProcessedNote,
+};
 
 // #[derive(Debug, Deserialize)]
 // pub struct TaskCompletionStatus {
@@ -216,7 +218,7 @@ pub fn find_new_notes<'a>(
             // convert unit ID and refs to a ProcessedNote
             ProcessedNote::new(
                 Some(unit_id),
-                Lines(refs.into_iter().map(LineOrReference::from).collect()),
+                LineOrReferenceCollection(refs.into_iter().map(LineOrReference::from).collect()),
             ),
         )
     })

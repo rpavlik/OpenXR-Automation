@@ -17,7 +17,8 @@ use std::path::Path;
 use workboard_update::{
     associate_work_unit_with_note,
     cli::{GitlabArgs, InputOutputArgs, ProjectArgs},
-    note_formatter, note_refs_to_ids, parse_note, prune_notes, ProcessedNote,
+    line_or_reference::{self, LineOrReferenceCollection, ProcessedNote},
+    note_formatter, note_refs_to_ids, prune_notes,
 };
 
 mod find_more;
@@ -63,9 +64,14 @@ fn main() -> Result<(), anyhow::Error> {
     let mut lists: Vec<_> = board
         .take_lists()
         .into_iter()
-        .map_note_data(parse_note)
-        .map_note_data(|data| note_refs_to_ids(&mut mapper, data))
-        .map_note_data(|note_data| associate_work_unit_with_note(&mut collection, note_data))
+        .map_note_data(line_or_reference::parse_note)
+        .map_note_data(|data| {
+            LineOrReferenceCollection(note_refs_to_ids(&mut mapper, data.0.into_iter()))
+        })
+        .map_note_data(|note_data| {
+            let unit_id = associate_work_unit_with_note(&mut collection, note_data.0.iter());
+            ProcessedNote::new(unit_id, note_data)
+        })
         .collect();
 
     info!("Looking for new checklists");

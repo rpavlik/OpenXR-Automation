@@ -6,13 +6,13 @@
 
 use gitlab::{api::Query, ProjectId};
 use gitlab_work_units::{
-    BaseGitLabItemReference, Error, GitLabItemReferenceNormalize, LineOrReference,
-    ProjectItemReference, ProjectMapper,
+    BaseGitLabItemReference, Error, GitLabItemReferenceNormalize, ProjectItemReference,
+    ProjectMapper,
 };
 use itertools::Itertools;
 use serde::Deserialize;
 
-use crate::Lines;
+use crate::{line_or_reference::LineOrReference, LineOrReferenceCollection};
 
 #[derive(Debug, Deserialize)]
 struct InternalResults {
@@ -91,7 +91,7 @@ pub fn format_reference(
 }
 
 pub fn format_note(
-    lines: Lines,
+    lines: LineOrReferenceCollection,
     mapper: &ProjectMapper,
     title_mangler: impl Fn(&str) -> &str,
 ) -> String {

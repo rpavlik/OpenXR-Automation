@@ -71,17 +71,15 @@ impl From<FollowExtinctionUnitIdError> for Error {
     }
 }
 
-pub mod note;
 mod project_mapper;
 mod refs;
 pub mod regex;
 mod work_unit_and_collection;
 
-pub use note::{LineOrReference, NoteLine};
 pub use project_mapper::{GitLabItemReferenceNormalize, ProjectMapper};
 pub use refs::{
-    BaseGitLabItemReference, Issue, MergeRequest, ProjectItemReference, ProjectReference,
-    TypedGitLabItemReference, ISSUE_SYMBOL, MR_SYMBOL,
+    find_refs, format_reference, BaseGitLabItemReference, Issue, MergeRequest,
+    ProjectItemReference, ProjectReference, TypedGitLabItemReference, ISSUE_SYMBOL, MR_SYMBOL,
 };
 pub use work_unit_and_collection::{
     RefAddOutcome, UnitCreated, UnitId, UnitNotUpdated, UnitUpdated, WorkUnitCollection,
