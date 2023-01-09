@@ -14,8 +14,8 @@ version = "0.1.0"
 
 [dependencies]
 # internal dependencies
-gitlab_work_units = {path = "../gitlab_work_units"}
-nullboard_tools = {path = "../nullboard_tools"}
+gitlab_work_units = {version = "0.1.0", path = "../gitlab_work_units"}
+nullboard_tools = {version = "0.1.0", path = "../nullboard_tools"}
 
 # third-party dependencies
 clap = {version = "4.0", features = ["derive", "env", "cargo"]}

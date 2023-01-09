@@ -8,14 +8,15 @@
 authors = ["Ryan Pavlik <ryan.pavlik@collabora.com>"]
 description = "A tool for updating OpenXR extension release checklist tracking data"
 edition = "2021"
+license = "BSL-1.0"
 name = "openxr_release_checklist_update"
 version = "0.1.0"
 
 [dependencies]
 # internal dependencies
-gitlab_work_units = {path = "../gitlab_work_units"}
-nullboard_tools = {path = "../nullboard_tools"}
-workboard_update = {path = "../workboard_update"}
+gitlab_work_units = {version = "0.1.0", path = "../gitlab_work_units"}
+nullboard_tools = {version = "0.1.0", path = "../nullboard_tools"}
+workboard_update = {version = "0.1.0", path = "../workboard_update"}
 
 # third-party dependencies
 anyhow = "1.0"
