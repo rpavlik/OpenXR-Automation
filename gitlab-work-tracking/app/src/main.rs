@@ -15,7 +15,9 @@ use dotenvy::dotenv;
 use env_logger::Env;
 use gitlab_work::{ProjectMapper, WorkUnitCollection};
 use log::info;
-use nullboard_tools::{list::BasicList, Board, GenericNote, List, ListIteratorAdapters};
+use nullboard_tools::{
+    list::BasicList, Board, GenericNote, List, ListCollection, ListIteratorAdapters,
+};
 use std::path::Path;
 
 mod find_more;
@@ -68,7 +70,9 @@ fn main() -> Result<(), anyhow::Error> {
 
     info!("Looking for new checklists");
     if let Ok(new_checklists) = find_new_checklists(&gitlab, &args.project.default_project) {
-        let list = &mut lists[1];
+        let list = lists
+            .named_list_mut("Initial Composition")
+            .expect("need initial composition list");
         for (issue_data, note) in find_new_notes(&mut collection, new_checklists) {
             info!("Adding note for {}", issue_data.title());
             list.notes_mut().push(GenericNote::new(note));
