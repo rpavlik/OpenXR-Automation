@@ -10,7 +10,7 @@ use std::{fs, path::Path};
 use crate::{
     list::{self, BasicList},
     traits::{Board, ListCollection},
-    Error, GenericList, List,
+    Error, GenericList,
 };
 
 const FORMAT: u32 = 20190412;
@@ -243,15 +243,28 @@ impl<T> Default for GenericBoard<T> {
     }
 }
 
+impl From<GenericBoard<String>> for BasicBoard {
+    fn from(value: GenericBoard<String>) -> Self {
+        Self {
+            format: value.format,
+            id: value.id,
+            revision: value.revision,
+            title: value.title,
+            lists: value.lists.into_iter().map(BasicList::from).collect(),
+            history: value.history,
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
 
     use super::*;
-    use crate::{Board, Note};
+    use crate::{Board, List, Note};
 
     fn do_board_ops<T: Board>(board: T)
     where
-        <<<T as ListCollection>::List as List>::Note as Note>::Data: Default,
+        <<<T as ListCollection>::List as List>::NoteType as Note>::Data: Default,
     {
         assert_ne!(board.id(), 0);
         assert_eq!(board.format(), FORMAT);
@@ -277,7 +290,6 @@ mod tests {
     }
     #[test]
     fn basic_board_ops() {
-        let board: BasicBoard = Default::default();
         do_board_ops(BasicBoard::default());
         do_board_ops::<GenericBoard<String>>(GenericBoard::default());
     }

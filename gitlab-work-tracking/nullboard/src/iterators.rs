@@ -80,7 +80,7 @@ pub mod over_lists {
 
     impl<B, I, F> Iterator for MapNoteData<I, F>
     where
-        F: FnMut(<I::Item as List>::NoteData) -> B,
+        F: FnMut(<<I::Item as List>::NoteType as Note>::Data) -> B,
         I: Iterator + Sized,
         I::Item: List,
     {
@@ -115,7 +115,7 @@ pub mod over_lists {
     where
         I: Iterator + Sized,
         I::Item: List,
-        P: FnMut(&<<I::Item as List>::Note as Note>::Data) -> bool,
+        P: FnMut(&<<I::Item as List>::NoteType as Note>::Data) -> bool,
     {
         type Item = I::Item;
 
@@ -144,10 +144,11 @@ pub trait ListIteratorAdapters<T>: Sized {
 }
 
 // This impl cannot be combined with the trait declaration above or it won't work.
-impl<T, I> ListIteratorAdapters<T> for I
+impl<T, I, U> ListIteratorAdapters<T> for I
 where
+    U: Note<Data = T>,
     I: Iterator,
-    I::Item: List<<Note as Note>::Data = T>,
+    I::Item: List<NoteType = U>,
 {
     fn map_note_data<B, F: FnMut(T) -> B>(self, f: F) -> over_lists::MapNoteData<Self, F> {
         over_lists::MapNoteData::new(self, f)

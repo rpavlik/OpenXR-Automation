@@ -31,7 +31,7 @@ pub trait Note {
 }
 /// Data access methods applicable to all types that resemble a list of notes/Kanban board column
 pub trait List {
-    type Note: Note;
+    type NoteType: Note;
 
     /// Create a new list with the given title
     fn from_title(title: &str) -> Self;
@@ -40,20 +40,24 @@ pub trait List {
     fn title(&self) -> &str;
 
     /// Notes in the list (as a slice)
-    fn notes(&self) -> &[Self::Note];
+    fn notes(&self) -> &[Self::NoteType];
 
     /// Notes in the list (as a mutable reference to a vector)
-    fn notes_mut(&mut self) -> &mut Vec<Self::Note>;
+    fn notes_mut(&mut self) -> &mut Vec<Self::NoteType>;
 
     /// Filter notes using a predicate on their data
-    fn filter_notes<F: FnMut(&<Self::Note as Note>::Data) -> bool>(self, f: F) -> Self;
+    fn filter_notes<F: FnMut(&<Self::NoteType as Note>::Data) -> bool>(self, f: F) -> Self;
 
     /// Transform notes using a function on their data
-    fn map_note_data<B, F: FnMut(<Self::Note as Note>::Data) -> B>(self, f: F) -> GenericList<B>;
+    fn map_note_data<B, F: FnMut(<Self::NoteType as Note>::Data) -> B>(
+        self,
+        f: F,
+    ) -> GenericList<B>;
 
     /// Push a note created with default options and the given data/
-    fn push_note_with_data(&mut self, data: <Self::Note as Note>::Data) {
-        self.notes_mut().push(<Self::Note as Note>::from_data(data))
+    fn push_note_with_data(&mut self, data: <Self::NoteType as Note>::Data) {
+        self.notes_mut()
+            .push(<Self::NoteType as Note>::from_data(data))
     }
 }
 
@@ -114,7 +118,7 @@ impl<T: List> ListCollection for Vec<T> {
     }
 
     fn named_list_mut(&mut self, name: &str) -> Option<&mut Self::List> {
-        self.iter_mut().find(|&list| list.title() == name)
+        self.iter_mut().find(|list| list.title() == name)
     }
 
     fn push_list(&mut self, list: Self::List) -> &mut Self::List {

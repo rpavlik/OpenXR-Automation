@@ -15,7 +15,7 @@ use dotenvy::dotenv;
 use env_logger::Env;
 use gitlab_work::{ProjectMapper, WorkUnitCollection};
 use log::info;
-use nullboard_tools::{GenericNote, List, ListIteratorAdapters};
+use nullboard_tools::{list::BasicList, Board, GenericNote, List, ListIteratorAdapters};
 use std::path::Path;
 
 mod find_more;
@@ -53,7 +53,7 @@ fn main() -> Result<(), anyhow::Error> {
 
     info!("Loading board from {}", path.display());
 
-    let mut board = nullboard_tools::GenericBoard::load_from_json(path)?;
+    let mut board = nullboard_tools::BasicBoard::load_from_json(path)?;
 
     let mut collection = WorkUnitCollection::default();
 
@@ -79,15 +79,18 @@ fn main() -> Result<(), anyhow::Error> {
     let lists = prune_notes(&collection, lists);
 
     info!("Re-generating notes for export");
-    let updated_board = board.make_new_revision_with_lists(lists.into_iter().map_note_data(
-        |proc_note: ProcessedNote| {
-            note_formatter::format_note(proc_note.into(), &mapper, |title| {
-                title
-                    .trim_start_matches("Release checklist for ")
-                    .trim_start_matches("Resolve ")
+    let updated_board = board.make_new_revision_with_lists(
+        lists
+            .into_iter()
+            .map_note_data(|proc_note: ProcessedNote| {
+                note_formatter::format_note(proc_note.into(), &mapper, |title| {
+                    title
+                        .trim_start_matches("Release checklist for ")
+                        .trim_start_matches("Resolve ")
+                })
             })
-        },
-    ));
+            .map(BasicList::from),
+    );
 
     info!("Writing to {}", out_path.display());
     updated_board.save_to_json(&out_path)?;

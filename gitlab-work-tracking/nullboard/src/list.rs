@@ -28,7 +28,7 @@ impl BasicList {
     }
 }
 impl List for BasicList {
-    type Note = BasicNote;
+    type NoteType = BasicNote;
 
     fn from_title(title: &str) -> Self {
         Self {
@@ -41,22 +41,26 @@ impl List for BasicList {
         &self.title
     }
 
-    fn notes(&self) -> &[Self::Note] {
+    fn notes(&self) -> &[Self::NoteType] {
         &self.notes
     }
 
-    fn notes_mut(&mut self) -> &mut Vec<Self::Note> {
+    fn notes_mut(&mut self) -> &mut Vec<Self::NoteType> {
         &mut self.notes
     }
 
-    fn filter_notes<F: FnMut(&<Self::Note as Note>::Data) -> bool>(self, f: F) -> Self {
+    fn filter_notes<F: FnMut(&<Self::NoteType as Note>::Data) -> bool>(self, f: F) -> Self {
+        let mut f = f;
         Self {
             title: self.title,
             notes: self.notes.into_iter().filter(|n| f(n.data())).collect(),
         }
     }
 
-    fn map_note_data<B, F: FnMut(<Self::Note as Note>::Data) -> B>(self, f: F) -> GenericList<B> {
+    fn map_note_data<B, F: FnMut(<Self::NoteType as Note>::Data) -> B>(
+        self,
+        f: F,
+    ) -> GenericList<B> {
         GenericList {
             title: self.title.clone(),
             notes: self.notes.into_iter().map_note_data(f).collect(),
@@ -95,7 +99,7 @@ fn map_generic_notes<T, B>(
 }
 
 impl<T> List for GenericList<T> {
-    type Note = GenericNote<T>;
+    type NoteType = GenericNote<T>;
 
     fn from_title(title: &str) -> Self {
         Self {
@@ -108,21 +112,24 @@ impl<T> List for GenericList<T> {
         &self.title
     }
 
-    fn notes(&self) -> &[Self::Note] {
+    fn notes(&self) -> &[Self::NoteType] {
         &self.notes
     }
 
-    fn notes_mut(&mut self) -> &mut Vec<Self::Note> {
+    fn notes_mut(&mut self) -> &mut Vec<Self::NoteType> {
         &mut self.notes
     }
-    fn filter_notes<F: FnMut(&<Self::Note as Note>::Data) -> bool>(self, f: F) -> Self {
+    fn filter_notes<F: FnMut(&<Self::NoteType as Note>::Data) -> bool>(self, mut f: F) -> Self {
         Self {
             title: self.title,
             notes: self.notes.into_iter().filter(|n| f(n.data())).collect(),
         }
     }
 
-    fn map_note_data<B, F: FnMut(<Self::Note as Note>::Data) -> B>(self, f: F) -> GenericList<B> {
+    fn map_note_data<B, F: FnMut(<Self::NoteType as Note>::Data) -> B>(
+        self,
+        f: F,
+    ) -> GenericList<B> {
         GenericList {
             title: self.title.clone(),
             notes: self.notes.into_iter().map(map_generic_notes(f)).collect(),
