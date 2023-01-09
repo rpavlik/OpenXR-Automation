@@ -183,10 +183,10 @@ pub fn find_new_checklists<'a>(
     }))
 }
 
-pub fn find_new_notes<'a, 'b: 'a>(
+pub fn find_new_notes<'a>(
     collection: &'a mut WorkUnitCollection,
     iter: impl 'a + Iterator<Item = (IssueData, Vec<ProjectItemReference>)>,
-) -> impl 'a + Iterator<Item = (IssueData, ProcessedNote<'b>)> {
+) -> impl 'a + Iterator<Item = (IssueData, ProcessedNote)> {
     // For each...
     iter.filter_map(|(issue_data, refs)| {
         // Try adding all the refs as a group.

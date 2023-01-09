@@ -4,34 +4,29 @@
 //
 // Author: Ryan Pavlik <ryan.pavlik@collabora.com>
 
-use std::borrow::Cow;
-
 use crate::refs::{find_refs, ProjectItemReference};
 use itertools::Itertools;
 use log::warn;
 
 /// Association of an optional project item reference with a line in a note/card
 #[derive(Debug, Clone)]
-pub struct NoteLine<'a> {
+pub struct NoteLine {
     /// The full original line of text
-    pub line: Cow<'a, str>,
+    pub line: String,
     /// At most one project item reference parsed out of the line
     pub reference: Option<ProjectItemReference>,
 }
 
-impl<'a> NoteLine<'a> {
+impl NoteLine {
     /// Parse a single line of text into a NoteLine instance
-    pub fn parse_line(s: Cow<'a, str>) -> Self {
-        let first_ref = {
-            let mut refs = find_refs(&s).peekable();
-            let first_ref = refs.next();
-            if first_ref.is_some() && refs.peek().is_some() {
-                warn!("Found extra refs in a single line: {}", refs.format(", "));
-            }
-            first_ref
-        };
+    pub fn parse_line(s: &str) -> Self {
+        let mut refs = find_refs(s).peekable();
+        let first_ref = refs.next();
+        if first_ref.is_some() && refs.peek().is_some() {
+            warn!("Found extra refs in a single line: {}", refs.format(", "));
+        }
         Self {
-            line: s,
+            line: s.to_owned(),
             reference: first_ref,
         }
     }
@@ -40,20 +35,25 @@ impl<'a> NoteLine<'a> {
 /// A simplified more structured representation of a line in a note (compared to `NoteLine`),
 /// as either a non-reference freeform text line, or as a single project item reference.
 #[derive(Debug, Clone)]
-pub enum LineOrReference<'a> {
+pub enum LineOrReference {
     /// A line of freeform text with no project item reference
-    Line(Cow<'a, str>),
+    Line(String),
     /// A project item reference found in a line
     Reference(ProjectItemReference),
 }
 
-impl<'a> From<ProjectItemReference> for LineOrReference<'a> {
+impl From<ProjectItemReference> for LineOrReference {
     fn from(v: ProjectItemReference) -> Self {
         Self::Reference(v)
     }
 }
 
-impl LineOrReference<'_> {
+impl LineOrReference {
+    /// Parse a single line of text into a LineOrReference instance
+    pub fn parse_line(s: &str) -> Self {
+        NoteLine::parse_line(s).into()
+    }
+
     /// Get the stored reference, or None
     pub fn into_reference(self) -> Option<ProjectItemReference> {
         match self {
@@ -107,24 +107,9 @@ impl LineOrReference<'_> {
         }
         Ok(self.clone())
     }
-}
-
-impl<'a> LineOrReference<'a> {
-    /// Parse a single line of text into a LineOrReference instance
-    pub fn parse_line(s: &'a str) -> Self {
-        NoteLine::parse_line(Cow::Borrowed(s)).into()
-    }
-
-    /// Parse a single line of text into a LineOrReference instance
-    pub fn parse_owned_line(s: String) -> Self {
-        NoteLine::parse_line(Cow::Owned(s)).into()
-    }
 
     /// Turn this enum into a string, calling the provided function if it is an item reference
-    pub fn format_to_string(
-        self,
-        f: impl FnOnce(ProjectItemReference) -> Cow<'a, str>,
-    ) -> Cow<'a, str> {
+    pub fn format_to_string(self, f: impl FnOnce(ProjectItemReference) -> String) -> String {
         match self {
             LineOrReference::Line(text) => text,
             LineOrReference::Reference(reference) => f(reference),
@@ -132,8 +117,8 @@ impl<'a> LineOrReference<'a> {
     }
 }
 
-impl<'b, 'a: 'b> From<NoteLine<'a>> for LineOrReference<'b> {
-    fn from(line: NoteLine<'a>) -> Self {
+impl From<NoteLine> for LineOrReference {
+    fn from(line: NoteLine) -> Self {
         match line.reference {
             Some(reference) => LineOrReference::Reference(reference),
             None => LineOrReference::Line(line.line),

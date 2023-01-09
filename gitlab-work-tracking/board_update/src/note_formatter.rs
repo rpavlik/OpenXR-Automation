@@ -4,8 +4,6 @@
 //
 // Author: Ryan Pavlik <ryan.pavlik@collabora.com>
 
-use std::borrow::Cow;
-
 use gitlab::{api::Query, ProjectId};
 use gitlab_work::{
     BaseGitLabItemReference, Error, GitLabItemReferenceNormalize, LineOrReference,
@@ -103,7 +101,7 @@ pub fn format_note(
         .map(|line| match line {
             LineOrReference::Line(text) => text,
             LineOrReference::Reference(reference) => {
-                Cow::Owned(format_reference(&reference, mapper, &title_mangler))
+                format_reference(&reference, mapper, &title_mangler)
             }
         })
         .join("\n\u{2022} ")

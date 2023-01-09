@@ -8,7 +8,7 @@ use crate::find_more::{find_new_checklists, find_new_notes};
 use board_update::{
     associate_work_unit_with_note,
     cli::{GitlabArgs, InputOutputArgs, ProjectArgs},
-    note_formatter, note_refs_to_ids, parse_owned_note, prune_notes, ProcessedNote,
+    note_formatter, note_refs_to_ids, parse_note, prune_notes, ProcessedNote,
 };
 use clap::Parser;
 use dotenvy::dotenv;
@@ -63,7 +63,7 @@ fn main() -> Result<(), anyhow::Error> {
     let mut lists: Vec<_> = board
         .take_lists()
         .into_iter()
-        .map_note_data(parse_owned_note)
+        .map_note_data(parse_note)
         .map_note_data(|data| note_refs_to_ids(&mut mapper, data))
         .map_note_data(|note_data| associate_work_unit_with_note(&mut collection, note_data))
         .collect();
