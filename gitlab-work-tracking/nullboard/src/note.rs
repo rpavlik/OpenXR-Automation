@@ -45,6 +45,10 @@ impl crate::traits::Note for BasicNote {
             min: self.min,
         }
     }
+
+    fn from_data(data: Self::Data) -> Self {
+        BasicNote::new(&data)
+    }
 }
 
 impl BasicNote {
@@ -74,6 +78,10 @@ pub struct GenericNote<T> {
 impl<T> crate::traits::Note for GenericNote<T> {
     type Data = T;
 
+    fn from_data(data: Self::Data) -> Self {
+        GenericNote::new(data)
+    }
+
     fn min(&self) -> bool {
         self.min
     }
@@ -85,10 +93,10 @@ impl<T> crate::traits::Note for GenericNote<T> {
     fn data(&self) -> &Self::Data {
         &self.data
     }
-
     fn data_mut(&mut self) -> &mut Self::Data {
         &mut self.data
     }
+
     fn map_note_data<B, F: FnMut(Self::Data) -> B>(self, mut f: F) -> GenericNote<B> {
         let data = f(self.data);
 

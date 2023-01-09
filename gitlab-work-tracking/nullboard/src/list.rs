@@ -29,7 +29,13 @@ impl BasicList {
 }
 impl List for BasicList {
     type Note = BasicNote;
-    type NoteData = String;
+
+    fn from_title(title: &str) -> Self {
+        Self {
+            title: title.to_owned(),
+            notes: Default::default(),
+        }
+    }
 
     fn title(&self) -> &str {
         &self.title
@@ -43,13 +49,14 @@ impl List for BasicList {
         &mut self.notes
     }
 
-    fn filter_notes<F: FnMut(&Self::NoteData) -> bool>(self, mut f: F) -> Self {
+    fn filter_notes<F: FnMut(&<Self::Note as Note>::Data) -> bool>(self, f: F) -> Self {
         Self {
             title: self.title,
             notes: self.notes.into_iter().filter(|n| f(n.data())).collect(),
         }
     }
-    fn map_note_data<B, F: FnMut(Self::NoteData) -> B>(self, f: F) -> GenericList<B> {
+
+    fn map_note_data<B, F: FnMut(<Self::Note as Note>::Data) -> B>(self, f: F) -> GenericList<B> {
         GenericList {
             title: self.title.clone(),
             notes: self.notes.into_iter().map_note_data(f).collect(),
@@ -90,7 +97,12 @@ fn map_generic_notes<T, B>(
 impl<T> List for GenericList<T> {
     type Note = GenericNote<T>;
 
-    type NoteData = T;
+    fn from_title(title: &str) -> Self {
+        Self {
+            title: title.to_owned(),
+            notes: Default::default(),
+        }
+    }
 
     fn title(&self) -> &str {
         &self.title
@@ -103,15 +115,14 @@ impl<T> List for GenericList<T> {
     fn notes_mut(&mut self) -> &mut Vec<Self::Note> {
         &mut self.notes
     }
-
-    fn filter_notes<F: FnMut(&Self::NoteData) -> bool>(self, mut f: F) -> Self {
+    fn filter_notes<F: FnMut(&<Self::Note as Note>::Data) -> bool>(self, f: F) -> Self {
         Self {
             title: self.title,
             notes: self.notes.into_iter().filter(|n| f(n.data())).collect(),
         }
     }
 
-    fn map_note_data<B, F: FnMut(Self::NoteData) -> B>(self, f: F) -> GenericList<B> {
+    fn map_note_data<B, F: FnMut(<Self::Note as Note>::Data) -> B>(self, f: F) -> GenericList<B> {
         GenericList {
             title: self.title.clone(),
             notes: self.notes.into_iter().map(map_generic_notes(f)).collect(),

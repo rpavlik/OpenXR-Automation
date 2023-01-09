@@ -28,4 +28,4 @@ pub use board::GenericBoard;
 pub use iterators::{ListIteratorAdapters, NoteIteratorAdapters};
 pub use list::GenericList;
 pub use note::GenericNote;
-pub use traits::{List, Note};
+pub use traits::{Board, List, ListCollection, Note};

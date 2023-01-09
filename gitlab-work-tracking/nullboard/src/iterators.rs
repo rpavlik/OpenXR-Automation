@@ -63,7 +63,7 @@ where
 
 /// Adapters for iterators over lists
 pub mod over_lists {
-    use crate::{GenericList, List};
+    use crate::{GenericList, List, Note};
 
     /// Iterator adapter for mapping note data when iterating over lists.
     #[must_use = "iterators are lazy"]
@@ -115,7 +115,7 @@ pub mod over_lists {
     where
         I: Iterator + Sized,
         I::Item: List,
-        P: FnMut(&<I::Item as List>::NoteData) -> bool,
+        P: FnMut(&<<I::Item as List>::Note as Note>::Data) -> bool,
     {
         type Item = I::Item;
 
@@ -147,7 +147,7 @@ pub trait ListIteratorAdapters<T>: Sized {
 impl<T, I> ListIteratorAdapters<T> for I
 where
     I: Iterator,
-    I::Item: List<NoteData = T>,
+    I::Item: List<<Note as Note>::Data = T>,
 {
     fn map_note_data<B, F: FnMut(T) -> B>(self, f: F) -> over_lists::MapNoteData<Self, F> {
         over_lists::MapNoteData::new(self, f)
