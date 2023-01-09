@@ -4,6 +4,7 @@
 //
 // Author: Ryan Pavlik <ryan.pavlik@collabora.com>
 
+use crate::regex::{PROJECT_NAME_PATTERN, REFERENCE_IID_PATTERN};
 use gitlab::{api::common::NameOrId, IssueInternalId, MergeRequestInternalId, ProjectId};
 use lazy_static::lazy_static;
 use log::error;
@@ -395,11 +396,15 @@ impl BaseGitLabItemReference for ProjectItemReference {
 pub fn find_refs(input: &str) -> impl Iterator<Item = ProjectItemReference> + '_ {
     lazy_static! {
         static ref RE: Regex = Regex::new(
-            r"(?x)
-                (?P<proj>[-._a-zA-Z0-9]+[-./_a-zA-Z0-9]+)?
+            format!(
+                r"(?x)
+                {}?
                 (?P<symbol>[\#!])
-                (?P<iid>[1-9][0-9]+)
-            "
+                {}
+            ",
+                PROJECT_NAME_PATTERN, REFERENCE_IID_PATTERN
+            )
+            .as_str()
         )
         .expect("valid regex");
     }
