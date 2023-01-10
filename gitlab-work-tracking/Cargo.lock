@@ -1549,6 +1549,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "work_unit_collection"
+version = "0.1.0"
+dependencies = [
+ "log",
+ "thiserror",
+ "typed-index-collections",
+]
+
+[[package]]
 name = "workboard_update"
 version = "0.1.0"
 dependencies = [

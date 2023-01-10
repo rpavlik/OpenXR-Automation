@@ -8,7 +8,10 @@ use crate::find_more::{find_new_checklists, find_new_notes};
 use clap::Parser;
 use dotenvy::dotenv;
 use env_logger::Env;
-use gitlab_work_units::{lookup::GitlabQueryCache, ProjectMapper, UnitId, WorkUnitCollection};
+use gitlab_work_units::{
+    lookup::{GitlabQueryCache, ItemState},
+    ProjectItemReference, ProjectMapper, UnitId, WorkUnitCollection,
+};
 use log::info;
 use nullboard_tools::{
     list::BasicList, Board, GenericList, GenericNote, List, ListCollection, ListIteratorAdapters,
@@ -19,7 +22,9 @@ use workboard_update::{
     associate_work_unit_with_note,
     cli::{GitlabArgs, InputOutputArgs, ProjectArgs},
     line_or_reference::{self, LineOrReferenceCollection, ProcessedNote},
-    note_formatter, note_refs_to_ids, prune_notes, GetWorkUnit,
+    note_formatter, note_refs_to_ids, prune_notes,
+    traits::GetItemReference,
+    GetWorkUnit,
 };
 
 mod find_more;
@@ -100,6 +105,49 @@ impl BoardOperation {
         }
     }
 }
+
+fn get_mr_statuses<'a, L: GetItemReference + 'a, I: Iterator<Item = &'a L>>(
+    client: &gitlab::Gitlab,
+    cache: &mut GitlabQueryCache,
+    lines: I,
+) -> Result<Vec<ItemState>, gitlab_work_units::Error> {
+    lines
+        .filter_map(GetItemReference::project_item_reference)
+        .filter(|&reference| ProjectItemReference::is_merge_request(reference))
+        .map(|reference| cache.query(client, reference).map(|data| data.state()))
+        .collect()
+}
+
+fn get_mr_merged_closed_count<'a, L: GetItemReference + 'a, I: Iterator<Item = &'a L>>(
+    client: &gitlab::Gitlab,
+    cache: &mut GitlabQueryCache,
+    lines: I,
+) -> Result< (usize, usize, usize), gitlab_work_units::Error> {
+    let statuses = get_mr_statuses(client, cache, lines)?;
+    let (num_merged, num_closed) = statuses.iter().fold((0, 0), |(merged, closed), state| {
+            (
+                (merged + usize::from(state == &ItemState::Merged)),
+                (closed + usize::from(state == &ItemState::Closed)),
+            )
+        });
+        Ok((statuses.len(), num_merged, num_closed))
+}
+
+fn all_mrs_merged<'a, L: GetItemReference + 'a, I: Iterator<Item = &'a L>>(
+    client: &gitlab::Gitlab,
+    cache: &mut GitlabQueryCache,
+    lines: I,
+) -> Result<bool, anyhow::Error> {
+    let (num_mrs, num_merged, num_closed) = get_mr_merged_closed_count(client, cache, lines)?;
+
+    if num_mrs == 0 || num_mrs > (num_merged + num_closed) {
+        Ok(false)
+    } else {
+        Ok(num_merged > num_closed)
+    }
+}
+
+fn find_notes_to_move(ops: &mut Vec<BoardOperation>, lists: impl ListCollection) {}
 
 // We need extra collect calls to make sure some things are evaluated eagerly.
 #[allow(clippy::needless_collect)]

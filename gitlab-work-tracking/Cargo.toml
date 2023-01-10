@@ -6,6 +6,7 @@ members = [
   "nullboard_tools",
   "gitlab_work_units",
   "workboard_update",
+  "work_unit_collection",
   "openxr_release_checklist_update",
 ]
 

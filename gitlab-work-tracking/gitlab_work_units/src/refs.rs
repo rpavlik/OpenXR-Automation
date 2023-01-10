@@ -328,6 +328,32 @@ pub enum ProjectItemReference {
     MergeRequest(MergeRequest),
 }
 
+impl ProjectItemReference {
+    pub fn as_merge_request(&self) -> Option<&MergeRequest> {
+        if let Self::MergeRequest(v) = self {
+            Some(v)
+        } else {
+            None
+        }
+    }
+
+    pub fn as_issue(&self) -> Option<&Issue> {
+        if let Self::Issue(v) = self {
+            Some(v)
+        } else {
+            None
+        }
+    }
+
+    /// Returns `true` if the project item reference is [`MergeRequest`].
+    ///
+    /// [`MergeRequest`]: ProjectItemReference::MergeRequest
+    #[must_use]
+    pub fn is_merge_request(&self) -> bool {
+        matches!(self, Self::MergeRequest(..))
+    }
+}
+
 impl From<MergeRequest> for ProjectItemReference {
     fn from(other: MergeRequest) -> Self {
         ProjectItemReference::MergeRequest(other)
