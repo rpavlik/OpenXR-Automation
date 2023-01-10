@@ -39,7 +39,7 @@ impl<R: Hash + Debug + Eq> WorkUnitCollection<R> {
         refs: impl IntoIterator<Item = &'a R>,
     ) -> Result<InsertOutcome, InsertError>
     where
-        R: Clone,
+        R: Clone + Borrow<R> + Hash + Eq + ToOwned + Debug + CloneOrTake<R> + Borrow<R>,
     {
         let refs: Vec<&R> = refs.into_iter().collect();
         debug!("Given {} refs", refs.len());
@@ -53,7 +53,11 @@ impl<R: Hash + Debug + Eq> WorkUnitCollection<R> {
                 debug!("Merging {} into {}", unit_id, src_id);
                 self.merge_work_units(unit_id, *src_id)?;
             }
-            let refs_added = self.add_refs_to_unit_id(unit_id, refs.as_slice())?;
+            let refs_added: Vec<_> = refs
+                .into_iter()
+                .map(|r| self.add_ref_to_unit_id(unit_id, r))
+                .collect()?;
+            let refs_added = refs_added.into_iter().sum();
             if refs_added == 0 && units_merged_in == 0 {
                 Ok(InsertOutcome::NotUpdated(UnitNotUpdated { unit_id }))
             } else {
@@ -79,7 +83,7 @@ impl<R: Hash + Debug + Eq> WorkUnitCollection<R> {
         }
     }
 
-    /// Return value is number of refs added
+    // Return value is number of refs added
     fn add_refs_to_unit_id<'a, T>(
         &mut self,
         unit_id: UnitId,
@@ -87,8 +91,13 @@ impl<R: Hash + Debug + Eq> WorkUnitCollection<R> {
     ) -> Result<usize, GetUnitIdError>
     where
         R: Clone,
-        T: Hash + Eq + ToOwned + Debug,
+        T: Hash + Eq + Debug,
         &'a T: CloneOrTake<R> + Borrow<R>,
+        // R: Clone,
+        // T: Hash + Eq + ToOwned + Debug,
+        // &'a T: CloneOrTake<R> + Borrow<R>,
+        // R: Clone + Borrow<&'a T>,
+        // T: Hash + Eq + ToOwned + Debug + CloneOrTake<R> + Borrow<R> + 'a,
     {
         let mut count: usize = 0;
         for reference in refs.iter() {
@@ -99,29 +108,33 @@ impl<R: Hash + Debug + Eq> WorkUnitCollection<R> {
         Ok(count)
     }
 
-    fn add_owned_refs_to_unit_id<'a, T>(
-        &mut self,
-        unit_id: UnitId,
-        refs: impl IntoIterator<Item = T>,
-    ) -> Result<usize, GetUnitIdError>
-    where
-        R: Clone,
-        T: 'a + Hash + Eq + ToOwned + Debug + CloneOrTake<R> + Borrow<R>,
-    {
-        let mut count: usize = 0;
-        for reference in refs.into_iter() {
-            if self.add_ref_to_unit_id(unit_id, reference)? {
-                count += 1;
-            }
-        }
-        Ok(count)
-    }
+    // fn add_owned_refs_to_unit_id<'a, T>(
+    //     &mut self,
+    //     unit_id: UnitId,
+    //     refs: impl IntoIterator<Item = T>,
+    // ) -> Result<usize, GetUnitIdError>
+    // where
+    //     R: Clone + Borrow<&'a T>,
+    //     T: Hash + Eq + ToOwned + Debug + CloneOrTake<R> + Borrow<R> + 'a,
+    // {
+    //     let mut count: usize = 0;
+    //     for reference in refs.into_iter() {
+    //         if self.add_ref_to_unit_id(unit_id, reference)? {
+    //             count += 1;
+    //         }
+    //     }
+    //     Ok(count)
+    // }
 
     /// Returns Ok(true) if a ref was added
-    fn add_ref_to_unit_id<T>(&mut self, id: UnitId, reference: &T) -> Result<bool, GetUnitIdError>
+    fn add_ref_to_unit_id<'a, T>(
+        &'a mut self,
+        id: UnitId,
+        reference: T,
+    ) -> Result<bool, GetUnitIdError>
     where
-        R: Clone,
-        T: Hash + Eq + ToOwned + Debug + CloneOrTake<R> + Borrow<R>,
+        R: Clone, //+ Borrow<&'a T>,
+        T: Hash + Eq + ToOwned + Debug + CloneOrTake<R> + Borrow<R> + 'a,
     {
         debug!(
             "Trying to add a reference to {}: {:?}",
