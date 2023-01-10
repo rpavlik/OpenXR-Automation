@@ -44,6 +44,14 @@ impl<R> WorkUnit<R> {
         }
     }
 
+    pub fn from_iterator(iter: impl Iterator<Item = R>) -> Self {
+        let refs: Vec<R> = iter.collect();
+        Self {
+            refs,
+            extincted_by: None,
+        }
+    }
+
     /// Iterate through the project item references
     pub fn iter_refs(&self) -> impl Iterator<Item = &R> {
         self.refs.iter()
@@ -52,6 +60,11 @@ impl<R> WorkUnit<R> {
     /// Add a ref to the list. Does not check to see if it is already in there: that is the job of the collection.
     pub(crate) fn add_ref(&mut self, reference: R) {
         self.refs.push(reference)
+    }
+
+    /// Adds ref to the list. Does not check to see if they is already in there: that is the job of the collection.
+    pub(crate) fn extend_refs(&mut self, iter: impl Iterator<Item = R>) {
+        self.refs.extend(iter)
     }
 
     /// Mark this work unit as extinct by pointing to a different work unit, and take the refs.

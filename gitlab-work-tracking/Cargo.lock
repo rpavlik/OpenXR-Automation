@@ -1558,6 +1558,7 @@ dependencies = [
 name = "work_unit_collection"
 version = "0.1.0"
 dependencies = [
+ "itertools",
  "log",
  "thiserror",
  "typed-index-collections",
