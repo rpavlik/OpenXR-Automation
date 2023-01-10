@@ -10,6 +10,18 @@ use std::fmt::Display;
 #[derive(Debug, Clone, Copy, Hash, PartialEq, Eq, PartialOrd, Ord)]
 pub struct UnitId(usize);
 
+impl From<usize> for UnitId {
+    fn from(value: usize) -> Self {
+        UnitId(value)
+    }
+}
+
+impl From<UnitId> for usize {
+    fn from(value: UnitId) -> Self {
+        value.0
+    }
+}
+
 impl Display for UnitId {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "Unit({})", self.0)
@@ -47,5 +59,9 @@ impl<R> WorkUnit<R> {
     pub(crate) fn extinct_by(&mut self, unit_id: UnitId) -> Vec<R> {
         self.extincted_by = Some(unit_id);
         std::mem::take(&mut self.refs)
+    }
+
+    pub fn extincted_by(&self) -> Option<UnitId> {
+        self.extincted_by
     }
 }

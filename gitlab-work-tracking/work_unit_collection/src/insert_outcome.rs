@@ -13,7 +13,7 @@ pub struct UnitCreated {
     pub refs_added: usize,
 }
 
-impl InsertOutcomeGetter for UnitNotUpdated {
+impl InsertOutcomeGetter for UnitCreated {
     fn into_work_unit_id(self) -> UnitId {
         self.unit_id
     }

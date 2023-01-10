@@ -6,69 +6,20 @@
 
 use crate::{
     error::{
-        ExtinctWorkUnitId, FollowExtinctionUnitIdError, GetUnitIdError, InvalidWorkUnitId,
-        NoReferencesError, RecursionLimitReached,
+        ExtinctWorkUnitId, FollowExtinctionUnitIdError, GetUnitIdError, InsertError,
+        InvalidWorkUnitId, NoReferencesError, RecursionLimitReached,
     },
     insert_outcome::{InsertOutcome, UnitCreated, UnitNotUpdated, UnitUpdated},
     UnitId, WorkUnit,
 };
 use log::{debug, warn};
-use std::collections::{hash_map::Entry, HashMap, HashSet};
+use std::{
+    borrow::Borrow,
+    collections::{hash_map::Entry, HashMap, HashSet},
+    fmt::Debug,
+    hash::Hash,
+};
 use typed_index_collections::TiVec;
-
-/// Internal newtype to provide utility functions over a TiVec<UnitId, WorkUnit>
-/// `R` is your "ItemReference" type: e.g. for GitLab, it would be an enum that can refer
-/// to an issue or merge request.
-#[derive(Debug, Default)]
-struct UnitContainer<R>(TiVec<UnitId, WorkUnit<R>>);
-
-impl<R> UnitContainer<R> {
-    /// Get a mutable work unit by ID
-    fn get_unit_mut(&mut self, id: UnitId) -> Result<&mut WorkUnit<R>, GetUnitIdError> {
-        let unit = self.0.get_mut(id).ok_or(InvalidWorkUnitId(id))?;
-        if let Some(extincted_by) = &unit.extincted_by {
-            return Err(ExtinctWorkUnitId(id, *extincted_by).into());
-        }
-        Ok(unit)
-    }
-
-    /// Get a work unit by ID
-    fn get_unit(&self, id: UnitId) -> Result<&WorkUnit<R>, GetUnitIdError> {
-        let unit = self.0.get(id).ok_or(InvalidWorkUnitId(id))?;
-        if let Some(extincted_by) = &unit.extincted_by {
-            return Err(ExtinctWorkUnitId(id, *extincted_by).into());
-        }
-        Ok(unit)
-    }
-
-    /// Create a new work unit from the given reference and return its id
-    fn emplace(&mut self, reference: R) -> UnitId {
-        self.0.push_and_get_key(WorkUnit::new(reference))
-    }
-
-    /// If the ID is extinct, follow the extincted-by field, repeatedly, at most `limit` steps.
-    fn follow_extinction(
-        &self,
-        id: UnitId,
-        limit: usize,
-    ) -> Result<UnitId, FollowExtinctionUnitIdError> {
-        let mut result_id = id;
-        for _i in 0..limit {
-            let unit = self.0.get(result_id).ok_or(InvalidWorkUnitId(id))?;
-            match &unit.extincted_by {
-                Some(successor) => {
-                    warn!(
-                        "Following extinction pointer: {} to {}",
-                        &result_id, successor
-                    );
-                    result_id = *successor;
-                }
-                None => return Ok(result_id),
-            }
-        }
-        Err(RecursionLimitReached(id).into())
-    }
-}
 
 /// A container for "work units" that are ordered collections of unique "item references" (initial use case is GitLab project item references: issues and MRs).
 /// Any given item reference can only belong to a single work unit, and each work unit has an ID.
@@ -79,17 +30,20 @@ pub struct WorkUnitCollection<R> {
     unit_by_ref: HashMap<R, UnitId>,
 }
 
-impl<R> WorkUnitCollection<R> {
+impl<R: Hash + Debug + Eq> WorkUnitCollection<R> {
     /// Records a work unit containing the provided references (must be non-empty).
     /// If any of those references already exist in the work collection, their corresponding work units are merged.
     /// Any references not yet in the work collection are added.
     pub fn add_or_get_unit_for_refs<'a>(
-        &mut self,
+        &'a mut self,
         refs: impl IntoIterator<Item = &'a R>,
-    ) -> Result<InsertOutcome, NoReferencesError> {
+    ) -> Result<InsertOutcome, InsertError>
+    where
+        R: Clone,
+    {
         let refs: Vec<&R> = refs.into_iter().collect();
         debug!("Given {} refs", refs.len());
-        let unit_ids = self.get_ids_for_refs(&refs);
+        let unit_ids = self.get_ids_for_refs(refs.as_slice());
         if let Some((&unit_id, remaining_unit_ids)) = unit_ids.split_first() {
             // we have at least one existing unit
             debug!("Will use work unit {}", unit_id);
@@ -99,7 +53,7 @@ impl<R> WorkUnitCollection<R> {
                 debug!("Merging {} into {}", unit_id, src_id);
                 self.merge_work_units(unit_id, *src_id)?;
             }
-            let refs_added = self.add_refs_to_unit_id(unit_id, &refs[..])?;
+            let refs_added = self.add_refs_to_unit_id(unit_id, refs.as_slice())?;
             if refs_added == 0 && units_merged_in == 0 {
                 Ok(InsertOutcome::NotUpdated(UnitNotUpdated { unit_id }))
             } else {
@@ -121,18 +75,23 @@ impl<R> WorkUnitCollection<R> {
                 refs_added,
             }))
         } else {
-            Err(NoReferencesError)
+            Err(NoReferencesError.into())
         }
     }
 
     /// Return value is number of refs added
-    fn add_refs_to_unit_id(
+    fn add_refs_to_unit_id<'a, T>(
         &mut self,
         unit_id: UnitId,
-        refs: &[&R],
-    ) -> Result<usize, GetUnitIdError> {
+        refs: &'a [T],
+    ) -> Result<usize, GetUnitIdError>
+    where
+        R: Clone,
+        T: Hash + Eq + ToOwned + Debug,
+        &'a T: CloneOrTake<R> + Borrow<R>,
+    {
         let mut count: usize = 0;
-        for &reference in refs {
+        for reference in refs.iter() {
             if self.add_ref_to_unit_id(unit_id, reference)? {
                 count += 1;
             }
@@ -140,22 +99,49 @@ impl<R> WorkUnitCollection<R> {
         Ok(count)
     }
 
-    /// Returns true if the ref should be added to the work unit.
-    fn start_add_ref(&mut self, id: UnitId, reference: &R) -> bool {
-        debug!("Trying to add a reference to {}: {:?}", id, reference);
-        match self.unit_by_ref.entry(reference.clone()) {
+    fn add_owned_refs_to_unit_id<'a, T>(
+        &mut self,
+        unit_id: UnitId,
+        refs: impl IntoIterator<Item = T>,
+    ) -> Result<usize, GetUnitIdError>
+    where
+        R: Clone,
+        T: 'a + Hash + Eq + ToOwned + Debug + CloneOrTake<R> + Borrow<R>,
+    {
+        let mut count: usize = 0;
+        for reference in refs.into_iter() {
+            if self.add_ref_to_unit_id(unit_id, reference)? {
+                count += 1;
+            }
+        }
+        Ok(count)
+    }
+
+    /// Returns Ok(true) if a ref was added
+    fn add_ref_to_unit_id<T>(&mut self, id: UnitId, reference: &T) -> Result<bool, GetUnitIdError>
+    where
+        R: Clone,
+        T: Hash + Eq + ToOwned + Debug + CloneOrTake<R> + Borrow<R>,
+    {
+        debug!(
+            "Trying to add a reference to {}: {:?}",
+            id,
+            reference.borrow()
+        );
+        let owned = R::clone(reference.borrow());
+        let do_insert = match self.unit_by_ref.entry(R::clone(reference.borrow())) {
             Entry::Occupied(mut entry) => {
                 if entry.get() != &id {
                     debug!(
                         "Reference previously in {} being moved to {}: {:?}",
                         entry.get(),
                         id,
-                        reference
+                        reference.borrow()
                     );
                     *entry.get_mut() = id;
                     true
                 } else {
-                    debug!("Reference already in {}: {:?}", id, reference);
+                    debug!("Reference already in {}: {:?}", id, reference.borrow());
                     false
                 }
             }
@@ -164,55 +150,19 @@ impl<R> WorkUnitCollection<R> {
                 entry.insert(id);
                 true
             }
-        }
-    }
-
-    fn unwrap_or_get_unit_mut(
-        &mut self,
-        id: UnitId,
-        unit: Option<&mut WorkUnit<R>>,
-    ) -> Result<&mut WorkUnit<R>, GetUnitIdError> {
-        let unit = match unit {
-            Some(u) => u,
-            None => self.units.get_unit_mut(id)?,
         };
-        Ok(unit)
-    }
-    /// Returns Ok(true) if a ref was added
-    fn add_ref_to_unit_id(
-        &mut self,
-        id: UnitId,
-        reference: impl AsRef<R> + ToOwned,
-    ) -> Result<bool, GetUnitIdError> {
-        debug!("Trying to add a reference to {}: {:?}", id, reference.as_ref());
-        let do_insert = self.start_add_ref(id, reference);
         if do_insert {
             let unit = self.units.get_unit_mut(id)?;
-            debug!("New reference added to {}: {:?}", id, reference);
-            unit.add_ref(reference.clone());
+            debug!("New reference added to {}: {:?}", id, reference.borrow());
+            unit.add_ref(reference.clone_or_take());
         }
         Ok(do_insert)
     }
 
-    /// Returns Ok(true) if a ref was added
-    fn add_owned_ref_to_unit_id(
-        &mut self,
-        id: UnitId,
-        reference: R,
-    ) -> Result<bool, GetUnitIdError> {
-        debug!("Trying to add a reference to {}: {:?}", id, &reference);
-
-        let do_insert = self.start_add_ref(id, &reference);
-        if do_insert {
-            let unit = self.units.get_unit_mut(id)?;
-
-            debug!("New reference added to {}: {:?}", id, &reference);
-            unit.add_ref(reference);
-        }
-        Ok(do_insert)
-    }
-
-    fn merge_work_units(&mut self, id: UnitId, src_id: UnitId) -> Result<(), GetUnitIdError> {
+    fn merge_work_units(&mut self, id: UnitId, src_id: UnitId) -> Result<(), GetUnitIdError>
+    where
+        R: Borrow<R> + Clone + Debug + CloneOrTake<R> + Clone,
+    {
         let src = self.units.get_unit_mut(src_id)?;
         debug!(
             "Merging {} into {}, and marking the former extinct",
@@ -221,7 +171,7 @@ impl<R> WorkUnitCollection<R> {
         // mark as extinct, and add its refs to the other work unit
         let refs_to_move = src.extinct_by(id);
         for reference in refs_to_move {
-            self.add_owned_ref_to_unit_id(id, Some(unit), &reference)?;
+            self.add_ref_to_unit_id(id, reference)?;
         }
         debug!("Merging {} into {} done", src_id, id);
         Ok(())
@@ -242,7 +192,11 @@ impl<R> WorkUnitCollection<R> {
     }
 
     /// Find the set of unit IDs corresponding to the refs, if any.
-    fn get_ids_for_refs(&self, refs: &[&R]) -> Vec<UnitId> {
+    fn get_ids_for_refs<T>(&self, refs: &[&T]) -> Vec<UnitId>
+    where
+        R: Borrow<T> + Clone,
+        T: Hash + Eq + ToOwned + Debug + CloneOrTake<R> + Clone + Borrow<R>,
+    {
         let mut units: Vec<UnitId> = vec![];
         let mut retrieved_ids: HashSet<UnitId> = Default::default();
 
@@ -250,15 +204,15 @@ impl<R> WorkUnitCollection<R> {
             "Finding units for a collection of {} references",
             refs.len()
         );
-        for &reference in refs {
-            if let Some(&id) = self.unit_by_ref.get(reference) {
-                debug!("Found id {} for: {:?}", id, &reference);
+        for reference in refs.iter().map(|r| r) {
+            if let Some(&id) = self.unit_by_ref.get(reference.borrow()) {
+                debug!("Found id {} for: {:?}", id, reference);
                 if retrieved_ids.insert(id) {
                     debug!("Adding {} to our return set", id);
                     units.push(id);
                 }
             } else {
-                debug!("Do not yet know {:?}", &reference)
+                debug!("Do not yet know {:?}", reference)
             }
         }
         debug!(
@@ -268,6 +222,146 @@ impl<R> WorkUnitCollection<R> {
         );
         units
     }
+
+    pub fn len(&self) -> usize {
+        self.units.len()
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.units.is_empty()
+    }
 }
 
-trait AddableReference<R> {}
+trait CloneOrTake<T> {
+    fn clone_or_take(self) -> T;
+}
+impl<T> CloneOrTake<T> for T {
+    fn clone_or_take(self) -> T {
+        self
+    }
+}
+
+impl<T: Clone> CloneOrTake<T> for &T {
+    fn clone_or_take(self) -> T {
+        Clone::clone(&self)
+    }
+}
+
+trait AsRefCloneTake<T> {
+    type Value;
+    // fn ref_borrow(&self) -> &Self::Value;
+    fn ref_clone(&self) -> Self::Value;
+    fn ref_take(self) -> Self::Value;
+}
+impl<T> AsRefCloneTake<T> for &T
+where
+    T: Hash + Eq + Clone + Borrow<T>,
+{
+    type Value = T;
+    // fn ref_borrow(&self) -> &R {
+    //     self
+    // }
+
+    fn ref_clone(&self) -> T {
+        Clone::clone(self)
+    }
+
+    fn ref_take(self) -> T {
+        Clone::clone(self)
+    }
+}
+impl<T> AsRefCloneTake<T> for T
+where
+    T: Hash + Eq + Clone + Borrow<T>,
+{
+    type Value = T;
+
+    fn ref_clone(&self) -> Self::Value {
+        Clone::clone(&self)
+    }
+
+    fn ref_take(self) -> Self::Value {
+        self
+    }
+}
+
+/// Internal newtype to provide utility functions over a TiVec<UnitId, WorkUnit>
+/// `R` is your "ItemReference" type: e.g. for GitLab, it would be an enum that can refer
+/// to an issue or merge request.
+#[derive(Default)]
+struct UnitContainer<R>(TiVec<UnitId, WorkUnit<R>>);
+
+impl<R> Debug for UnitContainer<R>
+where
+    R: Debug,
+{
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_tuple("UnitContainer").field(&self.0).finish()
+    }
+}
+impl<R> UnitContainer<R> {
+    /// Get a mutable work unit by ID
+    fn get_unit_mut(&mut self, id: UnitId) -> Result<&mut WorkUnit<R>, GetUnitIdError> {
+        let unit = self.0.get_mut(id).ok_or(InvalidWorkUnitId(id))?;
+        if let Some(extincted_by) = &unit.extincted_by() {
+            return Err(ExtinctWorkUnitId(id, *extincted_by).into());
+        }
+        Ok(unit)
+    }
+
+    /// Get a work unit by ID
+    fn get_unit(&self, id: UnitId) -> Result<&WorkUnit<R>, GetUnitIdError> {
+        let unit = self.0.get(id).ok_or(InvalidWorkUnitId(id))?;
+        if let Some(extincted_by) = &unit.extincted_by() {
+            return Err(ExtinctWorkUnitId(id, *extincted_by).into());
+        }
+        Ok(unit)
+    }
+
+    /// Create a new work unit from the given reference and return its id
+    fn emplace(&mut self, reference: R) -> UnitId {
+        self.0.push_and_get_key(WorkUnit::new(reference))
+    }
+
+    /// If the ID is extinct, follow the extincted-by field, repeatedly, at most `limit` steps.
+    fn follow_extinction(
+        &self,
+        id: UnitId,
+        limit: usize,
+    ) -> Result<UnitId, FollowExtinctionUnitIdError> {
+        let mut result_id = id;
+        for _i in 0..limit {
+            let unit = self.0.get(result_id).ok_or(InvalidWorkUnitId(id))?;
+            match unit.extincted_by() {
+                Some(successor) => {
+                    warn!(
+                        "Following extinction pointer: {} to {}",
+                        &result_id, successor
+                    );
+                    result_id = successor;
+                }
+                None => return Ok(result_id),
+            }
+        }
+        Err(RecursionLimitReached(id).into())
+    }
+
+    pub fn len(&self) -> usize {
+        self.0.len()
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.0.is_empty()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::{UnitId, WorkUnitCollection};
+
+    #[test]
+    fn test_collection() {
+        let collection: WorkUnitCollection<i32> = Default::default();
+        assert!(collection.get_unit(UnitId::from(1)).is_err());
+    }
+}

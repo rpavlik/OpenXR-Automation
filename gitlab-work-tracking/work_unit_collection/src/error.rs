@@ -76,22 +76,26 @@ impl From<GetUnitIdError> for GeneralUnitIdError {
     }
 }
 
-// #[derive(Debug, thiserror::Error)]
-// pub enum Error {
-//     #[error("No references passed, at least one required")]
-//     NoReferences,
+#[derive(Debug, thiserror::Error)]
+pub enum InsertError {
+    #[error(transparent)]
+    NoReferences(#[from] NoReferencesError),
 
-//     // #[error("Somehow we managed to not populate the project reference - internal error. {0}")]
-//     // UnknownProject(#[from] UnknownProjectError),
-//     #[error(transparent)]
-//     InvalidWorkUnitId(#[from] InvalidWorkUnitId),
+    #[error(transparent)]
+    InvalidWorkUnitId(#[from] InvalidWorkUnitId),
 
-//     #[error(transparent)]
-//     ExtinctWorkUnitId(#[from] ExtinctWorkUnitId),
+    #[error(transparent)]
+    ExtinctWorkUnitId(#[from] ExtinctWorkUnitId),
+}
 
-//     #[error(transparent)]
-//     RecursionLimitReached(#[from] RecursionLimitReached),
-// }
+impl From<GetUnitIdError> for InsertError {
+    fn from(err: GetUnitIdError) -> Self {
+        match err {
+            GetUnitIdError::InvalidWorkUnitId(e) => e.into(),
+            GetUnitIdError::ExtinctWorkUnitId(e) => e.into(),
+        }
+    }
+}
 
 // impl From<GeneralUnitIdError> for Error {
 //     fn from(err: GeneralUnitIdError) -> Self {
@@ -103,11 +107,6 @@ impl From<GetUnitIdError> for GeneralUnitIdError {
 //     }
 // }
 
-// impl From<GetUnitIdError> for Error {
-//     fn from(err: GetUnitIdError) -> Self {
-//         GeneralUnitIdError::from(err).into()
-//     }
-// }
 
 // impl From<FollowExtinctionUnitIdError> for Error {
 //     fn from(err: FollowExtinctionUnitIdError) -> Self {
