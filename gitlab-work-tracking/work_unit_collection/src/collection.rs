@@ -16,12 +16,15 @@ use itertools::Itertools;
 use log::{debug, warn};
 use std::{
     borrow::Borrow,
+    cell::RefCell,
     collections::{
         hash_map::{Entry, OccupiedEntry, VacantEntry},
         HashMap, HashSet,
     },
     fmt::Debug,
     hash::Hash,
+    ops::DerefMut,
+    rc::Rc,
 };
 use typed_index_collections::TiVec;
 
@@ -48,29 +51,46 @@ where
     ) -> Result<InsertOutcome, InsertError>
     where
         I: IntoIterator<Item = R>,
-        // T: Hash + Eq + Debug + 'a + CloneOrTake<R> + AsRef<R> + Clone,
+        R: Clone, // T: Hash + Eq + Debug + 'a + CloneOrTake<R> + AsRef<R> + Clone,
     {
         // let refs: Vec<_> = refs.into_iter().unique().collect();
 
+        // let mut refs_to_merge
         let (unique_existing_ids, unit_id, refs_added) = {
             let Self {
                 ref mut units,
                 ref mut unit_by_ref,
             } = self;
 
-            let pending = PendingRefGroup::new(unit_by_ref, refs);
+            let mut pending = PendingRefGroup::new(std::mem::take(unit_by_ref), refs);
             debug!("Given {} unique refs", pending.len());
 
             let unique_existing_ids: Vec<UnitId> = pending.unique_units().collect();
 
-            let unit_id = unique_existing_ids.first().map(|id| *id);
-            let unit = unit_id.map(|id| {
+            let existing_unit_id = unique_existing_ids.first().map(|id| *id);
+            let unit_id = existing_unit_id.unwrap_or_else(|| units.0.next_key());
+
+            let refs_to_merge: Vec<R> = unique_existing_ids
+                .iter()
+                .fuse()
+                .skip(1)
+                .flat_map(|id| {
+                    units
+                        .get_unit_mut(*id)
+                        .expect("Internal ID")
+                        .extinct_by(unit_id)
+                        .into_iter()
+                })
+                .collect();
+            // Add those refs to our list of stuff to update
+            pending.extend(refs_to_merge);
+
+            let unit = existing_unit_id.map(|id| {
                 units
                     .get_unit_mut(id)
                     .expect("this ID came from the internal map")
             });
 
-            let unit_id = unit_id.unwrap_or_else(|| units.0.next_key());
             let assigned = pending.assign(unit_id);
             let refs_added = assigned.new_refs.len();
             // let moved_refs = assigned.moved_refs.len();
@@ -396,41 +416,60 @@ impl<T: Clone> CloneOrTake<T> for &T {
 // }
 
 struct PendingRefGroup<'a, R> {
+    hash_map: Rc<RefCell<HashMap<R, UnitId>>>,
+    added: HashSet<R>,
     occupied: Vec<OccupiedEntry<'a, R, UnitId>>,
     vacant: Vec<VacantEntry<'a, R, UnitId>>,
     // unique_units: Vec<&'a UnitId>,
 }
 
-struct AssignedRefGroup<'a, R> {
-    moved_refs: Vec<&'a R>,
-    new_refs: Vec<&'a R>,
-}
-
 impl<'a, R> PendingRefGroup<'a, R>
 where
-    R: Hash + Eq + Clone + Debug,
+    R: Hash + Eq + Copy + Debug,
 {
     fn len(&self) -> usize {
         self.occupied.len() + self.vacant.len()
     }
+    fn extend(self, refs: impl IntoIterator<Item = R>) -> Self {
+        refs.into_iter().fold(self, |pending, r| pending.insert(r))
+    }
 
-    fn new(lookup: &'a mut HashMap<R, UnitId>, refs: impl IntoIterator<Item = R>) -> Self {
-        let mut occupied = vec![];
-        let mut vacant = vec![];
-        for r in refs.into_iter().unique() {
-            match lookup.entry(r) {
-                Entry::Occupied(entry) => occupied.push(entry),
-                Entry::Vacant(entry) => vacant.push(entry),
+    fn insert(mut self, r: R) -> Self {
+        let Self {
+            ref mut hash_map,
+            mut added,
+            mut occupied,
+            mut vacant,
+        } = self;
+        {
+            let hash_map = hash_map.clone().borrow_mut();
+
+            if added.insert(r.clone()) {
+                match hash_map.entry(r) {
+                    Entry::Occupied(entry) => occupied.push(entry),
+                    Entry::Vacant(entry) => vacant.push(entry),
+                }
             }
         }
-
-        let unique_units: Vec<_> = occupied.iter().map(|entry| entry.get()).unique().collect();
-
         Self {
+            hash_map: *hash_map,
+            added,
             occupied,
             vacant,
-            // unique_units,
         }
+    }
+
+    fn new(hash_map: HashMap<R, UnitId>, refs: impl IntoIterator<Item = R>) -> Self {
+        let mut occupied = vec![];
+        let mut vacant = vec![];
+
+        Self {
+            hash_map: Rc::new(RefCell::new(hash_map)),
+            added: Default::default(),
+            occupied,
+            vacant,
+        }
+        .extend(refs)
     }
 
     fn unique_units(&'a self) -> impl Iterator<Item = UnitId> + 'a {
@@ -445,11 +484,19 @@ where
             .chain(self.vacant.iter().map(|e| e.key()))
     }
 
-    fn assign(self, unit_id: UnitId) -> AssignedRefGroup<'a, R> {
-        let moved_refs: Vec<&'a R> = self
-            .occupied
-            .into_iter()
-            .filter_map(|entry| {
+    fn assign(mut self, unit_id: UnitId) -> AssignedRefGroup<'a, R>
+    where
+        Self: 'a,
+    {
+        let Self {
+            ref mut hash_map,
+            mut added,
+            mut occupied,
+            mut vacant,
+        } = self;
+        let moved_refs: Vec<&R> = occupied
+            .iter_mut()
+            .filter_map(|mut entry| {
                 if entry.get() != &unit_id {
                     debug!(
                         "Reference previously in {} being moved to {}: {:?}",
@@ -466,21 +513,23 @@ where
             })
             .collect();
 
-        let new_refs: Vec<&'a R> = self
-            .vacant
-            .into_iter()
-            .map(|entry| {
-                entry.insert(unit_id);
-                entry.key()
-            })
+        let new_refs: Vec<&R> = vacant
+            .iter_mut()
+            .map(|entry| entry.insert_entry(unit_id).key())
             .collect();
         AssignedRefGroup {
+            hash_map: std::mem::take(self.hash_map.borrow_mut().deref_mut()),
             moved_refs,
             new_refs,
         }
     }
 }
 
+struct AssignedRefGroup<'a, R> {
+    hash_map: HashMap<R, UnitId>,
+    moved_refs: Vec<&'a R>,
+    new_refs: Vec<&'a R>,
+}
 // struct UnitLookup<R>(HashMap<R, UnitId>);
 // impl<R> UnitLookup<R>
 // where
