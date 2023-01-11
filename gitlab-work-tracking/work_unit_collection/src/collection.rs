@@ -123,7 +123,7 @@ where
                 refs: _,
             } = self;
 
-            let pending = PendingRefGroup::new(unit_by_ref, ref_ids);
+            let mut pending = PendingRefGroup::new(unit_by_ref, ref_ids);
             debug!("Given {} unique refs", pending.len());
 
             let unique_existing_unit_ids: Vec<UnitId> = pending.unique_units().collect();
@@ -144,7 +144,7 @@ where
             //     .collect();
 
             // Mark the units we're merging from, and take their refs and add them to our list of stuff to update.
-            let pending = pending.extend(unique_existing_unit_ids.iter().skip(1).flat_map(|id| {
+            pending.extend(unique_existing_unit_ids.iter().skip(1).flat_map(|id| {
                 units
                     .get_unit_mut(*id)
                     .expect("Internal ID")
@@ -420,27 +420,27 @@ where
     fn len(&self) -> usize {
         self.occupied.len() + self.vacant.len()
     }
-    fn extend(self, refs: impl IntoIterator<Item = R>) -> Self {
-        refs.into_iter().fold(self, |pending, r| pending.insert(r))
+    fn extend(&'a mut self, refs: impl IntoIterator<Item = R>) {
+        let _: Vec<_> = refs.into_iter().map(move |r| self.insert(r)).collect();
+        // for reference in refs.into_iter() {
+        //     self.insert(reference);
+        // }
     }
 
-    fn insert(mut self, r: R) -> PendingRefGroup<'a, R> {
-        {
-            let Self {
-                ref hash_map,
-                ref mut added,
-                ref mut occupied,
-                ref mut vacant,
-            } = self;
-            {
-                if added.insert(r.clone()) {
-                    match hash_map.entry(r) {
-                        Entry::Occupied(entry) => occupied.push(entry),
-                        Entry::Vacant(entry) => vacant.push(entry),
-                    }
-                }
+    fn insert(&'a mut self, r: R) {
+        if self.added.insert(r.clone()) {
+            match self.hash_map.entry(r) {
+                Entry::Occupied(entry) => self.occupied.push(entry),
+                Entry::Vacant(entry) => self.vacant.push(entry),
             }
         }
+    }
+
+    fn with_additional_entry(mut self, r: R) -> PendingRefGroup<'a, R>
+    where
+        Self: 'a,
+    {
+        self.insert(r);
         self
     }
 
@@ -448,13 +448,14 @@ where
         let occupied = vec![];
         let vacant = vec![];
 
-        Self {
+        let ret = Self {
             hash_map,
             added: Default::default(),
             occupied,
             vacant,
-        }
-        .extend(refs)
+        };
+        ret.extend(refs);
+        ret
     }
 
     fn unique_units(&'a self) -> impl Iterator<Item = UnitId> + 'a {
@@ -469,13 +470,8 @@ where
     }
 
     fn assign(self, unit_id: UnitId) -> AssignedRefGroup<R> {
-        let Self {
-            ref mut hash_map,
-            mut added,
-            mut occupied,
-            mut vacant,
-        } = self;
-        let moved_refs: Vec<R> = occupied
+        let moved_refs: Vec<R> = self
+            .occupied
             .iter_mut()
             .filter_map(|mut entry| {
                 if entry.get() != &unit_id {
@@ -494,7 +490,8 @@ where
             })
             .collect();
 
-        let new_refs: Vec<R> = vacant
+        let new_refs: Vec<R> = self
+            .vacant
             .iter_mut()
             .map(|entry| {
                 let key = *entry.key();
@@ -503,7 +500,6 @@ where
             })
             .collect();
         AssignedRefGroup {
-            // hash_map: std::mem::take(self.hash_map.borrow_mut().deref_mut()),
             moved_refs,
             new_refs,
         }
