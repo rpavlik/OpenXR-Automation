@@ -144,7 +144,7 @@ where
             //     .collect();
 
             // Mark the units we're merging from, and take their refs and add them to our list of stuff to update.
-            pending.extend(unique_existing_unit_ids.iter().skip(1).flat_map(|id| {
+            let pending = pending.extend(unique_existing_unit_ids.iter().skip(1).flat_map(|id| {
                 units
                     .get_unit_mut(*id)
                     .expect("Internal ID")
@@ -405,98 +405,108 @@ impl<T: Clone> CloneOrTake<T> for &T {
 //     }
 // }
 
-struct PendingRefGroup<'a, R> {
-    hash_map: &'a mut HashMap<R, UnitId>,
-    added: HashSet<R>,
-    occupied: Vec<OccupiedEntry<'a, R, UnitId>>,
-    vacant: Vec<VacantEntry<'a, R, UnitId>>,
+// pub trait RefLookup {
+//     type Reference;
+//     fn lookup_ref_id(&self, ref_id: RefId) -> Option<&Self::Reference>;
+// }
+
+struct PendingRefGroup<'a> {
+    hash_map: &'a mut HashMap<RefId, UnitId>,
+    added: HashSet<RefId>,
+    occupied: Vec<(RefId, UnitId)>,
+    vacant: Vec<RefId>,
     // unique_units: Vec<&'a UnitId>,
 }
 
-impl<'a, R> PendingRefGroup<'a, R>
-where
-    R: Hash + Eq + Copy + Debug,
-{
+impl<'a> PendingRefGroup<'a> {
     fn len(&self) -> usize {
         self.occupied.len() + self.vacant.len()
     }
-    fn extend(&'a mut self, refs: impl IntoIterator<Item = R>) {
-        let _: Vec<_> = refs.into_iter().map(move |r| self.insert(r)).collect();
+    fn extend(self, refs: impl IntoIterator<Item = RefId>) -> PendingRefGroup<'a> {
+        refs.into_iter()
+            .fold(self, |grp, r| grp.with_additional_entry(r))
+        // let _: Vec<_> = refs.into_iter().map(|r| self.insert(r)).collect();
         // for reference in refs.into_iter() {
         //     self.insert(reference);
         // }
     }
 
-    fn insert(&'a mut self, r: R) {
-        if self.added.insert(r.clone()) {
+    fn insert(&'a mut self, r: RefId) {
+        if self.added.insert(r) {
             match self.hash_map.entry(r) {
-                Entry::Occupied(entry) => self.occupied.push(entry),
-                Entry::Vacant(entry) => self.vacant.push(entry),
+                Entry::Occupied(entry) => self.occupied.push((r, *entry.get())),
+                Entry::Vacant(_) => self.vacant.push(r),
             }
         }
     }
 
-    fn with_additional_entry(mut self, r: R) -> PendingRefGroup<'a, R>
+    fn with_additional_entry(mut self, r: RefId) -> PendingRefGroup<'a>
     where
         Self: 'a,
     {
-        self.insert(r);
+        // self.insert(r);
+
+        if self.added.insert(r) {
+            match self.hash_map.entry(r) {
+                Entry::Occupied(entry) => self.occupied.push((r, *entry.get())),
+                Entry::Vacant(_) => self.vacant.push(r),
+            }
+        }
         self
     }
 
-    fn new(hash_map: &'a mut HashMap<R, UnitId>, refs: impl IntoIterator<Item = R>) -> Self {
+    fn new(
+        hash_map: &'a mut HashMap<RefId, UnitId>,
+        refs: impl IntoIterator<Item = RefId>,
+    ) -> Self {
         let occupied = vec![];
         let vacant = vec![];
 
-        let ret = Self {
+        Self {
             hash_map,
             added: Default::default(),
             occupied,
             vacant,
-        };
-        ret.extend(refs);
-        ret
+        }
+        .extend(refs)
     }
 
     fn unique_units(&'a self) -> impl Iterator<Item = UnitId> + 'a {
-        self.occupied.iter().map(|entry| *entry.get()).unique()
+        self.occupied.iter().map(|(_, unit_id)| *unit_id).unique()
     }
 
-    fn iter_refs(&'a self) -> impl Iterator<Item = &'a R> + 'a {
+    fn iter_refs(&'a self) -> impl Iterator<Item = &'a RefId> + 'a {
         self.occupied
             .iter()
-            .map(|e| e.key())
-            .chain(self.vacant.iter().map(|e| e.key()))
+            .map(|(ref_id, _)| ref_id)
+            .chain(self.vacant.iter())
     }
 
-    fn assign(self, unit_id: UnitId) -> AssignedRefGroup<R> {
-        let moved_refs: Vec<R> = self
+    fn assign(self, unit_id: UnitId) -> AssignedRefGroup<RefId> {
+        let moved_refs: Vec<RefId> = self
             .occupied
-            .iter_mut()
-            .filter_map(|mut entry| {
-                if entry.get() != &unit_id {
+            .iter()
+            .filter_map(|(ref_id, existing_unit_id)| {
+                if existing_unit_id != &unit_id {
                     debug!(
                         "Reference previously in {} being moved to {}: {:?}",
-                        entry.get(),
-                        unit_id,
-                        entry.key()
+                        existing_unit_id, unit_id, ref_id
                     );
-                    *entry.get_mut() = unit_id;
-                    Some(*entry.key())
+                    self.hash_map.insert(*ref_id, unit_id);
+                    Some(*ref_id)
                 } else {
-                    debug!("Reference already in {}: {:?}", unit_id, entry.key());
+                    debug!("Reference already in {}: {:?}", unit_id, ref_id);
                     None
                 }
             })
             .collect();
 
-        let new_refs: Vec<R> = self
+        let new_refs: Vec<RefId> = self
             .vacant
-            .iter_mut()
-            .map(|entry| {
-                let key = *entry.key();
-                entry.insert(unit_id);
-                key
+            .iter()
+            .map(|ref_id| {
+                self.hash_map.insert(*ref_id, unit_id);
+                *ref_id
             })
             .collect();
         AssignedRefGroup {
