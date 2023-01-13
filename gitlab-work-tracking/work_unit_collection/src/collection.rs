@@ -71,7 +71,7 @@ where
         ref_id
     }
 
-    fn find_id(&self, r: &R) -> Option<RefId> {
+    fn get_id(&self, r: &R) -> Option<RefId> {
         self.ref_map.get(r).copied()
     }
 
@@ -96,6 +96,11 @@ where
 {
     pub fn new() -> Self {
         Default::default()
+    }
+
+    pub fn try_get_unit_for_ref(&self, r: &R) -> Option<UnitId> {
+        let ref_id = self.refs.get_id(r)?;
+        self.unit_by_ref_id.get(&ref_id).copied()
     }
 
     /// Records a work unit containing the provided references (must be non-empty).
@@ -508,6 +513,8 @@ mod tests {
             assert!(outcome_a_again.is_unchanged());
             assert_eq!(outcome_a_again.work_unit_id(), unit_for_a);
         }
+        assert_eq!(collection.try_get_unit_for_ref(&A), Some(unit_for_a));
+        assert_eq!(collection.try_get_unit_for_ref(&B), None);
 
         {
             let outcome_ab = collection
@@ -523,6 +530,10 @@ mod tests {
         let unit_for_ab = unit_for_a;
         assert_eq!(collection.len(), 1);
 
+        assert_eq!(collection.try_get_unit_for_ref(&A), Some(unit_for_ab));
+        assert_eq!(collection.try_get_unit_for_ref(&B), Some(unit_for_ab));
+        assert_eq!(collection.try_get_unit_for_ref(&C), None);
+
         let unit_for_c = {
             let outcome_c = collection.add_or_get_unit_for_refs(once(C)).unwrap();
             assert!(outcome_c.is_created());
@@ -533,6 +544,11 @@ mod tests {
         // C is now in its own work unit
         assert_ne!(unit_for_ab, unit_for_c);
         assert_eq!(collection.len(), 2);
+
+        assert_eq!(collection.try_get_unit_for_ref(&A), Some(unit_for_ab));
+        assert_eq!(collection.try_get_unit_for_ref(&B), Some(unit_for_ab));
+        assert_eq!(collection.try_get_unit_for_ref(&C), Some(unit_for_c));
+        assert_eq!(collection.try_get_unit_for_ref(&D), None);
 
         // Check to make sure that doing A or B again doesn't change things
         {
@@ -546,15 +562,27 @@ mod tests {
             assert!(outcome_b_again.is_unchanged());
             assert_eq!(outcome_b_again.work_unit_id(), unit_for_ab);
         }
+        assert_eq!(collection.try_get_unit_for_ref(&A), Some(unit_for_ab));
+        assert_eq!(collection.try_get_unit_for_ref(&B), Some(unit_for_ab));
+        assert_eq!(collection.try_get_unit_for_ref(&C), Some(unit_for_c));
+        assert_eq!(collection.try_get_unit_for_ref(&D), None);
 
-        // Now request A, B, C, D as a single group: merge!
-        let outcome_abcd = collection
-            .add_or_get_unit_for_refs(vec![A, B, C, D].into_iter())
-            .unwrap();
-        assert!(outcome_abcd.is_updated());
-        assert_eq!(outcome_abcd.units_merged(), 1);
-        assert_eq!(outcome_abcd.refs_added(), 1);
-        assert_eq!(outcome_abcd.work_unit_id(), unit_for_ab);
+        let unit_for_abcd = {
+            // Now request A, B, C, D as a single group: merge!
+            let outcome_abcd = collection
+                .add_or_get_unit_for_refs(vec![A, B, C, D].into_iter())
+                .unwrap();
+            assert!(outcome_abcd.is_updated());
+            assert_eq!(outcome_abcd.units_merged(), 1);
+            assert_eq!(outcome_abcd.refs_added(), 1);
+            assert_eq!(outcome_abcd.work_unit_id(), unit_for_ab);
+            outcome_abcd.into_work_unit_id()
+        };
+
+        assert_eq!(collection.try_get_unit_for_ref(&A), Some(unit_for_abcd));
+        assert_eq!(collection.try_get_unit_for_ref(&B), Some(unit_for_abcd));
+        assert_eq!(collection.try_get_unit_for_ref(&C), Some(unit_for_abcd));
+        assert_eq!(collection.try_get_unit_for_ref(&D), Some(unit_for_abcd));
 
         // the old work unit we had for C is now extinct.
         assert!(collection.get_unit(unit_for_c).is_err());
@@ -564,5 +592,8 @@ mod tests {
                 .unwrap(),
             unit_for_a
         );
+
+        // it all got merged into the original work unit
+        assert_eq!(unit_for_a, unit_for_abcd);
     }
 }
