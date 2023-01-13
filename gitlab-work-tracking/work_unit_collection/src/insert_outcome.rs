@@ -54,10 +54,10 @@ impl InsertOutcomeGetter for UnitUpdated {
 
 /// Corresponds to an existing unit that did not get updated (no refs were new)
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-pub struct UnitNotUpdated {
+pub struct UnitUnchanged {
     pub unit_id: UnitId,
 }
-impl InsertOutcomeGetter for UnitNotUpdated {
+impl InsertOutcomeGetter for UnitUnchanged {
     fn into_work_unit_id(self) -> UnitId {
         self.unit_id
     }
@@ -70,12 +70,12 @@ impl InsertOutcomeGetter for UnitNotUpdated {
 pub enum InsertOutcome {
     Created(UnitCreated),
     Updated(UnitUpdated),
-    NotUpdated(UnitNotUpdated),
+    Unchanged(UnitUnchanged),
 }
 
-impl From<UnitNotUpdated> for InsertOutcome {
-    fn from(v: UnitNotUpdated) -> Self {
-        Self::NotUpdated(v)
+impl From<UnitUnchanged> for InsertOutcome {
+    fn from(v: UnitUnchanged) -> Self {
+        Self::Unchanged(v)
     }
 }
 
@@ -92,44 +92,77 @@ impl From<UnitCreated> for InsertOutcome {
 }
 
 impl InsertOutcomeGetter for InsertOutcome {
+    #[must_use]
     fn into_work_unit_id(self) -> UnitId {
         match self {
             InsertOutcome::Created(o) => o.into_work_unit_id(),
             InsertOutcome::Updated(o) => o.into_work_unit_id(),
-            InsertOutcome::NotUpdated(o) => o.into_work_unit_id(),
+            InsertOutcome::Unchanged(o) => o.into_work_unit_id(),
         }
     }
 
+    #[must_use]
     fn work_unit_id(&self) -> UnitId {
         match self {
             InsertOutcome::Created(o) => o.work_unit_id(),
             InsertOutcome::Updated(o) => o.work_unit_id(),
-            InsertOutcome::NotUpdated(o) => o.work_unit_id(),
+            InsertOutcome::Unchanged(o) => o.work_unit_id(),
         }
     }
+
+    #[must_use]
     fn refs_added(&self) -> usize {
         match self {
             InsertOutcome::Created(o) => o.refs_added(),
             InsertOutcome::Updated(o) => o.refs_added(),
-            InsertOutcome::NotUpdated(o) => o.refs_added(),
+            InsertOutcome::Unchanged(o) => o.refs_added(),
         }
     }
 
+    #[must_use]
     fn units_merged(&self) -> usize {
         match self {
             InsertOutcome::Created(o) => o.units_merged(),
             InsertOutcome::Updated(o) => o.units_merged(),
-            InsertOutcome::NotUpdated(o) => o.units_merged(),
+            InsertOutcome::Unchanged(o) => o.units_merged(),
         }
     }
 }
 
 impl InsertOutcome {
+
+    /// Returns the UnitCreated if the insert outcome is [`Created`],
+    /// otherwise returns itself as an error.
+    #[must_use]
     pub fn try_into_created(self) -> Result<UnitCreated, Self> {
         if let Self::Created(v) = self {
             Ok(v)
         } else {
             Err(self)
         }
+    }
+
+    /// Returns `true` if the insert outcome is [`Created`].
+    ///
+    /// [`Created`]: InsertOutcome::Created
+    #[must_use]
+    pub fn is_created(&self) -> bool {
+        matches!(self, Self::Created(..))
+    }
+
+    /// Returns `true` if the insert outcome is [`Updated`].
+    ///
+    /// [`Updated`]: InsertOutcome::Updated
+    #[must_use]
+    pub fn is_updated(&self) -> bool {
+        matches!(self, Self::Updated(..))
+    }
+
+    /// Returns `true` if the insert outcome is [`Unchanged`].
+    ///
+    /// [`Unchanged`]: InsertOutcome::Unchanged
+    #[must_use]
+    pub fn is_unchanged(&self) -> bool {
+        matches!(self, Self::Unchanged(..))
     }
 }

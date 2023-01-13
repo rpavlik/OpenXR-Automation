@@ -9,22 +9,15 @@ use crate::{
         ExtinctWorkUnitId, FollowExtinctionUnitIdError, GetUnitIdError, InsertError,
         InvalidWorkUnitId, NoReferencesError, RecursionLimitReached,
     },
-    insert_outcome::{InsertOutcome, UnitCreated, UnitNotUpdated, UnitUpdated},
+    insert_outcome::{InsertOutcome, UnitCreated, UnitUnchanged, UnitUpdated},
     UnitId, WorkUnit,
 };
 use itertools::Itertools;
 use log::{debug, warn};
 use std::{
-    borrow::Borrow,
-    cell::RefCell,
-    collections::{
-        hash_map::{Entry, OccupiedEntry, VacantEntry},
-        HashMap, HashSet,
-    },
+    collections::{hash_map::Entry, HashMap, HashSet},
     fmt::Debug,
     hash::Hash,
-    ops::DerefMut,
-    rc::Rc,
 };
 use typed_index_collections::TiVec;
 
@@ -42,6 +35,7 @@ impl From<RefId> for usize {
     }
 }
 
+/// Owner of reference data: assigns each unique reference an ID which is easier to manipulate
 #[derive(Debug, Default)]
 struct RefLookup<R> {
     ref_contents: TiVec<RefId, R>,
@@ -98,8 +92,12 @@ pub struct WorkUnitCollection<R> {
 
 impl<R> WorkUnitCollection<R>
 where
-    R: Hash + Debug + Eq + Clone + AsRef<R>,
+    R: Hash + Debug + Eq + Clone + Default,
 {
+    pub fn new() -> Self {
+        Default::default()
+    }
+
     /// Records a work unit containing the provided references (must be non-empty).
     /// If any of those references already exist in the work collection, their corresponding work units are merged.
     /// Any references not yet in the work collection are added.
@@ -123,25 +121,13 @@ where
                 refs: _,
             } = self;
 
-            let mut pending = PendingRefGroup::new(unit_by_ref, ref_ids);
+            let pending = PendingRefGroup::new(unit_by_ref, ref_ids);
             debug!("Given {} unique refs", pending.len());
 
             let unique_existing_unit_ids: Vec<UnitId> = pending.unique_units().collect();
 
             let existing_unit_id = unique_existing_unit_ids.first().map(|id| *id);
             let unit_id = existing_unit_id.unwrap_or_else(|| units.0.next_key());
-
-            // let ref_ids_to_merge: Vec<RefId> = unique_existing_unit_ids
-            //     .into_iter()
-            //     .skip(1)
-            //     .flat_map(|id| {
-            //         units
-            //             .get_unit_mut(id)
-            //             .expect("Internal ID")
-            //             .extinct_by(unit_id)
-            //             .into_iter()
-            //     })
-            //     .collect();
 
             // Mark the units we're merging from, and take their refs and add them to our list of stuff to update.
             let pending = pending.extend(unique_existing_unit_ids.iter().skip(1).flat_map(|id| {
@@ -151,7 +137,6 @@ where
                     .extinct_by(unit_id)
                     .into_iter()
             }));
-            // let pending = pending.extend(ref_ids_to_merge);
 
             let unit = existing_unit_id.map(|id| {
                 units
@@ -161,17 +146,7 @@ where
 
             let assigned = pending.assign(unit_id);
             let refs_added = assigned.new_refs.len();
-            // let moved_refs = assigned.moved_refs.len();
             if let Some(unit) = unit {
-                // let merge_results = unique_existing_ids
-                //     .iter()
-                //     .skip(1)
-                //     .map(|&src_id| {
-                //         debug!("Merging {} into {}", src_id, unit_id);
-                //         self.merge_work_units(unit_id, *src_id)?;
-                //         Ok(())
-                //     })
-                //     .collect();
                 unit.extend_refs(assigned.moved_refs.into_iter());
                 unit.extend_refs(assigned.new_refs.into_iter());
             } else {
@@ -198,7 +173,7 @@ where
             }))
         } else {
             if refs_added == 0 && units_merged_in == 0 {
-                Ok(InsertOutcome::NotUpdated(UnitNotUpdated { unit_id }))
+                Ok(InsertOutcome::Unchanged(UnitUnchanged { unit_id }))
             } else {
                 Ok(InsertOutcome::Updated(UnitUpdated {
                     unit_id,
@@ -208,93 +183,6 @@ where
             }
         }
     }
-
-    // // Return value is number of refs added
-    // fn add_refs_to_unit_id<'a, I, T>(
-    //     &mut self,
-    //     unit_id: UnitId,
-    //     refs: I,
-    // ) -> Result<usize, GetUnitIdError>
-    // where
-    //     I: IntoIterator<Item = T>,
-    //     T: Hash + Eq + Debug + 'a + CloneOrTake<R> + AsRef<R>, //+ Borrow<R>,
-    //                                                            // R: Clone,
-    //                                                            // T: Hash + Eq + ToOwned + Debug,
-    //                                                            // &'a T: CloneOrTake<R> + Borrow<R>,
-    //                                                            // R: Clone + Borrow<&'a T>,
-    //                                                            // T: Hash + Eq + ToOwned + Debug + CloneOrTake<R> + Borrow<R> + 'a,
-    // {
-    //     let mut count: usize = 0;
-    //     for reference in refs.into_iter() {
-    //         if self.add_ref_to_unit_id(unit_id, reference)? {
-    //             count += 1;
-    //         }
-    //     }
-    //     Ok(count)
-    // }
-
-    // /// Returns Ok(true) if a ref was added
-    // fn add_ref_to_unit_id<'a, T>(
-    //     &'a mut self,
-    //     id: UnitId,
-    //     reference: T,
-    // ) -> Result<bool, GetUnitIdError>
-    // where
-    //     T: Hash + Eq + Debug + CloneOrTake<R> + AsRef<R> + 'a, // + ToOwned
-    // {
-    //     debug!(
-    //         "Trying to add a reference to {}: {:?}",
-    //         id,
-    //         reference.borrow()
-    //     );
-    //     let owned = R::clone(reference.as_ref());
-    //     let do_insert = match self.unit_by_ref_id.entry(R::clone(reference.as_ref())) {
-    //         Entry::Occupied(mut entry) => {
-    //             if entry.get() != &id {
-    //                 debug!(
-    //                     "Reference previously in {} being moved to {}: {:?}",
-    //                     entry.get(),
-    //                     id,
-    //                     reference.borrow()
-    //                 );
-    //                 *entry.get_mut() = id;
-    //                 true
-    //             } else {
-    //                 debug!("Reference already in {}: {:?}", id, reference.borrow());
-    //                 false
-    //             }
-    //         }
-    //         Entry::Vacant(entry) => {
-    //             // no existing
-    //             entry.insert(id);
-    //             true
-    //         }
-    //     };
-    //     if do_insert {
-    //         let unit = self.units.get_unit_mut(id)?;
-    //         debug!("New reference added to {}: {:?}", id, reference.borrow());
-    //         unit.add_ref(reference.clone_or_take());
-    //     }
-    //     Ok(do_insert)
-    // }
-
-    // fn merge_work_units(&mut self, id: UnitId, src_id: UnitId) -> Result<(), GetUnitIdError>
-    // where
-    //     R: Clone + Debug + CloneOrTake<R> + AsRef<R>,
-    // {
-    //     let src = self.units.get_unit_mut(src_id)?;
-    //     debug!(
-    //         "Merging {} into {}, and marking the former extinct",
-    //         src_id, id
-    //     );
-    //     // mark as extinct, and add its refs to the other work unit
-    //     let refs_to_move = src.extinct_by(id);
-    //     for reference in refs_to_move {
-    //         self.add_ref_to_unit_id(id, reference)?;
-    //     }
-    //     debug!("Merging {} into {} done", src_id, id);
-    //     Ok(())
-    // }
 
     /// Get a work unit by ID
     pub fn get_unit(&self, id: UnitId) -> Result<&WorkUnit<RefId>, GetUnitIdError> {
@@ -309,39 +197,6 @@ where
     ) -> Result<UnitId, FollowExtinctionUnitIdError> {
         self.units.follow_extinction(id, limit)
     }
-
-    // /// Find the set of unit IDs corresponding to the refs, if any.
-    // fn get_ids_for_refs<I, T>(&self, refs: I) -> Vec<UnitId>
-    // where
-    //     // R: AsRef<T> + Clone,
-    //     I: ExactSizeIterator<Item = T>,
-    //     T: AsRef<R>, // T: Hash + Eq + ToOwned + Debug + CloneOrTake<R> + Clone + Borrow<R>,
-    // {
-    //     let mut units: Vec<UnitId> = vec![];
-    //     let mut retrieved_ids: HashSet<UnitId> = Default::default();
-
-    //     debug!(
-    //         "Finding units for a collection of {} references",
-    //         refs.len()
-    //     );
-    //     for reference in refs.into_iter() {
-    //         if let Some(&id) = self.unit_by_ref_id.get(reference.as_ref()) {
-    //             debug!("Found id {} for: {:?}", id, reference.as_ref());
-    //             if retrieved_ids.insert(id) {
-    //                 debug!("Adding {} to our return set", id);
-    //                 units.push(id);
-    //             }
-    //         } else {
-    //             debug!("Do not yet know {:?}", reference.as_ref())
-    //         }
-    //     }
-    //     debug!(
-    //         "Found {} unique work unit IDs for the provided {} references",
-    //         units.len(),
-    //         refs.len()
-    //     );
-    //     units
-    // }
 
     pub fn len(&self) -> usize {
         self.units.len()
@@ -579,13 +434,6 @@ impl<R> UnitContainer<R> {
         Ok(unit)
     }
 
-    /// Make a
-
-    /// Create a new work unit from the given reference and return its id
-    fn emplace(&mut self, reference: R) -> UnitId {
-        self.0.push_and_get_key(WorkUnit::new(reference))
-    }
-
     /// Create a new work unit from the given references and return its id
     fn push_from_iterator(&mut self, iter: impl Iterator<Item = R>) -> UnitId {
         self.0.push_and_get_key(WorkUnit::from_iterator(iter))
@@ -625,11 +473,96 @@ impl<R> UnitContainer<R> {
 
 #[cfg(test)]
 mod tests {
-    use crate::{UnitId, WorkUnitCollection};
+    use std::iter::once;
+
+    use crate::{
+        insert_outcome::{InsertOutcome, UnitCreated},
+        InsertOutcomeGetter, UnitId, WorkUnitCollection,
+    };
 
     #[test]
     fn test_collection() {
-        let collection: WorkUnitCollection<i32> = Default::default();
+        let mut collection: WorkUnitCollection<i32> = Default::default();
         assert!(collection.get_unit(UnitId::from(1)).is_err());
+        const A: i32 = 1;
+        const B: i32 = 2;
+        const C: i32 = 3;
+        const D: i32 = 4;
+
+        let unit_for_a = {
+            let outcome_a = collection
+                .add_or_get_unit_for_refs(once(A))
+                .expect("we passed at least one");
+            assert!(outcome_a.is_created());
+            assert_eq!(outcome_a.refs_added(), 1);
+            outcome_a.into_work_unit_id()
+        };
+
+        // A is in a work unit
+        assert_eq!(collection.len(), 1);
+
+        {
+            let outcome_a_again = collection
+                .add_or_get_unit_for_refs(once(A))
+                .expect("we passed at least one");
+            assert!(outcome_a_again.is_unchanged());
+            assert_eq!(outcome_a_again.work_unit_id(), unit_for_a);
+        }
+
+        {
+            let outcome_ab = collection
+                .add_or_get_unit_for_refs(vec![A, B].into_iter())
+                .unwrap();
+
+            assert!(outcome_ab.is_updated());
+            assert_eq!(outcome_ab.work_unit_id(), unit_for_a);
+            assert_eq!(outcome_ab.refs_added(), 1);
+        }
+
+        // A and B are now in one work unit
+        let unit_for_ab = unit_for_a;
+        assert_eq!(collection.len(), 1);
+
+        let unit_for_c = {
+            let outcome_c = collection.add_or_get_unit_for_refs(once(C)).unwrap();
+            assert!(outcome_c.is_created());
+            assert_eq!(outcome_c.refs_added(), 1);
+            outcome_c.into_work_unit_id()
+        };
+
+        // C is now in its own work unit
+        assert_ne!(unit_for_ab, unit_for_c);
+        assert_eq!(collection.len(), 2);
+
+        // Check to make sure that doing A or B again doesn't change things
+        {
+            let outcome_a_again = collection.add_or_get_unit_for_refs(once(A)).unwrap();
+            assert!(outcome_a_again.is_unchanged());
+            assert_eq!(outcome_a_again.work_unit_id(), unit_for_ab);
+        }
+
+        {
+            let outcome_b_again = collection.add_or_get_unit_for_refs(once(B)).unwrap();
+            assert!(outcome_b_again.is_unchanged());
+            assert_eq!(outcome_b_again.work_unit_id(), unit_for_ab);
+        }
+
+        // Now request A, B, C, D as a single group: merge!
+        let outcome_abcd = collection
+            .add_or_get_unit_for_refs(vec![A, B, C, D].into_iter())
+            .unwrap();
+        assert!(outcome_abcd.is_updated());
+        assert_eq!(outcome_abcd.units_merged(), 1);
+        assert_eq!(outcome_abcd.refs_added(), 1);
+        assert_eq!(outcome_abcd.work_unit_id(), unit_for_ab);
+
+        // the old work unit we had for C is now extinct.
+        assert!(collection.get_unit(unit_for_c).is_err());
+        assert_eq!(
+            collection
+                .get_unit_id_following_extinction(unit_for_c, 5)
+                .unwrap(),
+            unit_for_a
+        );
     }
 }
