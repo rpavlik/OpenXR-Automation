@@ -107,7 +107,6 @@ impl From<GetUnitIdError> for InsertError {
 //     }
 // }
 
-
 // impl From<FollowExtinctionUnitIdError> for Error {
 //     fn from(err: FollowExtinctionUnitIdError) -> Self {
 //         GeneralUnitIdError::from(err).into()

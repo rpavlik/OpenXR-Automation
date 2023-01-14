@@ -57,11 +57,6 @@ impl<R> WorkUnit<R> {
         self.refs.iter()
     }
 
-    /// Add a ref to the list. Does not check to see if it is already in there: that is the job of the collection.
-    pub(crate) fn add_ref(&mut self, reference: R) {
-        self.refs.push(reference)
-    }
-
     /// Adds ref to the list. Does not check to see if they is already in there: that is the job of the collection.
     pub(crate) fn extend_refs(&mut self, iter: impl Iterator<Item = R>) {
         self.refs.extend(iter)
@@ -76,5 +71,9 @@ impl<R> WorkUnit<R> {
 
     pub fn extincted_by(&self) -> Option<UnitId> {
         self.extincted_by
+    }
+
+    pub fn is_extinct(&self) -> bool {
+        self.extincted_by.is_some()
     }
 }
