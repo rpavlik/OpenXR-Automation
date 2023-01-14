@@ -72,69 +72,69 @@ impl InsertOutcomeGetter for UnitUnchanged {
 ///
 /// [`WorkUnitCollection`]: crate::collection::WorkUnitCollection
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-pub enum InsertRefsOutcome {
+pub enum InsertRefGroupOutcome {
     Created(UnitCreated),
     Updated(UnitUpdated),
     Unchanged(UnitUnchanged),
 }
 
-impl From<UnitUnchanged> for InsertRefsOutcome {
+impl From<UnitUnchanged> for InsertRefGroupOutcome {
     fn from(v: UnitUnchanged) -> Self {
         Self::Unchanged(v)
     }
 }
 
-impl From<UnitUpdated> for InsertRefsOutcome {
+impl From<UnitUpdated> for InsertRefGroupOutcome {
     fn from(v: UnitUpdated) -> Self {
         Self::Updated(v)
     }
 }
 
-impl From<UnitCreated> for InsertRefsOutcome {
+impl From<UnitCreated> for InsertRefGroupOutcome {
     fn from(v: UnitCreated) -> Self {
         Self::Created(v)
     }
 }
 
-impl InsertOutcomeGetter for InsertRefsOutcome {
+impl InsertOutcomeGetter for InsertRefGroupOutcome {
     #[must_use]
     fn into_work_unit_id(self) -> UnitId {
         match self {
-            InsertRefsOutcome::Created(o) => o.into_work_unit_id(),
-            InsertRefsOutcome::Updated(o) => o.into_work_unit_id(),
-            InsertRefsOutcome::Unchanged(o) => o.into_work_unit_id(),
+            InsertRefGroupOutcome::Created(o) => o.into_work_unit_id(),
+            InsertRefGroupOutcome::Updated(o) => o.into_work_unit_id(),
+            InsertRefGroupOutcome::Unchanged(o) => o.into_work_unit_id(),
         }
     }
 
     #[must_use]
     fn work_unit_id(&self) -> UnitId {
         match self {
-            InsertRefsOutcome::Created(o) => o.work_unit_id(),
-            InsertRefsOutcome::Updated(o) => o.work_unit_id(),
-            InsertRefsOutcome::Unchanged(o) => o.work_unit_id(),
+            InsertRefGroupOutcome::Created(o) => o.work_unit_id(),
+            InsertRefGroupOutcome::Updated(o) => o.work_unit_id(),
+            InsertRefGroupOutcome::Unchanged(o) => o.work_unit_id(),
         }
     }
 
     #[must_use]
     fn refs_added(&self) -> usize {
         match self {
-            InsertRefsOutcome::Created(o) => o.refs_added(),
-            InsertRefsOutcome::Updated(o) => o.refs_added(),
-            InsertRefsOutcome::Unchanged(o) => o.refs_added(),
+            InsertRefGroupOutcome::Created(o) => o.refs_added(),
+            InsertRefGroupOutcome::Updated(o) => o.refs_added(),
+            InsertRefGroupOutcome::Unchanged(o) => o.refs_added(),
         }
     }
 
     #[must_use]
     fn units_merged(&self) -> usize {
         match self {
-            InsertRefsOutcome::Created(o) => o.units_merged(),
-            InsertRefsOutcome::Updated(o) => o.units_merged(),
-            InsertRefsOutcome::Unchanged(o) => o.units_merged(),
+            InsertRefGroupOutcome::Created(o) => o.units_merged(),
+            InsertRefGroupOutcome::Updated(o) => o.units_merged(),
+            InsertRefGroupOutcome::Unchanged(o) => o.units_merged(),
         }
     }
 }
 
-impl InsertRefsOutcome {
+impl InsertRefGroupOutcome {
     /// Returns `true` if the insert outcome is [`Updated`].
     ///
     /// [`Updated`]: InsertRefsOutcome::Updated
@@ -190,7 +190,7 @@ impl From<UnitCreated> for InsertRefOutcome {
         Self::Created(v)
     }
 }
-impl From<InsertRefOutcome> for InsertRefsOutcome {
+impl From<InsertRefOutcome> for InsertRefGroupOutcome {
     fn from(value: InsertRefOutcome) -> Self {
         match value {
             InsertRefOutcome::Created(o) => o.into(),
@@ -213,7 +213,7 @@ impl IsUnchanged for InsertRefOutcome {
     }
 }
 
-impl IsUnchanged for InsertRefsOutcome {
+impl IsUnchanged for InsertRefGroupOutcome {
     fn is_unchanged(&self) -> bool {
         matches!(self, Self::Unchanged(..))
     }
@@ -259,7 +259,7 @@ impl AsCreated for InsertRefOutcome {
     }
 }
 
-impl AsCreated for InsertRefsOutcome {
+impl AsCreated for InsertRefGroupOutcome {
     fn try_into_created(self) -> Result<UnitCreated, Self> {
         if let Self::Created(v) = self {
             Ok(v)

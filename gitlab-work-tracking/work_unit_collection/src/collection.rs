@@ -9,7 +9,9 @@ use crate::{
         ExtinctWorkUnitId, FollowExtinctionUnitIdError, GetUnitIdError, InsertError,
         InvalidWorkUnitId, NoReferencesError, RecursionLimitReached,
     },
-    insert_outcome::{InsertRefsOutcome, UnitCreated, UnitUnchanged, UnitUpdated},
+    insert_outcome::{
+        InsertRefGroupOutcome, InsertRefOutcome, UnitCreated, UnitUnchanged, UnitUpdated,
+    },
     UnitId, WorkUnit,
 };
 use itertools::Itertools;
@@ -106,7 +108,7 @@ where
     }
 
     /// Records a work unit containing the provided reference, or gets the existing work unit already associated with it.
-    pub fn get_or_insert_from_reference(&mut self, r: R) -> Result<InsertRefsOutcome, InsertError> {
+    pub fn get_or_insert_from_reference(&mut self, r: R) -> InsertRefOutcome {
         // Much simpler than the multiple-refs variant because we don't have to handle the update or merge cases:
         // it's either there already (get it) or not there (create it)
         let ref_id = self.refs.get_or_create_id_for_owned_ref(r);
@@ -118,18 +120,18 @@ where
             refs: _,
         } = self;
         match unit_by_ref_id.entry(ref_id) {
-            Entry::Occupied(entry) => Ok(UnitUnchanged {
+            Entry::Occupied(entry) => UnitUnchanged {
                 unit_id: *entry.get(),
             }
-            .into()),
+            .into(),
             Entry::Vacant(entry) => {
                 let unit_id = units.push_from_iterator(once(ref_id));
                 entry.insert(unit_id);
-                Ok(UnitCreated {
+                UnitCreated {
                     unit_id,
                     refs_added: 1,
                 }
-                .into())
+                .into()
             }
         }
     }
@@ -140,7 +142,7 @@ where
     pub fn get_or_insert_from_iterator<I>(
         &mut self,
         refs: I,
-    ) -> Result<InsertRefsOutcome, InsertError>
+    ) -> Result<InsertRefGroupOutcome, InsertError>
     where
         I: IntoIterator<Item = R>,
         R: Clone,
@@ -203,15 +205,15 @@ where
         let units_merged_in = unique_existing_ids.len().saturating_sub(1);
 
         if unique_existing_ids.is_empty() {
-            Ok(InsertRefsOutcome::Created(UnitCreated {
+            Ok(InsertRefGroupOutcome::Created(UnitCreated {
                 unit_id,
                 refs_added,
             }))
         } else {
             if refs_added == 0 && units_merged_in == 0 {
-                Ok(InsertRefsOutcome::Unchanged(UnitUnchanged { unit_id }))
+                Ok(InsertRefGroupOutcome::Unchanged(UnitUnchanged { unit_id }))
             } else {
-                Ok(InsertRefsOutcome::Updated(UnitUpdated {
+                Ok(InsertRefGroupOutcome::Updated(UnitUpdated {
                     unit_id,
                     refs_added,
                     units_merged_in,
