@@ -96,9 +96,12 @@ pub struct WorkUnitCollection<R> {
 
 impl<R> WorkUnitCollection<R>
 where
-    R: Hash + Debug + Eq + Clone + Default,
+    R: Hash + Debug + Eq + Clone,
 {
-    pub fn new() -> Self {
+    pub fn new() -> Self
+    where
+        R: Default,
+    {
         Default::default()
     }
 

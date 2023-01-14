@@ -13,6 +13,8 @@ name = "gitlab_work_units"
 version = "0.1.0"
 
 [dependencies]
+work_unit_collection = {version = "0.1.0", path = "../work_unit_collection"}
+
 derive_more = "0.99"
 gitlab = "0.1506.*"
 itertools = "0.10"

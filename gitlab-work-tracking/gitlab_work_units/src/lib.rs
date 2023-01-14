@@ -15,7 +15,12 @@ use gitlab::{
     Gitlab,
 };
 use refs::UnknownProjectError;
-use work_unit_and_collection::{FollowExtinctionUnitIdError, GeneralUnitIdError, GetUnitIdError};
+use work_unit_collection::error::{
+    FollowExtinctionUnitIdError, GeneralUnitIdError, GetUnitIdError,
+};
+
+pub type WorkUnit = work_unit_collection::WorkUnit<ProjectItemReference>;
+pub type WorkUnitCollection = work_unit_collection::WorkUnitCollection<ProjectItemReference>;
 
 #[derive(Debug, thiserror::Error)]
 pub enum Error {
@@ -44,13 +49,13 @@ pub enum Error {
     UnknownProject(#[from] UnknownProjectError),
 
     #[error(transparent)]
-    InvalidWorkUnitId(#[from] work_unit_and_collection::InvalidWorkUnitId),
+    InvalidWorkUnitId(#[from] work_unit_collection::error::InvalidWorkUnitId),
 
     #[error(transparent)]
-    ExtinctWorkUnitId(#[from] work_unit_and_collection::ExtinctWorkUnitId),
+    ExtinctWorkUnitId(#[from] work_unit_collection::error::ExtinctWorkUnitId),
 
     #[error(transparent)]
-    RecursionLimitReached(#[from] work_unit_and_collection::RecursionLimitReached),
+    RecursionLimitReached(#[from] work_unit_collection::error::RecursionLimitReached),
 }
 
 impl From<GeneralUnitIdError> for Error {
@@ -79,13 +84,9 @@ pub mod lookup;
 mod project_mapper;
 mod refs;
 pub mod regex;
-mod work_unit_and_collection;
 
 pub use project_mapper::{GitLabItemReferenceNormalize, ProjectMapper};
 pub use refs::{
     find_refs, format_reference, BaseGitLabItemReference, Issue, MergeRequest,
     ProjectItemReference, ProjectReference, TypedGitLabItemReference, ISSUE_SYMBOL, MR_SYMBOL,
-};
-pub use work_unit_and_collection::{
-    RefAddOutcome, UnitCreated, UnitId, UnitNotUpdated, UnitUpdated, WorkUnitCollection,
 };

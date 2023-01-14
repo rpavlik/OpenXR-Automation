@@ -5,14 +5,14 @@
 // Author: Ryan Pavlik <ryan.pavlik@collabora.com>
 
 use gitlab_work_units::{
-    GitLabItemReferenceNormalize, ProjectItemReference, ProjectMapper, RefAddOutcome, UnitId,
-    WorkUnitCollection,
+    GitLabItemReferenceNormalize, ProjectItemReference, ProjectMapper, WorkUnitCollection,
 };
 use line_or_reference::LineOrReferenceCollection;
 use log::warn;
 use nullboard_tools::{GenericList, ListIteratorAdapters};
 use std::collections::{hash_map::Entry, HashMap};
 use traits::{GetItemReference, ParsedLineLike};
+use work_unit_collection::{InsertOutcomeGetter, UnitId};
 
 pub mod cli;
 pub mod line_or_reference;
@@ -115,11 +115,11 @@ where
     let unit_id = if refs.is_empty() {
         None
     } else {
-        let result = collection.add_or_get_unit_for_refs(refs);
+        let result = collection.get_or_insert_from_iterator(refs);
         if let Err(e) = &result {
             warn!("Problem calling add/get unit for refs: {}", e);
         }
-        result.ok().map(RefAddOutcome::into_inner_unit_id)
+        result.ok().map(InsertOutcomeGetter::into_work_unit_id)
     };
     unit_id
 }

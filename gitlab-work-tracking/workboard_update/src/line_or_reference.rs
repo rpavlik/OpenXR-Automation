@@ -10,10 +10,11 @@ use crate::{
     GetWorkUnit,
 };
 use gitlab_work_units::{
-    GitLabItemReferenceNormalize, ProjectItemReference, ProjectMapper, UnitId, WorkUnitCollection,
+    GitLabItemReferenceNormalize, ProjectItemReference, ProjectMapper, WorkUnitCollection,
 };
 use log::info;
 use nullboard_tools::{list::BasicList, GenericList, ListIteratorAdapters};
+use work_unit_collection::UnitId;
 
 /// A simplified more structured representation of a line in a note (compared to `NoteLine`),
 /// as either a non-reference freeform text line, or as a single project item reference.

@@ -4,7 +4,8 @@
 //
 // Author: Ryan Pavlik <ryan.pavlik@collabora.com>
 
-use gitlab_work_units::{ProjectItemReference, UnitId};
+use gitlab_work_units::ProjectItemReference;
+use work_unit_collection::UnitId;
 
 /// Uniform access to things that have an Option<UnitId> in them
 pub trait GetWorkUnit {

@@ -461,6 +461,7 @@ dependencies = [
  "serde",
  "thiserror",
  "typed-index-collections",
+ "work_unit_collection",
 ]
 
 [[package]]
@@ -1576,4 +1577,5 @@ dependencies = [
  "nullboard_tools",
  "serde",
  "thiserror",
+ "work_unit_collection",
 ]
