@@ -122,15 +122,15 @@ fn get_mr_merged_closed_count<'a, L: GetItemReference + 'a, I: Iterator<Item = &
     client: &gitlab::Gitlab,
     cache: &mut GitlabQueryCache,
     lines: I,
-) -> Result< (usize, usize, usize), gitlab_work_units::Error> {
+) -> Result<(usize, usize, usize), gitlab_work_units::Error> {
     let statuses = get_mr_statuses(client, cache, lines)?;
     let (num_merged, num_closed) = statuses.iter().fold((0, 0), |(merged, closed), state| {
-            (
-                (merged + usize::from(state == &ItemState::Merged)),
-                (closed + usize::from(state == &ItemState::Closed)),
-            )
-        });
-        Ok((statuses.len(), num_merged, num_closed))
+        (
+            (merged + usize::from(state == &ItemState::Merged)),
+            (closed + usize::from(state == &ItemState::Closed)),
+        )
+    });
+    Ok((statuses.len(), num_merged, num_closed))
 }
 
 fn all_mrs_merged<'a, L: GetItemReference + 'a, I: Iterator<Item = &'a L>>(
