@@ -5,6 +5,7 @@
 // Author: Ryan Pavlik <ryan.pavlik@collabora.com>
 
 use crate::{
+    atom_table::AtomTable,
     error::{
         ExtinctWorkUnitId, FollowExtinctionUnitIdError, GetUnitIdError, InsertError,
         InvalidWorkUnitId, NoReferencesError, RecursionLimitReached,
@@ -50,30 +51,11 @@ pub trait RefLookup {
 
 /// Owner of reference data: assigns each unique reference an ID which is easier to manipulate
 #[derive(Debug)]
-struct RefStorage<R> {
-    ref_contents: TiVec<RefId, R>,
-    ref_map: HashMap<R, RefId>,
-}
+struct RefStorage<R>(AtomTable<R, RefId>);
 
-impl<R> RefStorage<R>
-where
-    R: Clone + Hash + Eq,
-{
-    fn get_or_create_id_for_owned_ref(&mut self, r: R) -> RefId {
-        if let Some(ref_id) = self.ref_map.get(&r) {
-            return *ref_id;
-        }
-        let ref_id = self.ref_contents.push_and_get_key(r.clone());
-        self.ref_map.insert(r, ref_id);
-        ref_id
-    }
-}
 impl<R> Default for RefStorage<R> {
     fn default() -> Self {
-        Self {
-            ref_contents: Default::default(),
-            ref_map: Default::default(),
-        }
+        Self(Default::default())
     }
 }
 
@@ -84,11 +66,11 @@ where
     type Reference = R;
 
     fn get_id(&self, r: &Self::Reference) -> Option<RefId> {
-        self.ref_map.get(r).copied()
+        self.0.get_id(r)
     }
 
     fn get_reference(&self, ref_id: RefId) -> Option<&Self::Reference> {
-        self.ref_contents.get(ref_id)
+        self.0.get_value(ref_id)
     }
 }
 
@@ -132,7 +114,7 @@ where
     pub fn get_or_insert_from_reference(&mut self, r: R) -> InsertRefOutcome {
         // Much simpler than the multiple-refs variant because we don't have to handle the update or merge cases:
         // it's either there already (get it) or not there (create it)
-        let ref_id = self.refs.get_or_create_id_for_owned_ref(r);
+        let ref_id = self.refs.0.get_or_create_id_for_owned_value(r);
 
         // this lets us mutably borrow the parts of the struct separately
         let Self {
@@ -171,7 +153,7 @@ where
         // Transform refs into ref IDs and collect them.
         let ref_ids: Vec<RefId> = refs
             .into_iter()
-            .map(|r| self.refs.get_or_create_id_for_owned_ref(r))
+            .map(|r| self.refs.0.get_or_create_id_for_owned_value(r))
             .collect();
         if ref_ids.is_empty() {
             return Err(NoReferencesError.into());
