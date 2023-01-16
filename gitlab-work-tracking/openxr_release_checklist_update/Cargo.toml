@@ -17,6 +17,7 @@ version = "0.1.0"
 gitlab_work_units = {version = "0.1.0", path = "../gitlab_work_units"}
 nullboard_tools = {version = "0.1.0", path = "../nullboard_tools"}
 workboard_update = {version = "0.1.0", path = "../workboard_update"}
+work_unit_collection = {version = "0.1.0", path = "../work_unit_collection"}
 
 # third-party dependencies
 anyhow = "1.0"

@@ -108,8 +108,9 @@ where
     L: ParsedLineLike + 'a,
     I: Iterator<Item = &'a L>,
 {
-    let refs: Vec<&ProjectItemReference> = lines
+    let refs: Vec<ProjectItemReference> = lines
         .filter_map(GetItemReference::project_item_reference)
+        .cloned()
         .collect();
 
     let unit_id = if refs.is_empty() {

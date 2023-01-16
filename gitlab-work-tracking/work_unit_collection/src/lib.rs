@@ -11,5 +11,6 @@ mod traits;
 mod work_unit;
 
 pub use collection::WorkUnitCollection;
+pub use insert_outcome::{AsCreated, InsertRefGroupOutcome, InsertRefOutcome, IsUnchanged};
 pub use traits::{InsertOutcomeGetter, WorkUnitIdGetter};
 pub use work_unit::{UnitId, WorkUnit};

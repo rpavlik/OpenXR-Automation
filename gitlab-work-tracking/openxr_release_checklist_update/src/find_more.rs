@@ -17,6 +17,7 @@ use lazy_static::lazy_static;
 use log::{debug, warn};
 use regex::Regex;
 use serde::Deserialize;
+use work_unit_collection::{AsCreated, InsertOutcomeGetter, UnitId};
 use workboard_update::line_or_reference::{
     LineOrReference, LineOrReferenceCollection, ProcessedNote,
 };
@@ -193,8 +194,9 @@ pub fn find_new_notes<'a>(
     iter.filter_map(|(issue_data, refs)| {
         // Try adding all the refs as a group.
         let created_unit_id = collection
-            .add_or_get_unit_for_refs(&refs)
+            .get_or_insert_from_iterator(refs.iter().cloned())
             .ok() // disregard errors
+            .as_ref()
             .and_then(|o| {
                 // show the results
                 debug!(
@@ -204,9 +206,9 @@ pub fn find_new_notes<'a>(
                     &o
                 );
                 // only keep ones where a new unit was created
-                o.try_into_created().ok()
+                o.as_created()
             })
-            .map(|o| o.unit_id());
+            .map(|o| o.work_unit_id());
 
         // Split into two steps since the previous chain borrows refs
         // Pass along issue_data, unit ID, and refs to next step

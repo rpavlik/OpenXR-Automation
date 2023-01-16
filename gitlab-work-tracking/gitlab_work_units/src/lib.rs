@@ -19,6 +19,8 @@ use work_unit_collection::error::{
     FollowExtinctionUnitIdError, GeneralUnitIdError, GetUnitIdError,
 };
 
+pub use work_unit_collection::UnitId;
+
 pub type WorkUnit = work_unit_collection::WorkUnit<ProjectItemReference>;
 pub type WorkUnitCollection = work_unit_collection::WorkUnitCollection<ProjectItemReference>;
 

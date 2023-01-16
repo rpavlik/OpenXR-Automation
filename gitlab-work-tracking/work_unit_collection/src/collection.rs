@@ -49,7 +49,7 @@ pub trait RefLookup {
 }
 
 /// Owner of reference data: assigns each unique reference an ID which is easier to manipulate
-#[derive(Debug, Default)]
+#[derive(Debug)]
 struct RefStorage<R> {
     ref_contents: TiVec<RefId, R>,
     ref_map: HashMap<R, RefId>,
@@ -66,6 +66,14 @@ where
         let ref_id = self.ref_contents.push_and_get_key(r.clone());
         self.ref_map.insert(r, ref_id);
         ref_id
+    }
+}
+impl<R> Default for RefStorage<R> {
+    fn default() -> Self {
+        Self {
+            ref_contents: Default::default(),
+            ref_map: Default::default(),
+        }
     }
 }
 
@@ -87,11 +95,21 @@ where
 /// A container for "work units" that are ordered collections of unique "item references" (initial use case is GitLab project item references: issues and MRs).
 /// Any given item reference can only belong to a single work unit, and each work unit has an ID.
 /// To ensure there are not multiple references to a work unit, recommend normalizing the project item reference first.
-#[derive(Debug, Default)]
+#[derive(Debug)]
 pub struct WorkUnitCollection<R> {
     units: UnitContainer<RefId>,
     unit_by_ref_id: HashMap<RefId, UnitId>,
     refs: RefStorage<R>,
+}
+
+impl<R> Default for WorkUnitCollection<R> {
+    fn default() -> Self {
+        Self {
+            units: Default::default(),
+            unit_by_ref_id: Default::default(),
+            refs: Default::default(),
+        }
+    }
 }
 
 impl<R> WorkUnitCollection<R>

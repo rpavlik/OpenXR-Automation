@@ -861,6 +861,7 @@ dependencies = [
  "nullboard_tools",
  "regex",
  "serde",
+ "work_unit_collection",
  "workboard_update",
 ]
 
