@@ -147,7 +147,7 @@ fn all_mrs_merged<'a, L: GetItemReference + 'a, I: Iterator<Item = &'a L>>(
     }
 }
 
-fn find_notes_to_move(ops: &mut Vec<BoardOperation>, lists: impl ListCollection) {}
+fn find_notes_to_move(_ops: &mut Vec<BoardOperation>, _lists: impl ListCollection) {}
 
 // We need extra collect calls to make sure some things are evaluated eagerly.
 #[allow(clippy::needless_collect)]

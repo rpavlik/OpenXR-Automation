@@ -172,7 +172,7 @@ where
 
             let unique_existing_unit_ids: Vec<UnitId> = pending.unique_units().collect();
 
-            let existing_unit_id = unique_existing_unit_ids.first().map(|id| *id);
+            let existing_unit_id = unique_existing_unit_ids.first().copied();
 
             // Either the existing one, or the one that we're about to create
             let unit_id = existing_unit_id.unwrap_or_else(|| units.0.next_key());
@@ -212,16 +212,14 @@ where
                 unit_id,
                 refs_added,
             }))
+        } else if refs_added == 0 && units_merged_in == 0 {
+            Ok(InsertRefGroupOutcome::Unchanged(UnitUnchanged { unit_id }))
         } else {
-            if refs_added == 0 && units_merged_in == 0 {
-                Ok(InsertRefGroupOutcome::Unchanged(UnitUnchanged { unit_id }))
-            } else {
-                Ok(InsertRefGroupOutcome::Updated(UnitUpdated {
-                    unit_id,
-                    refs_added,
-                    units_merged_in,
-                }))
-            }
+            Ok(InsertRefGroupOutcome::Updated(UnitUpdated {
+                unit_id,
+                refs_added,
+                units_merged_in,
+            }))
         }
     }
 
@@ -275,7 +273,7 @@ impl<T> CloneOrTake<T> for T {
 
 impl<T: Clone> CloneOrTake<T> for &T {
     fn clone_or_take(self) -> T {
-        Clone::clone(&self)
+        Clone::clone(self)
     }
 }
 

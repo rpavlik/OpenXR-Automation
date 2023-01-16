@@ -17,7 +17,7 @@ use lazy_static::lazy_static;
 use log::{debug, warn};
 use regex::Regex;
 use serde::Deserialize;
-use work_unit_collection::{AsCreated, InsertOutcomeGetter, UnitId};
+use work_unit_collection::{AsCreated, InsertOutcomeGetter};
 use workboard_update::line_or_reference::{
     LineOrReference, LineOrReferenceCollection, ProcessedNote,
 };
