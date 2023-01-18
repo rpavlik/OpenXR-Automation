@@ -29,6 +29,7 @@ pub struct IssueData {
     iid: IssueInternalId,
     title: String,
     description: String,
+    web_url: String,
     // labels: Vec<String>,
     // state: gitlab::IssueState,
     // references: References,
@@ -53,6 +54,10 @@ impl IssueData {
     pub fn project_id(&self) -> ProjectId {
         self.project_id
     }
+
+    pub fn web_url(&self) -> &str {
+        self.web_url.as_ref()
+    }
 }
 
 impl From<&IssueData> for gitlab_work_units::Issue {
@@ -71,10 +76,21 @@ pub struct MRData {
     project_id: ProjectId,
     iid: MergeRequestInternalId,
     title: String,
+    web_url: String,
     // labels: Vec<String>,
     // state: gitlab::MergeRequestState,
     // description: String,
     // references: References,
+}
+
+impl MRData {
+    pub fn title(&self) -> &str {
+        self.title.as_ref()
+    }
+
+    pub fn web_url(&self) -> &str {
+        self.web_url.as_ref()
+    }
 }
 
 impl From<&MRData> for gitlab_work_units::MergeRequest {
@@ -132,13 +148,16 @@ impl Endpoint for RelatedMergeRequests<'_> {
 #[derive(Debug, thiserror::Error)]
 pub enum QueryError {
     #[error("Error trying to find related merge requests for #{0}: {1}")]
-    RelatedMRForIssue(ProjectItemReference, #[source] Box<dyn std::error::Error>),
+    RelatedMRForIssue(
+        ProjectItemReference,
+        #[source] Box<dyn std::error::Error + Send + Sync>,
+    ),
 
     #[error("Query for issues failed: {0}")]
-    Issues(#[source] Box<dyn std::error::Error>),
+    Issues(#[source] Box<dyn std::error::Error + Send + Sync>),
 
     #[error("Query for merge requests failed: {0}")]
-    MRs(#[source] Box<dyn std::error::Error>),
+    MRs(#[source] Box<dyn std::error::Error + Send + Sync>),
 }
 
 pub fn find_related_mrs<'a>(
@@ -158,58 +177,58 @@ pub fn find_related_mrs<'a>(
     Ok(vec)
 }
 
-// struct FindIssues<'a> {
-//     client: &'a gitlab::Gitlab,
-//     project: NameOrId<'a>,
-//     result: Result<Vec<IssueData>, QueryError>,
-// }
-
-// impl<'a> std::ops::Deref for FindIssues<'a> {
-//     type Target = Result<Vec<IssueData>, QueryError>;
-
-//     fn deref(&self) -> &Self::Target {
-//         &self.result
-//     }
-// }
-
 pub fn find_issues<'a>(
     client: &'a gitlab::Gitlab,
     endpoint: ProjectIssues,
-) -> Result<impl 'a + Iterator<Item = IssueData>, QueryError> {
+) -> Result<FindIssues<'a>, QueryError> {
     let vec: Vec<IssueData> = gitlab::api::paged(endpoint, gitlab::api::Pagination::All)
         .query(client)
         .map_err(|e| QueryError::Issues(Box::new(e)))?;
-    Ok(vec.into_iter())
+    Ok(FindIssues { client, vec })
 }
 
-pub fn find_issues_and_related_mrs<'a>(
+pub struct FindIssues<'a> {
     client: &'a gitlab::Gitlab,
-    project_name: &'a str,
-    endpoint: ProjectIssues,
-) -> Result<impl 'a + Iterator<Item = (IssueData, Vec<ProjectItemReference>)>, QueryError> {
-    let iter_of_find_related_outputs = find_issues(client, endpoint)?.map(|issue| {
-        let issue_ref = gitlab_work_units::Issue::from(&issue);
-        let current = ProjectItemReference::from(issue_ref.clone());
-        let references = find_related_mrs(client, project_name, &issue_ref)
-            .map(|v| -> Vec<ProjectItemReference> {
-                once(current.clone())
-                    .chain(
-                        v.into_iter()
-                            .map(gitlab_work_units::MergeRequest::from)
-                            .map(ProjectItemReference::from),
-                    )
-                    .collect()
-            })
-            .unwrap_or_else(|e| {
-                warn!(
-                    "Error trying to find related merge requests for #{}: {}",
-                    &current, e
-                );
-                vec![current]
-            });
-        (issue, references)
-    });
-    Ok(iter_of_find_related_outputs)
+    vec: Vec<IssueData>,
+}
+
+impl<'a> std::ops::Deref for FindIssues<'a> {
+    type Target = Vec<IssueData>;
+
+    fn deref(&self) -> &Self::Target {
+        &self.vec
+    }
+}
+
+impl<'a> FindIssues<'a> {
+    pub fn and_related_mrs(
+        self,
+        project_name: &'a str,
+    ) -> impl 'a + Iterator<Item = (IssueData, Vec<ProjectItemReference>)> {
+        let iter = self.vec.into_iter().map(|issue| {
+            let issue_ref = gitlab_work_units::Issue::from(&issue);
+            let current = ProjectItemReference::from(issue_ref.clone());
+            let references = find_related_mrs(self.client, project_name, &issue_ref)
+                .map(|v| -> Vec<ProjectItemReference> {
+                    once(current.clone())
+                        .chain(
+                            v.into_iter()
+                                .map(gitlab_work_units::MergeRequest::from)
+                                .map(ProjectItemReference::from),
+                        )
+                        .collect()
+                })
+                .unwrap_or_else(|e| {
+                    warn!(
+                        "Error trying to find related merge requests for #{}: {}",
+                        &current, e
+                    );
+                    vec![current]
+                });
+            (issue, references)
+        });
+        iter
+    }
 }
 
 pub fn find_mrs<'a>(

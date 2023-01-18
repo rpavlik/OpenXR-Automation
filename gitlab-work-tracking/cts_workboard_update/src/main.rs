@@ -22,7 +22,7 @@ use std::path::Path;
 use workboard_update::{
     associate_work_unit_with_note,
     cli::{GitlabArgs, InputOutputArgs},
-    find_more::find_issues_and_related_mrs,
+    find_more::find_issues,
     line_or_reference::{self, LineOrReferenceCollection, ProcessedNote},
     note_formatter, note_refs_to_ids, prune_notes,
     traits::GetItemReference,
@@ -200,19 +200,15 @@ fn main() -> Result<(), anyhow::Error> {
         .state(gitlab::api::issues::IssueState::Opened)
         .build()
         .map_err(|e| anyhow!("Endpoint issue building failed: {}", e))?;
-    if let Ok(issue_data_and_ref_vecs) =
-        find_issues_and_related_mrs(&gitlab, PROJECT_NAME, issue_endpoint)
-    {
-        let issue_data_and_ref_vecs = issue_data_and_ref_vecs.map(|(issue_data, v)| {
-            let full_vec: Vec<_> = find_mr(issue_data.description())
-                .into_iter()
-                .chain(v.into_iter())
-                .collect();
-            (issue_data, full_vec)
-        });
-        // let list = lists
-        //     .named_list_mut("Initial Composition")
-        //     .expect("need initial composition list");
+    if let Ok(issues) = find_issues(&gitlab, issue_endpoint) {
+        let issue_data_and_ref_vecs =
+            issues.and_related_mrs(PROJECT_NAME).map(|(issue_data, v)| {
+                let full_vec: Vec<_> = find_mr(issue_data.description())
+                    .into_iter()
+                    .chain(v.into_iter())
+                    .collect();
+                (issue_data, full_vec)
+            });
         for (issue_data, note) in process_new_issues(&mut collection, issue_data_and_ref_vecs) {
             info!("Adding note for {}", issue_data.title());
             // list.notes_mut().push(GenericNote::new(note));

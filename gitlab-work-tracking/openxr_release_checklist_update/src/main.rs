@@ -17,14 +17,14 @@ use gitlab_work_units::{
     lookup::{GitlabQueryCache, ItemState},
     ProjectItemReference, ProjectMapper, WorkUnitCollection,
 };
-use log::info;
+use log::{info, warn};
 use nullboard_tools::{list::BasicList, Board, ListCollection, ListIteratorAdapters};
 use pretty::DocAllocator;
 use std::path::Path;
 use workboard_update::{
     associate_work_unit_with_note,
     cli::{GitlabArgs, InputOutputArgs, ProjectArgs},
-    find_more::find_issues_and_related_mrs,
+    find_more::find_issues,
     line_or_reference::{self, LineOrReferenceCollection, ProcessedNote},
     note_formatter, note_refs_to_ids, prune_notes,
     traits::GetItemReference,
@@ -141,21 +141,29 @@ fn main() -> Result<(), anyhow::Error> {
     }
 
     let mut cache: GitlabQueryCache = Default::default();
-
+    let project_name = args.project.default_project.as_str();
     info!("Seeing if any are missing labels");
     {
         let issue_endpoint = gitlab::api::projects::issues::Issues::builder()
-            .project(args.project.default_project.as_str())
+            .project(project_name)
             .search("\"Release checklist for\"")
             .state(gitlab::api::issues::IssueState::Opened)
             .build()
             .map_err(|e| anyhow!("Endpoint issue building failed: {}", e))?;
-        if let Ok(issue_data_and_ref_vecs) = 
-        find_issues_and_related_mrs(
-            &gitlab,
-            args.project.default_project.as_str(),
-            issue_endpoint,
-        ) {}
+        let issues_and_refs = find_issues(&gitlab, issue_endpoint)?.and_related_mrs(project_name);
+        for (issue_data, refs) in issues_and_refs {
+            if issue_data.title().starts_with("Release") {
+                let reference = ProjectItemReference::from(&issue_data);
+                if collection.try_get_unit_for_ref(&reference).is_none() {
+                    warn!(
+                        "Found an issue that looks like a checklist but missing the label: {} {}\n{}",
+                        reference,
+                        issue_data.title(),
+                        issue_data.web_url()
+                    );
+                }
+            }
+        }
     }
 
     let default_project_id = mapper.default_project_id();
