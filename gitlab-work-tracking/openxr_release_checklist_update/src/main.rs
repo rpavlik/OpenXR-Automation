@@ -4,34 +4,33 @@
 //
 // Author: Ryan Pavlik <ryan.pavlik@collabora.com>
 
-use crate::find_more::{find_new_checklists, find_new_notes};
+use crate::{
+    board_operation::BoardOperation,
+    find_more::{find_new_checklists, find_new_notes},
+    prettyprint::PrettyForConsole,
+};
 use clap::Parser;
 use dotenvy::dotenv;
 use env_logger::Env;
-use gitlab::ProjectId;
 use gitlab_work_units::{
     lookup::{GitlabQueryCache, ItemState},
-    BaseGitLabItemReference, ProjectItemReference, ProjectMapper, ProjectReference, UnitId,
-    WorkUnitCollection,
+    ProjectItemReference, ProjectMapper, WorkUnitCollection,
 };
-use itertools::Itertools;
 use log::info;
-use nullboard_tools::{
-    list::BasicList, Board, GenericList, GenericNote, List, ListCollection, ListIteratorAdapters,
-    Note,
-};
-use pretty::{DocAllocator, DocBuilder};
-use std::{fmt::Display, path::Path};
+use nullboard_tools::{list::BasicList, Board, ListCollection, ListIteratorAdapters};
+use pretty::DocAllocator;
+use std::path::Path;
 use workboard_update::{
     associate_work_unit_with_note,
     cli::{GitlabArgs, InputOutputArgs, ProjectArgs},
-    line_or_reference::{self, LineOrReference, LineOrReferenceCollection, ProcessedNote},
+    line_or_reference::{self, LineOrReferenceCollection, ProcessedNote},
     note_formatter, note_refs_to_ids, prune_notes,
     traits::GetItemReference,
-    GetWorkUnit,
 };
 
+mod board_operation;
 mod find_more;
+mod prettyprint;
 
 #[derive(Parser)]
 struct Cli {
@@ -43,291 +42,6 @@ struct Cli {
 
     #[command(flatten, next_help_heading = "Project")]
     project: ProjectArgs,
-}
-
-impl Display for BoardOperation {
-    fn fmt(&self, _f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        todo!()
-    }
-}
-trait FormatWithDefaultProject {
-    fn format_with_default_project(
-        &self,
-        default_project_id: ProjectId,
-        f: &mut std::fmt::Formatter<'_>,
-    ) -> std::fmt::Result;
-}
-
-/// Wrap something to change how it's formatted.
-struct WithDefaultProjectKnowledge<'a, T: FormatWithDefaultProject> {
-    default_project: ProjectId,
-    value: &'a T,
-}
-
-impl<'a, T: FormatWithDefaultProject> WithDefaultProjectKnowledge<'a, T> {
-    fn new(default_project_id: ProjectId, value: &'a T) -> Self {
-        Self {
-            default_project: default_project_id,
-            value,
-        }
-    }
-}
-
-impl<'a, T: FormatWithDefaultProject> Display for WithDefaultProjectKnowledge<'a, T> {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        self.value
-            .format_with_default_project(self.default_project, f)
-    }
-}
-
-impl FormatWithDefaultProject for ProjectReference {
-    fn format_with_default_project(
-        &self,
-        default_project_id: ProjectId,
-        f: &mut std::fmt::Formatter<'_>,
-    ) -> std::fmt::Result {
-        match self {
-            ProjectReference::ProjectId(proj_id) => {
-                if proj_id == &default_project_id {
-                    write!(f, "")
-                } else {
-                    write!(f, "{}", proj_id)
-                }
-            }
-            ProjectReference::ProjectName(name) => write!(f, "{}", name),
-            ProjectReference::UnknownProject => write!(f, ""),
-        }
-    }
-}
-
-impl FormatWithDefaultProject for ProjectItemReference {
-    fn format_with_default_project(
-        &self,
-        default_project_id: ProjectId,
-        f: &mut std::fmt::Formatter<'_>,
-    ) -> std::fmt::Result {
-        write!(
-            f,
-            "{}{}{}",
-            WithDefaultProjectKnowledge::new(default_project_id, self.project()),
-            self.symbol(),
-            self.raw_iid()
-        )
-    }
-}
-
-impl FormatWithDefaultProject for LineOrReference {
-    fn format_with_default_project(
-        &self,
-        default_project_id: ProjectId,
-        f: &mut std::fmt::Formatter<'_>,
-    ) -> std::fmt::Result {
-        match self {
-            LineOrReference::Line(line) => write!(f, "{}", line),
-            LineOrReference::Reference(r) => r.format_with_default_project(default_project_id, f),
-        }
-    }
-}
-
-trait PrettyForConsole {
-    fn pretty<'b, D, A>(
-        &'b self,
-        allocator: &'b D,
-        default_project_id: ProjectId,
-    ) -> DocBuilder<'b, D, A>
-    where
-        D: DocAllocator<'b, A>,
-        D::Doc: Clone,
-        A: Clone;
-}
-
-impl PrettyForConsole for ProjectItemReference {
-    fn pretty<'b, D, A>(
-        &'b self,
-        allocator: &'b D,
-        default_project_id: ProjectId,
-    ) -> DocBuilder<'b, D, A>
-    where
-        D: DocAllocator<'b, A>,
-        D::Doc: Clone,
-        A: Clone,
-    {
-        allocator.text(format!(
-            "{}",
-            WithDefaultProjectKnowledge::new(default_project_id, self)
-        ))
-    }
-}
-impl PrettyForConsole for LineOrReference {
-    fn pretty<'b, D, A>(
-        &'b self,
-        allocator: &'b D,
-        default_project_id: ProjectId,
-    ) -> DocBuilder<'b, D, A>
-    where
-        D: DocAllocator<'b, A>,
-        D::Doc: Clone,
-        A: Clone,
-    {
-        match self {
-            LineOrReference::Line(line) => allocator.text(line.trim()),
-            LineOrReference::Reference(r) => r.pretty(allocator, default_project_id),
-        }
-    }
-}
-
-impl PrettyForConsole for ProcessedNote {
-    fn pretty<'b, D, A>(
-        &'b self,
-        allocator: &'b D,
-        default_project_id: ProjectId,
-    ) -> DocBuilder<'b, D, A>
-    where
-        D: DocAllocator<'b, A>,
-        D::Doc: Clone,
-        A: Clone,
-    {
-        let unit_id = self
-            .work_unit_id()
-            .map(|id| allocator.text(format!("{:?}", id)))
-            .unwrap_or_else(|| allocator.nil());
-
-        let lines = self
-            .lines()
-            .0
-            .iter()
-            .map(|line_or_ref| line_or_ref.pretty(allocator, default_project_id));
-
-        allocator
-            .text("ProcessedNote(")
-            .append(
-                unit_id
-                    .append(allocator.hardline())
-                    .append(allocator.intersperse(lines, allocator.hardline()))
-                    .nest(4),
-            )
-            .append(allocator.hardline())
-            .append(allocator.text(")"))
-    }
-}
-
-#[derive(Debug)]
-enum BoardOperation {
-    NoOp,
-    AddNote {
-        list_name: String,
-        note: ProcessedNote,
-    },
-    MoveNote {
-        current_list_name: String,
-        new_list_name: String,
-        work_unit_id: UnitId,
-    },
-}
-impl Default for BoardOperation {
-    fn default() -> Self {
-        Self::NoOp
-    }
-}
-
-impl BoardOperation {
-    pub fn apply(
-        self,
-        lists: &mut impl ListCollection<List = GenericList<ProcessedNote>>,
-    ) -> Result<(), anyhow::Error> {
-        match self {
-            BoardOperation::NoOp => Ok(()),
-            BoardOperation::AddNote { list_name, note } => {
-                let list = lists
-                    .named_list_mut(&list_name)
-                    .ok_or_else(|| anyhow::anyhow!("Could not find list {}", &list_name))?;
-                list.notes_mut().push(GenericNote::new(note));
-                Ok(())
-            }
-            BoardOperation::MoveNote {
-                current_list_name,
-                new_list_name,
-                work_unit_id,
-            } => {
-                let note = {
-                    let current_list =
-                        lists.named_list_mut(&current_list_name).ok_or_else(|| {
-                            anyhow::anyhow!("Could not find current list {}", &current_list_name)
-                        })?;
-                    let needle = current_list
-                        .notes_mut()
-                        .iter()
-                        .position(|n| n.data().work_unit_id() == &Some(work_unit_id))
-                        .ok_or_else(|| {
-                            anyhow::anyhow!(
-                                "Could not find note with matching work unit id {}",
-                                work_unit_id
-                            )
-                        })?;
-                    current_list.notes_mut().remove(needle)
-                };
-                let new_list = lists
-                    .named_list_mut(&new_list_name)
-                    .ok_or_else(|| anyhow::anyhow!("Could not find new list {}", &new_list_name))?;
-                new_list.notes_mut().push(note);
-                Ok(())
-            }
-        }
-    }
-}
-
-impl PrettyForConsole for BoardOperation {
-    fn pretty<'b, D, A>(
-        &'b self,
-        allocator: &'b D,
-        default_project_id: ProjectId,
-    ) -> DocBuilder<'b, D, A>
-    where
-        D: DocAllocator<'b, A>,
-        D::Doc: Clone,
-        A: Clone,
-    {
-        match self {
-            BoardOperation::NoOp => allocator.text("NoOp"),
-
-            BoardOperation::AddNote { list_name, note } => allocator
-                .text("AddNote(")
-                .append(
-                    allocator
-                        .text(list_name)
-                        .double_quotes()
-                        .append(allocator.text(","))
-                        .append(allocator.hardline())
-                        .append(note.pretty(allocator, default_project_id))
-                        .nest(4),
-                )
-                .append(allocator.hardline())
-                .append(")"),
-
-            BoardOperation::MoveNote {
-                current_list_name,
-                new_list_name,
-                work_unit_id,
-            } => {
-                let words = vec![
-                    allocator.text(current_list_name.as_str()),
-                    allocator.text("->"),
-                    allocator.text(new_list_name.as_str()),
-                    allocator.text("for"),
-                    allocator.text(format!("{:?}", work_unit_id)),
-                ];
-                allocator
-                    .text("MoveNote(")
-                    .append(
-                        allocator
-                            .intersperse(words.into_iter(), allocator.space())
-                            .group()
-                            .nest(2),
-                    )
-                    .append(allocator.text(")"))
-            }
-        }
-    }
 }
 
 fn get_mr_statuses<'a, L: GetItemReference + 'a, I: Iterator<Item = &'a L>>(
