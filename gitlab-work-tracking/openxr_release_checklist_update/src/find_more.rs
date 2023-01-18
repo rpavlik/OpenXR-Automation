@@ -4,87 +4,27 @@
 //
 // Author: Ryan Pavlik <ryan.pavlik@collabora.com>
 
+use std::iter::once;
+
 use anyhow::anyhow;
 use gitlab::{
     api::{common::NameOrId, endpoint_prelude::Method, Endpoint, Query},
-    IssueInternalId, MergeRequestInternalId, ProjectId,
+    MergeRequestInternalId,
 };
 use gitlab_work_units::{
     regex::{PROJECT_NAME_PATTERN, REFERENCE_IID_PATTERN},
     MergeRequest, ProjectItemReference, ProjectReference, WorkUnitCollection,
 };
 use lazy_static::lazy_static;
-use log::{debug, warn};
+use log::debug;
 use regex::Regex;
-use serde::Deserialize;
 use work_unit_collection::{AsCreated, InsertOutcomeGetter};
-use workboard_update::line_or_reference::{
-    LineOrReference, LineOrReferenceCollection, ProcessedNote,
+use workboard_update::{
+    find_more::{find_related_mrs, IssueData},
+    line_or_reference::{LineOrReference, LineOrReferenceCollection, ProcessedNote},
 };
 
-// #[derive(Debug, Deserialize)]
-// pub struct TaskCompletionStatus {
-//     count: u64,
-//     completed_count: u64,
-// }
-#[derive(Debug, Deserialize)]
-pub struct References {
-    // short: String,
-    full: String,
-}
-
-#[derive(Debug, Deserialize)]
-pub struct IssueData {
-    project_id: ProjectId,
-    iid: IssueInternalId,
-    title: String,
-    description: String,
-    // labels: Vec<String>,
-    // state: gitlab::IssueState,
-    // references: References,
-    // has_tasks: bool,
-    // task_status: String,
-    // task_completion_status: TaskCompletionStatus,
-}
-
-impl IssueData {
-    pub fn title(&self) -> &str {
-        self.title.as_ref()
-    }
-}
-#[derive(Debug, Deserialize)]
-struct MRData {
-    project_id: ProjectId,
-    iid: MergeRequestInternalId,
-    // title: String,
-    // labels: Vec<String>,
-    // state: gitlab::MergeRequestState,
-    // description: String,
-    // references: References,
-}
-
-impl From<&References> for ProjectItemReference {
-    fn from(data: &References) -> Self {
-        data.full
-            .as_str()
-            .try_into()
-            .expect("we should be able to parse just bare refs from gitlab")
-    }
-}
-
-impl From<&IssueData> for ProjectItemReference {
-    fn from(data: &IssueData) -> Self {
-        gitlab_work_units::Issue::new(data.project_id.into(), data.iid).into()
-    }
-}
-
-impl From<&MRData> for ProjectItemReference {
-    fn from(data: &MRData) -> Self {
-        gitlab_work_units::MergeRequest::new(data.project_id.into(), data.iid).into()
-    }
-}
-
-pub fn find_mr(description: &str) -> Option<ProjectItemReference> {
+pub fn find_mr(description: &str) -> Option<MergeRequest> {
     lazy_static! {
         static ref RE: Regex = Regex::new(
             format!(
@@ -111,7 +51,7 @@ pub fn find_mr(description: &str) -> Option<ProjectItemReference> {
             .map(|p| ProjectReference::ProjectName(p.as_str().to_owned()))
             .unwrap_or_default();
 
-        Some(MergeRequest::new(project, MergeRequestInternalId::new(iid)).into())
+        Some(MergeRequest::new(project, MergeRequestInternalId::new(iid)))
     })
 }
 
@@ -140,27 +80,19 @@ fn lookup_from_checklist(
     project_name: &str,
     issue: &IssueData,
 ) -> Vec<ProjectItemReference> {
-    let current_issue = ProjectItemReference::from(issue);
-    let mut ret = vec![current_issue.clone()];
+    let current_issue: gitlab_work_units::Issue = issue.into();
+    let current_ref = ProjectItemReference::from(issue);
 
-    ret.extend(find_mr(&issue.description).into_iter());
+    let mr = find_mr(issue.description());
+    let mrs = mr.into_iter().chain(
+        find_related_mrs(client, project_name, &current_issue)
+            .into_iter()
+            .flat_map(|v| v.into_iter().map(gitlab_work_units::MergeRequest::from)),
+    );
 
-    // gitlab::api::projects::issues::MergeRequestsClosing::builder().project(project_name).issue(issue.iid)
-    let related_endpoint = RelatedMergeRequests {
-        issue: issue.iid.value(),
-        project: project_name.into(),
-    };
-    let vec: Vec<MRData> = match related_endpoint.query(client) {
-        Ok(vec) => vec,
-        Err(e) => {
-            warn!(
-                "Error trying to find related merge requests for #{}: {}",
-                &current_issue, e
-            );
-            Default::default()
-        }
-    };
-    ret.extend(vec.iter().map(ProjectItemReference::from));
+    let ret: Vec<ProjectItemReference> = once(current_ref.clone())
+        .chain(mrs.map(ProjectItemReference::from))
+        .collect();
 
     ret
 }
@@ -202,7 +134,7 @@ pub fn find_new_notes<'a>(
                 debug!(
                     "Results of loading checklist {} ({}): {:?}",
                     ProjectItemReference::from(&issue_data),
-                    issue_data.title,
+                    issue_data.title(),
                     &o
                 );
                 // only keep ones where a new unit was created

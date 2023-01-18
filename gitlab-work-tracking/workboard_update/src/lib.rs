@@ -15,6 +15,7 @@ use traits::{GetItemReference, ParsedLineLike};
 use work_unit_collection::{InsertOutcomeGetter, UnitId};
 
 pub mod cli;
+pub mod find_more;
 pub mod line_or_reference;
 pub mod note_formatter;
 pub mod note_line;
