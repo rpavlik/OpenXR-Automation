@@ -9,6 +9,7 @@ use crate::{
     find_more::{find_new_checklists, find_new_notes},
     prettyprint::{PrettyData, PrettyForConsole},
 };
+use anyhow::anyhow;
 use clap::Parser;
 use dotenvy::dotenv;
 use env_logger::Env;
@@ -23,6 +24,7 @@ use std::path::Path;
 use workboard_update::{
     associate_work_unit_with_note,
     cli::{GitlabArgs, InputOutputArgs, ProjectArgs},
+    find_more::find_issues_and_related_mrs,
     line_or_reference::{self, LineOrReferenceCollection, ProcessedNote},
     note_formatter, note_refs_to_ids, prune_notes,
     traits::GetItemReference,
@@ -130,12 +132,7 @@ fn main() -> Result<(), anyhow::Error> {
 
     info!("Looking for new checklists");
     if let Ok(new_checklists) = find_new_checklists(&gitlab, &args.project.default_project) {
-        // let list = lists
-        //     .named_list_mut("Initial Composition")
-        //     .expect("need initial composition list");
         for (issue_data, note) in find_new_notes(&mut collection, new_checklists) {
-            info!("Adding note for {}", issue_data.title());
-            // list.notes_mut().push(GenericNote::new(note));
             changes.push(BoardOperation::AddNote {
                 list_name: "Initial Composition".to_owned(),
                 note,
@@ -144,6 +141,22 @@ fn main() -> Result<(), anyhow::Error> {
     }
 
     let mut cache: GitlabQueryCache = Default::default();
+
+    info!("Seeing if any are missing labels");
+    {
+        let issue_endpoint = gitlab::api::projects::issues::Issues::builder()
+            .project(args.project.default_project.as_str())
+            .search("\"Release checklist for\"")
+            .state(gitlab::api::issues::IssueState::Opened)
+            .build()
+            .map_err(|e| anyhow!("Endpoint issue building failed: {}", e))?;
+        if let Ok(issue_data_and_ref_vecs) = 
+        find_issues_and_related_mrs(
+            &gitlab,
+            args.project.default_project.as_str(),
+            issue_endpoint,
+        ) {}
+    }
 
     let default_project_id = mapper.default_project_id();
     {

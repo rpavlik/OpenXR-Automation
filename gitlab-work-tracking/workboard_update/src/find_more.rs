@@ -13,7 +13,7 @@ use gitlab::{
     },
     IssueInternalId, MergeRequestInternalId, ProjectId,
 };
-use gitlab_work_units::{BaseGitLabItemReference, MergeRequest, ProjectItemReference};
+use gitlab_work_units::{BaseGitLabItemReference, Issue, MergeRequest, ProjectItemReference};
 use log::warn;
 use serde::Deserialize;
 
@@ -158,16 +158,36 @@ pub fn find_related_mrs<'a>(
     Ok(vec)
 }
 
+// struct FindIssues<'a> {
+//     client: &'a gitlab::Gitlab,
+//     project: NameOrId<'a>,
+//     result: Result<Vec<IssueData>, QueryError>,
+// }
+
+// impl<'a> std::ops::Deref for FindIssues<'a> {
+//     type Target = Result<Vec<IssueData>, QueryError>;
+
+//     fn deref(&self) -> &Self::Target {
+//         &self.result
+//     }
+// }
+
+pub fn find_issues<'a>(
+    client: &'a gitlab::Gitlab,
+    endpoint: ProjectIssues,
+) -> Result<impl 'a + Iterator<Item = IssueData>, QueryError> {
+    let vec: Vec<IssueData> = gitlab::api::paged(endpoint, gitlab::api::Pagination::All)
+        .query(client)
+        .map_err(|e| QueryError::Issues(Box::new(e)))?;
+    Ok(vec.into_iter())
+}
+
 pub fn find_issues_and_related_mrs<'a>(
     client: &'a gitlab::Gitlab,
     project_name: &'a str,
     endpoint: ProjectIssues,
 ) -> Result<impl 'a + Iterator<Item = (IssueData, Vec<ProjectItemReference>)>, QueryError> {
-    let vec: Vec<IssueData> = gitlab::api::paged(endpoint, gitlab::api::Pagination::All)
-        .query(client)
-        .map_err(|e| QueryError::Issues(Box::new(e)))?;
-
-    let iter_of_find_related_outputs = vec.into_iter().map(|issue| {
+    let iter_of_find_related_outputs = find_issues(client, endpoint)?.map(|issue| {
         let issue_ref = gitlab_work_units::Issue::from(&issue);
         let current = ProjectItemReference::from(issue_ref.clone());
         let references = find_related_mrs(client, project_name, &issue_ref)

@@ -4,7 +4,7 @@
 //
 // Author: Ryan Pavlik <ryan.pavlik@collabora.com>
 
-use crate::find_more::{find_issues_and_related_mrs, process_new_issues};
+use crate::find_more::{find_mr, process_new_issues};
 use anyhow::anyhow;
 use clap::Parser;
 use dotenvy::dotenv;
@@ -22,6 +22,7 @@ use std::path::Path;
 use workboard_update::{
     associate_work_unit_with_note,
     cli::{GitlabArgs, InputOutputArgs},
+    find_more::find_issues_and_related_mrs,
     line_or_reference::{self, LineOrReferenceCollection, ProcessedNote},
     note_formatter, note_refs_to_ids, prune_notes,
     traits::GetItemReference,
@@ -202,6 +203,13 @@ fn main() -> Result<(), anyhow::Error> {
     if let Ok(issue_data_and_ref_vecs) =
         find_issues_and_related_mrs(&gitlab, PROJECT_NAME, issue_endpoint)
     {
+        let issue_data_and_ref_vecs = issue_data_and_ref_vecs.map(|(issue_data, v)| {
+            let full_vec: Vec<_> = find_mr(issue_data.description())
+                .into_iter()
+                .chain(v.into_iter())
+                .collect();
+            (issue_data, full_vec)
+        });
         // let list = lists
         //     .named_list_mut("Initial Composition")
         //     .expect("need initial composition list");
