@@ -10,7 +10,6 @@ use dotenvy::dotenv;
 use env_logger::Env;
 use gitlab::ProjectId;
 use gitlab_work_units::{
-    format_reference,
     lookup::{GitlabQueryCache, ItemState},
     BaseGitLabItemReference, ProjectItemReference, ProjectMapper, ProjectReference, UnitId,
     WorkUnitCollection,
@@ -21,8 +20,8 @@ use nullboard_tools::{
     list::BasicList, Board, GenericList, GenericNote, List, ListCollection, ListIteratorAdapters,
     Note,
 };
-use pretty::{Doc, DocAllocator, DocBuilder, RcAllocator, RcDoc};
-use std::{fmt::Display, iter::once, path::Path};
+use pretty::{DocAllocator, DocBuilder};
+use std::{fmt::Display, path::Path};
 use workboard_update::{
     associate_work_unit_with_note,
     cli::{GitlabArgs, InputOutputArgs, ProjectArgs},
@@ -47,7 +46,7 @@ struct Cli {
 }
 
 impl Display for BoardOperation {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    fn fmt(&self, _f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         todo!()
     }
 }

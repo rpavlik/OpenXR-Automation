@@ -21,7 +21,7 @@ use nullboard_tools::{
 use std::path::Path;
 use workboard_update::{
     associate_work_unit_with_note,
-    cli::{GitlabArgs, InputOutputArgs, ProjectArgs},
+    cli::{GitlabArgs, InputOutputArgs},
     line_or_reference::{self, LineOrReferenceCollection, ProcessedNote},
     note_formatter, note_refs_to_ids, prune_notes,
     traits::GetItemReference,
