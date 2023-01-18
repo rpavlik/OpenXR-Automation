@@ -13,9 +13,10 @@ use lazy_static::lazy_static;
 use log::debug;
 use regex::Regex;
 use work_unit_collection::{AsCreated, InsertOutcomeGetter};
-use workboard_update::{line_or_reference::{
-    LineOrReference, LineOrReferenceCollection, ProcessedNote,
-}, find_more::IssueData};
+use workboard_update::{
+    find_more::IssueData,
+    line_or_reference::{LineOrReference, LineOrReferenceCollection, ProcessedNote},
+};
 
 pub fn find_mr(description: &str) -> Option<ProjectItemReference> {
     lazy_static! {
