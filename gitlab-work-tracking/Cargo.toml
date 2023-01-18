@@ -8,6 +8,7 @@ members = [
   "workboard_update",
   "work_unit_collection",
   "openxr_release_checklist_update",
+  "cts_workboard_update",
 ]
 
 resolver = "2"

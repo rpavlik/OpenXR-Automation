@@ -21,6 +21,8 @@ pub mod note_line;
 pub mod traits;
 pub use traits::GetWorkUnit;
 
+pub const UNICODE_BULLET_AND_SPACE: &str = "\u{2022} ";
+
 // I think this should be more than enough: in normal operation I don't actually see this used at all.
 const RECURSE_LIMIT: usize = 5;
 

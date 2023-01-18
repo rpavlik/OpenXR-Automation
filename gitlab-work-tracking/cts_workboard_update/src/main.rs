@@ -4,28 +4,25 @@
 //
 // Author: Ryan Pavlik <ryan.pavlik@collabora.com>
 
-use crate::find_more::{find_new_checklists, find_new_notes};
+use crate::find_more::{find_issues_and_related_mrs, process_new_issues};
+use anyhow::anyhow;
 use clap::Parser;
 use dotenvy::dotenv;
 use env_logger::Env;
-use gitlab::ProjectId;
 use gitlab_work_units::{
-    format_reference,
     lookup::{GitlabQueryCache, ItemState},
-    BaseGitLabItemReference, ProjectItemReference, ProjectMapper, ProjectReference, UnitId,
-    WorkUnitCollection,
+    ProjectItemReference, ProjectMapper, UnitId, WorkUnitCollection,
 };
-use itertools::Itertools;
 use log::info;
 use nullboard_tools::{
     list::BasicList, Board, GenericList, GenericNote, List, ListCollection, ListIteratorAdapters,
     Note,
 };
-use std::{fmt::Display, iter::once, path::Path};
+use std::path::Path;
 use workboard_update::{
     associate_work_unit_with_note,
     cli::{GitlabArgs, InputOutputArgs, ProjectArgs},
-    line_or_reference::{self, LineOrReference, LineOrReferenceCollection, ProcessedNote},
+    line_or_reference::{self, LineOrReferenceCollection, ProcessedNote},
     note_formatter, note_refs_to_ids, prune_notes,
     traits::GetItemReference,
     GetWorkUnit,
@@ -40,124 +37,6 @@ struct Cli {
 
     #[command(flatten, next_help_heading = "GitLab")]
     gitlab: GitlabArgs,
-
-    #[command(flatten, next_help_heading = "Project")]
-    project: ProjectArgs,
-}
-
-impl Display for BoardOperation {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        todo!()
-    }
-}
-trait FormatWithDefaultProject {
-    fn format_with_default_project(
-        &self,
-        default_project_id: ProjectId,
-        f: &mut std::fmt::Formatter<'_>,
-    ) -> std::fmt::Result;
-}
-
-struct WithDefaultProjectKnowledge<'a, T: FormatWithDefaultProject> {
-    default_project: ProjectId,
-    value: &'a T,
-}
-
-impl FormatWithDefaultProject for ProjectReference {
-    fn to_console_string(&self, default_project_id: ProjectId) -> String {
-        if self.is_unknown_project() {
-            return "".to_owned();
-        }
-        match self {
-            ProjectReference::ProjectId(proj_id) => {
-                if proj_id == &default_project_id {
-                    "".to_owned()
-                } else {
-                    format!("{}", proj_id)
-                }
-            }
-            ProjectReference::ProjectName(name) => name.clone(),
-            ProjectReference::UnknownProject => "".to_owned(),
-        }
-        // if let Some(proj_id) = self.project_id() {
-    }
-
-    fn format_with_default_project(
-        &self,
-        default_project_id: ProjectId,
-        f: &mut std::fmt::Formatter<'_>,
-    ) -> std::fmt::Result {
-        match self {
-            ProjectReference::ProjectId(proj_id) => {
-                if proj_id == &default_project_id {
-                    write!(f, "")
-                } else {
-                    write!(f, "{}", proj_id)
-                }
-            }
-            ProjectReference::ProjectName(name) => write!(f, "{}", name),
-            ProjectReference::UnknownProject => write!(f, ""),
-        }
-    }
-}
-
-trait ConsoleString {
-    fn to_console_string(&self, default_project_id: ProjectId) -> String;
-}
-impl ConsoleString for ProjectReference {
-    fn to_console_string(&self, default_project_id: ProjectId) -> String {
-        if self.is_unknown_project() {
-            return "".to_owned();
-        }
-        match self {
-            ProjectReference::ProjectId(proj_id) => {
-                if proj_id == &default_project_id {
-                    "".to_owned()
-                } else {
-                    format!("{}", proj_id)
-                }
-            }
-            ProjectReference::ProjectName(name) => name.clone(),
-            ProjectReference::UnknownProject => "".to_owned(),
-        }
-        // if let Some(proj_id) = self.project_id() {
-    }
-}
-impl ConsoleString for ProjectItemReference {
-    fn to_console_string(&self, default_project_id: ProjectId) -> String {
-        format!(
-            "{}{}{}",
-            self.project().to_console_string(default_project_id),
-            self.symbol(),
-            self.raw_iid()
-        )
-    }
-}
-impl ConsoleString for LineOrReference {
-    fn to_console_string(&self, default_project_id: ProjectId) -> String {
-        match self {
-            LineOrReference::Line(line) => line.clone(),
-            LineOrReference::Reference(r) => r.to_console_string(default_project_id),
-        }
-    }
-}
-
-impl ConsoleString for ProcessedNote {
-    fn to_console_string(&self, default_project_id: ProjectId) -> String {
-        let maybe_unit_id = self
-            .work_unit_id()
-            .map(|id| format!("{:?}", id))
-            .into_iter();
-        let note_lines = self
-            .lines()
-            .0
-            .iter()
-            .map(|line_or_ref| line_or_ref.to_console_string(default_project_id));
-        format!(
-            "ProcessedNote(\n    {}\n)",
-            maybe_unit_id.chain(note_lines).join("\n    ")
-        )
-    }
 }
 
 #[derive(Debug)]
@@ -225,29 +104,6 @@ impl BoardOperation {
     }
 }
 
-impl ConsoleString for BoardOperation {
-    fn to_console_string(&self, default_project_id: ProjectId) -> String {
-        match self {
-            BoardOperation::NoOp => "NoOp".to_owned(),
-            BoardOperation::AddNote { list_name, note } => {
-                format!(
-                    "AddNote(\"{}\",\n\t{})",
-                    list_name,
-                    note.to_console_string(default_project_id)
-                )
-            }
-            BoardOperation::MoveNote {
-                current_list_name,
-                new_list_name,
-                work_unit_id,
-            } => format!(
-                "MoveNote(\"{}\" -> \"{}\" for {})",
-                current_list_name, new_list_name, work_unit_id
-            ),
-        }
-    }
-}
-
 fn get_mr_statuses<'a, L: GetItemReference + 'a, I: Iterator<Item = &'a L>>(
     client: &gitlab::Gitlab,
     cache: &mut GitlabQueryCache,
@@ -307,8 +163,9 @@ fn main() -> Result<(), anyhow::Error> {
     let out_path = args.input_output.try_output_path()?;
 
     let gitlab = args.gitlab.as_gitlab_builder().build()?;
-
-    let mut mapper: ProjectMapper = args.project.to_project_mapper(&gitlab)?;
+    info!("Setting up project mapper",);
+    const PROJECT_NAME: &str = "openxr/openxr";
+    let mut mapper = ProjectMapper::new(&gitlab, PROJECT_NAME)?;
 
     info!("Loading board from {}", path.display());
 
@@ -330,31 +187,49 @@ fn main() -> Result<(), anyhow::Error> {
         })
         .collect();
 
+    const APPROVED_BACKLOG: &str = "Contractor Approved Backlog";
+    const CTS_IMPL: &str = "Conformance Implementation";
+
     let mut changes = vec![];
 
-    info!("Looking for new checklists");
-    if let Ok(new_checklists) = find_new_checklists(&gitlab, &args.project.default_project) {
+    info!("Looking for new data");
+    let issue_endpoint = gitlab::api::projects::issues::Issues::builder()
+        .project(PROJECT_NAME)
+        .label(APPROVED_BACKLOG)
+        .state(gitlab::api::issues::IssueState::Opened)
+        .build()
+        .map_err(|e| anyhow!("Endpoint issue building failed: {}", e))?;
+    if let Ok(issue_data_and_ref_vecs) =
+        find_issues_and_related_mrs(&gitlab, PROJECT_NAME, issue_endpoint)
+    {
         // let list = lists
         //     .named_list_mut("Initial Composition")
         //     .expect("need initial composition list");
-        for (issue_data, note) in find_new_notes(&mut collection, new_checklists) {
+        for (issue_data, note) in process_new_issues(&mut collection, issue_data_and_ref_vecs) {
             info!("Adding note for {}", issue_data.title());
             // list.notes_mut().push(GenericNote::new(note));
             changes.push(BoardOperation::AddNote {
-                list_name: "Initial Composition".to_owned(),
+                list_name: "TODO".to_owned(),
                 note,
             })
         }
     }
 
+    let mr_endpoints: Result<Vec<_>, _> = vec![APPROVED_BACKLOG, CTS_IMPL]
+        .into_iter()
+        .map(|label| {
+            gitlab::api::projects::merge_requests::MergeRequests::builder()
+                .project(PROJECT_NAME)
+                .label(label)
+                .state(gitlab::api::projects::merge_requests::MergeRequestState::Opened)
+                .build()
+                .map_err(|e| anyhow!("Endpoint issue building failed: {}", e))
+        })
+        .collect();
+
     let mut cache: GitlabQueryCache = Default::default();
 
-    info!("Proposed changes:");
-    let default_project_id = mapper.default_project_id();
-    for change in &changes {
-        info!("- {}", change.to_console_string(default_project_id));
-    }
-
+    info!("Proposed changes:\n{:#?}", changes);
     for change in changes {
         change.apply(&mut lists)?;
     }
@@ -375,6 +250,7 @@ fn main() -> Result<(), anyhow::Error> {
                     |title| {
                         title
                             .trim_start_matches("Release checklist for ")
+                            .trim_start_matches("Release Checklist for ")
                             .trim_start_matches("Resolve ")
                     },
                 )

@@ -36,7 +36,7 @@ impl<'a> ProjectMapper<'a> {
         };
         // ret.with_default_project_name_formatted_as(default_project)
 
-        let id = ret.try_lookup_name(Some(default_project))?;
+        let id = ret.try_lookup_name_mut(Some(default_project))?;
         ret.id_to_formatted_name.insert(id, None);
         Ok(ret)
     }
@@ -47,7 +47,7 @@ impl<'a> ProjectMapper<'a> {
         name: Option<&str>,
         formatting: &str,
     ) -> Result<(), Error> {
-        let id = self.try_lookup_name(name)?;
+        let id = self.try_lookup_name_mut(name)?;
         self.id_to_formatted_name
             .insert(id, Some(formatting.to_owned()));
         Ok(())
@@ -67,7 +67,7 @@ impl<'a> ProjectMapper<'a> {
         self.client
     }
 
-    pub(crate) fn try_lookup_name(&mut self, name: Option<&str>) -> Result<ProjectId, Error> {
+    pub(crate) fn try_lookup_name_mut(&mut self, name: Option<&str>) -> Result<ProjectId, Error> {
         // this keeps the borrow of the default internal
         let name = name.unwrap_or(&self.default_project_name);
 
@@ -98,11 +98,20 @@ impl<'a> ProjectMapper<'a> {
         Ok(id)
     }
 
-    pub fn try_map_project_to_id(&mut self, proj: &ProjectReference) -> Result<ProjectId, Error> {
+    fn try_lookup_name(&self, name: Option<&str>) -> Option<ProjectId> {
+        // this keeps the borrow of the default internal
+        let name = name.unwrap_or(&self.default_project_name);
+        self.name_to_id.get(name).copied()
+    }
+
+    pub fn try_map_project_to_id_mut(
+        &mut self,
+        proj: &ProjectReference,
+    ) -> Result<ProjectId, Error> {
         match proj {
             ProjectReference::ProjectId(id) => Ok(*id),
-            ProjectReference::ProjectName(name) => self.try_lookup_name(Some(name)),
-            ProjectReference::UnknownProject => self.try_lookup_name(None),
+            ProjectReference::ProjectName(name) => self.try_lookup_name_mut(Some(name)),
+            ProjectReference::UnknownProject => self.try_lookup_name_mut(None),
         }
     }
 
@@ -118,6 +127,15 @@ impl<'a> ProjectMapper<'a> {
             ProjectReference::ProjectName(_) => proj.clone(),
             ProjectReference::UnknownProject => proj.clone(),
         }
+    }
+
+    pub fn default_project_name(&self) -> &str {
+        self.default_project_name.as_ref()
+    }
+
+    pub fn default_project_id(&self) -> ProjectId {
+        self.try_lookup_name(None)
+            .expect("Should have looked up the default project")
     }
 }
 
@@ -144,7 +162,7 @@ where
         &self,
         mapper: &mut ProjectMapper,
     ) -> Result<Self, Error> {
-        let id = mapper.try_map_project_to_id(self.project())?;
+        let id = mapper.try_map_project_to_id_mut(self.project())?;
         Ok(self.clone_with_project_id(id))
     }
 

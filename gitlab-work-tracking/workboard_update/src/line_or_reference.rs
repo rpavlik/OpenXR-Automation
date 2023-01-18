@@ -121,6 +121,10 @@ impl ProcessedNote {
     pub fn new(unit_id: Option<UnitId>, lines: LineOrReferenceCollection) -> Self {
         Self { unit_id, lines }
     }
+
+    pub fn lines(&self) -> &LineOrReferenceCollection {
+        &self.lines
+    }
 }
 
 impl GetWorkUnit for ProcessedNote {

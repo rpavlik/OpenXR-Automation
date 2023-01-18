@@ -183,6 +183,26 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "5827cebf4670468b8772dd191856768aedcb1b0278a04f989f7766351917b9dc"
 
 [[package]]
+name = "cts_workboard_update"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "clap",
+ "dotenvy",
+ "env_logger",
+ "gitlab",
+ "gitlab_work_units",
+ "itertools",
+ "lazy_static",
+ "log",
+ "nullboard_tools",
+ "regex",
+ "serde",
+ "work_unit_collection",
+ "workboard_update",
+]
+
+[[package]]
 name = "cxx"
 version = "1.0.86"
 source = "registry+https://github.com/rust-lang/crates.io-index"

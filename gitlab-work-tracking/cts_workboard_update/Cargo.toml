@@ -1,0 +1,32 @@
+# Copyright 2022-2023, Collabora, Ltd.
+#
+# SPDX-License-Identifier: BSL-1.0
+#
+# Author: Ryan Pavlik <ryan.pavlik@collabora.com>
+
+[package]
+authors = ["Ryan Pavlik <ryan.pavlik@collabora.com>"]
+description = "A tool for updating OpenXR CTS contractor workboard"
+edition = "2021"
+license = "BSL-1.0"
+name = "cts_workboard_update"
+version = "0.1.0"
+
+[dependencies]
+# internal dependencies
+gitlab_work_units = {version = "0.1.0", path = "../gitlab_work_units"}
+nullboard_tools = {version = "0.1.0", path = "../nullboard_tools"}
+workboard_update = {version = "0.1.0", path = "../workboard_update"}
+work_unit_collection = {version = "0.1.0", path = "../work_unit_collection"}
+
+# third-party dependencies
+anyhow = "1.0"
+clap = {version = "4.0", features = ["derive", "env", "cargo"]}
+dotenvy = "0.15"
+env_logger = "0.10"
+gitlab = "0.1506.*"
+itertools = "0.10"
+lazy_static = "1.4"
+log = "0.4"
+regex = "1.7"
+serde = {version = "1.0", features = ["derive"]}

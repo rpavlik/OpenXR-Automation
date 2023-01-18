@@ -8,6 +8,8 @@ use gitlab_work_units::{find_refs, ProjectItemReference};
 use itertools::Itertools;
 use log::warn;
 
+use crate::UNICODE_BULLET_AND_SPACE;
+
 /// Association of an optional project item reference with a line in a note/card
 #[derive(Debug, Clone)]
 pub struct NoteLine {
@@ -26,7 +28,10 @@ impl NoteLine {
             warn!("Found extra refs in a single line: {}", refs.format(", "));
         }
         Self {
-            line: s.to_owned(),
+            line: s
+                .trim_start_matches(UNICODE_BULLET_AND_SPACE)
+                .trim()
+                .to_owned(),
             reference: first_ref,
         }
     }

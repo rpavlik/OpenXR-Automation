@@ -24,12 +24,21 @@ pub enum ProjectReference {
 }
 
 impl ProjectReference {
+    #[must_use]
     pub fn project_id(&self) -> Option<ProjectId> {
         match self {
             ProjectReference::ProjectId(id) => Some(*id),
             ProjectReference::ProjectName(_) => None,
             ProjectReference::UnknownProject => None,
         }
+    }
+
+    /// Returns `true` if the project reference is [`UnknownProject`].
+    ///
+    /// [`UnknownProject`]: ProjectReference::UnknownProject
+    #[must_use]
+    pub fn is_unknown_project(&self) -> bool {
+        matches!(self, Self::UnknownProject)
     }
 }
 
