@@ -21,7 +21,7 @@ use nullboard_tools::{
     list::BasicList, Board, GenericList, GenericNote, List, ListCollection, ListIteratorAdapters,
     Note,
 };
-use pretty::{Doc, RcDoc};
+use pretty::{Doc, DocAllocator, DocBuilder, RcAllocator, RcDoc};
 use std::{fmt::Display, iter::once, path::Path};
 use workboard_update::{
     associate_work_unit_with_note,
@@ -131,50 +131,84 @@ impl FormatWithDefaultProject for LineOrReference {
 }
 
 trait PrettyForConsole {
-    fn to_console(&self, default_project_id: ProjectId) -> RcDoc<()>;
-
-    fn format_pretty_for_console(&self, default_project_id: ProjectId) -> String {
-        let mut w = Vec::new();
-        self.to_console(default_project_id)
-            .render(80, &mut w)
-            .unwrap();
-        String::from_utf8(w).unwrap()
-    }
+    fn pretty<'b, D, A>(
+        &'b self,
+        allocator: &'b D,
+        default_project_id: ProjectId,
+    ) -> DocBuilder<'b, D, A>
+    where
+        D: DocAllocator<'b, A>,
+        D::Doc: Clone,
+        A: Clone;
 }
 
 impl PrettyForConsole for ProjectItemReference {
-    fn to_console(&self, default_project_id: ProjectId) -> RcDoc<()> {
-        RcDoc::text(format!(
+    fn pretty<'b, D, A>(
+        &'b self,
+        allocator: &'b D,
+        default_project_id: ProjectId,
+    ) -> DocBuilder<'b, D, A>
+    where
+        D: DocAllocator<'b, A>,
+        D::Doc: Clone,
+        A: Clone,
+    {
+        allocator.text(format!(
             "{}",
             WithDefaultProjectKnowledge::new(default_project_id, self)
         ))
     }
 }
 impl PrettyForConsole for LineOrReference {
-    fn to_console(&self, default_project_id: ProjectId) -> RcDoc<()> {
+    fn pretty<'b, D, A>(
+        &'b self,
+        allocator: &'b D,
+        default_project_id: ProjectId,
+    ) -> DocBuilder<'b, D, A>
+    where
+        D: DocAllocator<'b, A>,
+        D::Doc: Clone,
+        A: Clone,
+    {
         match self {
-            LineOrReference::Line(line) => RcDoc::text(line.trim()),
-            LineOrReference::Reference(r) => r.to_console(default_project_id),
+            LineOrReference::Line(line) => allocator.text(line.trim()),
+            LineOrReference::Reference(r) => r.pretty(allocator, default_project_id),
         }
     }
 }
 
 impl PrettyForConsole for ProcessedNote {
-    fn to_console(&self, default_project_id: ProjectId) -> RcDoc<()> {
-        let maybe_unit_id = self
+    fn pretty<'b, D, A>(
+        &'b self,
+        allocator: &'b D,
+        default_project_id: ProjectId,
+    ) -> DocBuilder<'b, D, A>
+    where
+        D: DocAllocator<'b, A>,
+        D::Doc: Clone,
+        A: Clone,
+    {
+        let unit_id = self
             .work_unit_id()
-            .map(|id| RcDoc::text(format!("{:?}", id)))
-            .into_iter();
-        let note_lines = self
+            .map(|id| allocator.text(format!("{:?}", id)))
+            .unwrap_or_else(|| allocator.nil());
+
+        let lines = self
             .lines()
             .0
             .iter()
-            .map(|line_or_ref| line_or_ref.to_console(default_project_id));
-        RcDoc::text("ProcessedNote(")
-            .append(RcDoc::hardline())
-            .append(RcDoc::intersperse(maybe_unit_id.chain(note_lines), Doc::hardline()).nest(2))
-            .append(RcDoc::hardline())
-            .append(RcDoc::text(")"))
+            .map(|line_or_ref| line_or_ref.pretty(allocator, default_project_id));
+
+        allocator
+            .text("ProcessedNote(")
+            .append(
+                unit_id
+                    .append(allocator.hardline())
+                    .append(allocator.intersperse(lines, allocator.hardline()))
+                    .nest(4),
+            )
+            .append(allocator.hardline())
+            .append(allocator.text(")"))
     }
 }
 
@@ -244,39 +278,54 @@ impl BoardOperation {
 }
 
 impl PrettyForConsole for BoardOperation {
-    fn to_console(&self, default_project_id: ProjectId) -> RcDoc<()> {
+    fn pretty<'b, D, A>(
+        &'b self,
+        allocator: &'b D,
+        default_project_id: ProjectId,
+    ) -> DocBuilder<'b, D, A>
+    where
+        D: DocAllocator<'b, A>,
+        D::Doc: Clone,
+        A: Clone,
+    {
         match self {
-            BoardOperation::NoOp => RcDoc::text("NoOp"),
-            BoardOperation::AddNote { list_name, note } => RcDoc::text("AddNote(")
-                .append(RcDoc::hardline())
+            BoardOperation::NoOp => allocator.text("NoOp"),
+
+            BoardOperation::AddNote { list_name, note } => allocator
+                .text("AddNote(")
                 .append(
-                    RcDoc::text(format!("\"{}\"", list_name))
-                        .append(RcDoc::text(","))
-                        .append(RcDoc::line())
-                        .append(note.to_console(default_project_id))
+                    allocator
+                        .text(list_name)
+                        .double_quotes()
+                        .append(allocator.text(","))
+                        .append(allocator.hardline())
+                        .append(note.pretty(allocator, default_project_id))
                         .nest(4),
                 )
-                .append(RcDoc::hardline())
+                .append(allocator.hardline())
                 .append(")"),
+
             BoardOperation::MoveNote {
                 current_list_name,
                 new_list_name,
                 work_unit_id,
             } => {
                 let words = vec![
-                    RcDoc::text(current_list_name.as_str()),
-                    RcDoc::text("->"),
-                    RcDoc::text(new_list_name.as_str()),
-                    RcDoc::text("for"),
-                    RcDoc::text(format!("{:?}", work_unit_id)),
+                    allocator.text(current_list_name.as_str()),
+                    allocator.text("->"),
+                    allocator.text(new_list_name.as_str()),
+                    allocator.text("for"),
+                    allocator.text(format!("{:?}", work_unit_id)),
                 ];
-                RcDoc::text("MoveNote(")
+                allocator
+                    .text("MoveNote(")
                     .append(
-                        RcDoc::intersperse(words.into_iter(), RcDoc::space())
+                        allocator
+                            .intersperse(words.into_iter(), allocator.space())
                             .group()
                             .nest(2),
                     )
-                    .append(RcDoc::text(")"))
+                    .append(allocator.text(")"))
             }
         }
     }
@@ -385,15 +434,21 @@ fn main() -> Result<(), anyhow::Error> {
 
     let default_project_id = mapper.default_project_id();
     {
-        let doc = RcDoc::intersperse(
-            changes.iter().map(|c| c.to_console(default_project_id)),
-            RcDoc::hardline(),
-        );
+        let allocator = pretty::BoxAllocator;
 
         let mut w = Vec::new();
-        doc.render(80, &mut w).unwrap();
+        allocator
+            .intersperse(
+                changes
+                    .iter()
+                    .map(|c| c.pretty::<_, ()>(&allocator, default_project_id)),
+                allocator.hardline(),
+            )
+            .into_doc()
+            .render(80, &mut w)?;
+        let s = std::str::from_utf8(&w).unwrap_or("<invalid utf-8>");
 
-        info!("Proposed changes:\n{}", String::from_utf8(w).unwrap());
+        info!("Proposed changes:\n{}", s);
     }
 
     for change in changes {
