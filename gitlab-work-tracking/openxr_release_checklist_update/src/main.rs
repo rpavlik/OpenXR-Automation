@@ -58,30 +58,29 @@ trait FormatWithDefaultProject {
     ) -> std::fmt::Result;
 }
 
+/// Wrap something to change how it's formatted.
 struct WithDefaultProjectKnowledge<'a, T: FormatWithDefaultProject> {
     default_project: ProjectId,
     value: &'a T,
 }
 
-impl FormatWithDefaultProject for ProjectReference {
-    fn to_console_string(&self, default_project_id: ProjectId) -> String {
-        if self.is_unknown_project() {
-            return "".to_owned();
+impl<'a, T: FormatWithDefaultProject> WithDefaultProjectKnowledge<'a, T> {
+    fn new(default_project_id: ProjectId, value: &'a T) -> Self {
+        Self {
+            default_project: default_project_id,
+            value,
         }
-        match self {
-            ProjectReference::ProjectId(proj_id) => {
-                if proj_id == &default_project_id {
-                    "".to_owned()
-                } else {
-                    format!("{}", proj_id)
-                }
-            }
-            ProjectReference::ProjectName(name) => name.clone(),
-            ProjectReference::UnknownProject => "".to_owned(),
-        }
-        // if let Some(proj_id) = self.project_id() {
     }
+}
 
+impl<'a, T: FormatWithDefaultProject> Display for WithDefaultProjectKnowledge<'a, T> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        self.value
+            .format_with_default_project(self.default_project, f)
+    }
+}
+
+impl FormatWithDefaultProject for ProjectReference {
     fn format_with_default_project(
         &self,
         default_project_id: ProjectId,
@@ -101,45 +100,48 @@ impl FormatWithDefaultProject for ProjectReference {
     }
 }
 
-trait ConsoleString {
-    fn to_console_string(&self, default_project_id: ProjectId) -> String;
-}
-impl ConsoleString for ProjectReference {
-    fn to_console_string(&self, default_project_id: ProjectId) -> String {
-        if self.is_unknown_project() {
-            return "".to_owned();
-        }
-        match self {
-            ProjectReference::ProjectId(proj_id) => {
-                if proj_id == &default_project_id {
-                    "".to_owned()
-                } else {
-                    format!("{}", proj_id)
-                }
-            }
-            ProjectReference::ProjectName(name) => name.clone(),
-            ProjectReference::UnknownProject => "".to_owned(),
-        }
-        // if let Some(proj_id) = self.project_id() {
-    }
-}
-impl ConsoleString for ProjectItemReference {
-    fn to_console_string(&self, default_project_id: ProjectId) -> String {
-        format!(
+impl FormatWithDefaultProject for ProjectItemReference {
+    fn format_with_default_project(
+        &self,
+        default_project_id: ProjectId,
+        f: &mut std::fmt::Formatter<'_>,
+    ) -> std::fmt::Result {
+        write!(
+            f,
             "{}{}{}",
-            self.project().to_console_string(default_project_id),
+            WithDefaultProjectKnowledge::new(default_project_id, self.project()),
             self.symbol(),
             self.raw_iid()
         )
     }
 }
-impl ConsoleString for LineOrReference {
-    fn to_console_string(&self, default_project_id: ProjectId) -> String {
+
+impl FormatWithDefaultProject for LineOrReference {
+    fn format_with_default_project(
+        &self,
+        default_project_id: ProjectId,
+        f: &mut std::fmt::Formatter<'_>,
+    ) -> std::fmt::Result {
         match self {
-            LineOrReference::Line(line) => line.clone(),
-            LineOrReference::Reference(r) => r.to_console_string(default_project_id),
+            LineOrReference::Line(line) => write!(f, "{}", line),
+            LineOrReference::Reference(r) => r.format_with_default_project(default_project_id, f),
         }
     }
+}
+
+impl FormatWithDefaultProject for ProcessedNote {
+    fn format_with_default_project(
+        &self,
+        default_project_id: ProjectId,
+        f: &mut std::fmt::Formatter<'_>,
+    ) -> std::fmt::Result {
+        if let Some(id) = self.work_unit_id() {
+            write!(f, "{:?}")
+        }
+    }
+}
+trait ConsoleString {
+    fn to_console_string(&self, default_project_id: ProjectId) -> String;
 }
 
 impl ConsoleString for ProcessedNote {
