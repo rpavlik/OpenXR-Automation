@@ -21,6 +21,7 @@ use nullboard_tools::{
     list::BasicList, Board, GenericList, GenericNote, List, ListCollection, ListIteratorAdapters,
     Note,
 };
+use pretty::{Doc, RcDoc};
 use std::{fmt::Display, iter::once, path::Path};
 use workboard_update::{
     associate_work_unit_with_note,
@@ -129,36 +130,51 @@ impl FormatWithDefaultProject for LineOrReference {
     }
 }
 
-impl FormatWithDefaultProject for ProcessedNote {
-    fn format_with_default_project(
-        &self,
-        default_project_id: ProjectId,
-        f: &mut std::fmt::Formatter<'_>,
-    ) -> std::fmt::Result {
-        if let Some(id) = self.work_unit_id() {
-            write!(f, "{:?}")
+trait PrettyForConsole {
+    fn to_console(&self, default_project_id: ProjectId) -> RcDoc<()>;
+
+    fn format_pretty_for_console(&self, default_project_id: ProjectId) -> String {
+        let mut w = Vec::new();
+        self.to_console(default_project_id)
+            .render(80, &mut w)
+            .unwrap();
+        String::from_utf8(w).unwrap()
+    }
+}
+
+impl PrettyForConsole for ProjectItemReference {
+    fn to_console(&self, default_project_id: ProjectId) -> RcDoc<()> {
+        RcDoc::text(format!(
+            "{}",
+            WithDefaultProjectKnowledge::new(default_project_id, self)
+        ))
+    }
+}
+impl PrettyForConsole for LineOrReference {
+    fn to_console(&self, default_project_id: ProjectId) -> RcDoc<()> {
+        match self {
+            LineOrReference::Line(line) => RcDoc::text(line.trim()),
+            LineOrReference::Reference(r) => r.to_console(default_project_id),
         }
     }
 }
-trait ConsoleString {
-    fn to_console_string(&self, default_project_id: ProjectId) -> String;
-}
 
-impl ConsoleString for ProcessedNote {
-    fn to_console_string(&self, default_project_id: ProjectId) -> String {
+impl PrettyForConsole for ProcessedNote {
+    fn to_console(&self, default_project_id: ProjectId) -> RcDoc<()> {
         let maybe_unit_id = self
             .work_unit_id()
-            .map(|id| format!("{:?}", id))
+            .map(|id| RcDoc::text(format!("{:?}", id)))
             .into_iter();
         let note_lines = self
             .lines()
             .0
             .iter()
-            .map(|line_or_ref| line_or_ref.to_console_string(default_project_id));
-        format!(
-            "ProcessedNote(\n    {}\n)",
-            maybe_unit_id.chain(note_lines).join("\n    ")
-        )
+            .map(|line_or_ref| line_or_ref.to_console(default_project_id));
+        RcDoc::text("ProcessedNote(")
+            .append(RcDoc::hardline())
+            .append(RcDoc::intersperse(maybe_unit_id.chain(note_lines), Doc::hardline()).nest(2))
+            .append(RcDoc::hardline())
+            .append(RcDoc::text(")"))
     }
 }
 
@@ -227,25 +243,41 @@ impl BoardOperation {
     }
 }
 
-impl ConsoleString for BoardOperation {
-    fn to_console_string(&self, default_project_id: ProjectId) -> String {
+impl PrettyForConsole for BoardOperation {
+    fn to_console(&self, default_project_id: ProjectId) -> RcDoc<()> {
         match self {
-            BoardOperation::NoOp => "NoOp".to_owned(),
-            BoardOperation::AddNote { list_name, note } => {
-                format!(
-                    "AddNote(\"{}\",\n\t{})",
-                    list_name,
-                    note.to_console_string(default_project_id)
+            BoardOperation::NoOp => RcDoc::text("NoOp"),
+            BoardOperation::AddNote { list_name, note } => RcDoc::text("AddNote(")
+                .append(RcDoc::hardline())
+                .append(
+                    RcDoc::text(format!("\"{}\"", list_name))
+                        .append(RcDoc::text(","))
+                        .append(RcDoc::line())
+                        .append(note.to_console(default_project_id))
+                        .nest(4),
                 )
-            }
+                .append(RcDoc::hardline())
+                .append(")"),
             BoardOperation::MoveNote {
                 current_list_name,
                 new_list_name,
                 work_unit_id,
-            } => format!(
-                "MoveNote(\"{}\" -> \"{}\" for {})",
-                current_list_name, new_list_name, work_unit_id
-            ),
+            } => {
+                let words = vec![
+                    RcDoc::text(current_list_name.as_str()),
+                    RcDoc::text("->"),
+                    RcDoc::text(new_list_name.as_str()),
+                    RcDoc::text("for"),
+                    RcDoc::text(format!("{:?}", work_unit_id)),
+                ];
+                RcDoc::text("MoveNote(")
+                    .append(
+                        RcDoc::intersperse(words.into_iter(), RcDoc::space())
+                            .group()
+                            .nest(2),
+                    )
+                    .append(RcDoc::text(")"))
+            }
         }
     }
 }
@@ -351,10 +383,17 @@ fn main() -> Result<(), anyhow::Error> {
 
     let mut cache: GitlabQueryCache = Default::default();
 
-    info!("Proposed changes:");
     let default_project_id = mapper.default_project_id();
-    for change in &changes {
-        info!("- {}", change.to_console_string(default_project_id));
+    {
+        let doc = RcDoc::intersperse(
+            changes.iter().map(|c| c.to_console(default_project_id)),
+            RcDoc::hardline(),
+        );
+
+        let mut w = Vec::new();
+        doc.render(80, &mut w).unwrap();
+
+        info!("Proposed changes:\n{}", String::from_utf8(w).unwrap());
     }
 
     for change in changes {
