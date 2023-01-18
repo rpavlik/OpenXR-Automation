@@ -7,7 +7,7 @@
 use crate::{
     board_operation::BoardOperation,
     find_more::{find_new_checklists, find_new_notes},
-    prettyprint::PrettyForConsole,
+    prettyprint::{PrettyData, PrettyForConsole},
 };
 use clap::Parser;
 use dotenvy::dotenv;
@@ -150,11 +150,16 @@ fn main() -> Result<(), anyhow::Error> {
         let allocator = pretty::BoxAllocator;
 
         let mut w = Vec::new();
+        let mut data = PrettyData {
+            default_project_id,
+            client: &gitlab,
+            cache: &mut cache,
+        };
         allocator
             .intersperse(
                 changes
                     .iter()
-                    .map(|c| c.pretty::<_, ()>(&allocator, default_project_id)),
+                    .map(|c| c.pretty::<_, ()>(&allocator, &mut data)),
                 allocator.hardline(),
             )
             .into_doc()

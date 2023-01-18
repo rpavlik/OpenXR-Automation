@@ -4,9 +4,10 @@
 //
 // Author: Ryan Pavlik <ryan.pavlik@collabora.com>
 use gitlab::ProjectId;
-use gitlab_work_units::{BaseGitLabItemReference, ProjectItemReference, ProjectReference};
+use gitlab_work_units::{
+    lookup::GitlabQueryCache, BaseGitLabItemReference, ProjectItemReference, ProjectReference,
+};
 use pretty::{DocAllocator, DocBuilder};
-use std::fmt::Display;
 use workboard_update::{
     line_or_reference::{LineOrReference, ProcessedNote},
     GetWorkUnit,
@@ -14,89 +15,17 @@ use workboard_update::{
 
 use crate::board_operation::BoardOperation;
 
-/// Wrap something to change how it's formatted.
-struct WithDefaultProjectKnowledge<'a, T: FormatWithDefaultProject> {
-    default_project: ProjectId,
-    value: &'a T,
-}
-
-impl<'a, T: FormatWithDefaultProject> WithDefaultProjectKnowledge<'a, T> {
-    fn new(default_project_id: ProjectId, value: &'a T) -> Self {
-        Self {
-            default_project: default_project_id,
-            value,
-        }
-    }
-}
-
-impl<'a, T: FormatWithDefaultProject> Display for WithDefaultProjectKnowledge<'a, T> {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        self.value
-            .format_with_default_project(self.default_project, f)
-    }
-}
-trait FormatWithDefaultProject {
-    fn format_with_default_project(
-        &self,
-        default_project_id: ProjectId,
-        f: &mut std::fmt::Formatter<'_>,
-    ) -> std::fmt::Result;
-}
-
-impl FormatWithDefaultProject for ProjectReference {
-    fn format_with_default_project(
-        &self,
-        default_project_id: ProjectId,
-        f: &mut std::fmt::Formatter<'_>,
-    ) -> std::fmt::Result {
-        match self {
-            ProjectReference::ProjectId(proj_id) => {
-                if proj_id == &default_project_id {
-                    write!(f, "")
-                } else {
-                    write!(f, "{}", proj_id)
-                }
-            }
-            ProjectReference::ProjectName(name) => write!(f, "{}", name),
-            ProjectReference::UnknownProject => write!(f, ""),
-        }
-    }
-}
-
-impl FormatWithDefaultProject for ProjectItemReference {
-    fn format_with_default_project(
-        &self,
-        default_project_id: ProjectId,
-        f: &mut std::fmt::Formatter<'_>,
-    ) -> std::fmt::Result {
-        write!(
-            f,
-            "{}{}{}",
-            WithDefaultProjectKnowledge::new(default_project_id, self.project()),
-            self.symbol(),
-            self.raw_iid()
-        )
-    }
-}
-
-impl FormatWithDefaultProject for LineOrReference {
-    fn format_with_default_project(
-        &self,
-        default_project_id: ProjectId,
-        f: &mut std::fmt::Formatter<'_>,
-    ) -> std::fmt::Result {
-        match self {
-            LineOrReference::Line(line) => write!(f, "{}", line),
-            LineOrReference::Reference(r) => r.format_with_default_project(default_project_id, f),
-        }
-    }
+pub struct PrettyData<'a> {
+    pub default_project_id: ProjectId,
+    pub client: &'a gitlab::Gitlab,
+    pub cache: &'a mut GitlabQueryCache,
 }
 
 pub trait PrettyForConsole {
     fn pretty<'b, D, A>(
         &'b self,
         allocator: &'b D,
-        default_project_id: ProjectId,
+        data: &mut PrettyData<'b>,
     ) -> DocBuilder<'b, D, A>
     where
         D: DocAllocator<'b, A>,
@@ -104,28 +33,67 @@ pub trait PrettyForConsole {
         A: Clone;
 }
 
-impl PrettyForConsole for ProjectItemReference {
+impl PrettyForConsole for ProjectReference {
     fn pretty<'b, D, A>(
         &'b self,
         allocator: &'b D,
-        default_project_id: ProjectId,
+        data: &mut PrettyData<'b>,
     ) -> DocBuilder<'b, D, A>
     where
         D: DocAllocator<'b, A>,
         D::Doc: Clone,
         A: Clone,
     {
-        allocator.text(format!(
-            "{}",
-            WithDefaultProjectKnowledge::new(default_project_id, self)
-        ))
+        match self {
+            ProjectReference::ProjectId(proj_id) => {
+                if proj_id == &data.default_project_id {
+                    allocator.nil()
+                } else {
+                    allocator.as_string(proj_id.value())
+                }
+            }
+            ProjectReference::ProjectName(name) => allocator.text(name),
+            ProjectReference::UnknownProject => allocator.nil(),
+        }
     }
 }
+
+impl PrettyForConsole for ProjectItemReference {
+    fn pretty<'b, D, A>(
+        &'b self,
+        allocator: &'b D,
+        data: &mut PrettyData<'b>,
+    ) -> DocBuilder<'b, D, A>
+    where
+        D: DocAllocator<'b, A>,
+        D::Doc: Clone,
+        A: Clone,
+    {
+        // Try looking up the title
+        let title = data
+            .cache
+            .query(data.client, self)
+            .map(|results| {
+                allocator
+                    .space()
+                    .append(allocator.text(results.title().to_owned()))
+            })
+            .unwrap_or_else(|_| allocator.nil());
+
+        let project = self.project().pretty(allocator, data);
+        project
+            .append(allocator.as_string(self.symbol()))
+            .append(allocator.as_string(self.raw_iid()))
+            .append(title)
+            .group()
+    }
+}
+
 impl PrettyForConsole for LineOrReference {
     fn pretty<'b, D, A>(
         &'b self,
         allocator: &'b D,
-        default_project_id: ProjectId,
+        data: &mut PrettyData<'b>,
     ) -> DocBuilder<'b, D, A>
     where
         D: DocAllocator<'b, A>,
@@ -134,7 +102,7 @@ impl PrettyForConsole for LineOrReference {
     {
         match self {
             LineOrReference::Line(line) => allocator.text(line.trim()),
-            LineOrReference::Reference(r) => r.pretty(allocator, default_project_id),
+            LineOrReference::Reference(r) => r.pretty(allocator, data),
         }
     }
 }
@@ -143,7 +111,7 @@ impl PrettyForConsole for ProcessedNote {
     fn pretty<'b, D, A>(
         &'b self,
         allocator: &'b D,
-        default_project_id: ProjectId,
+        data: &mut PrettyData<'b>,
     ) -> DocBuilder<'b, D, A>
     where
         D: DocAllocator<'b, A>,
@@ -159,7 +127,7 @@ impl PrettyForConsole for ProcessedNote {
             .lines()
             .0
             .iter()
-            .map(|line_or_ref| line_or_ref.pretty(allocator, default_project_id));
+            .map(|line_or_ref| line_or_ref.pretty(allocator, data));
 
         allocator
             .text("ProcessedNote(")
@@ -178,7 +146,7 @@ impl PrettyForConsole for BoardOperation {
     fn pretty<'b, D, A>(
         &'b self,
         allocator: &'b D,
-        default_project_id: ProjectId,
+        data: &mut PrettyData<'b>,
     ) -> DocBuilder<'b, D, A>
     where
         D: DocAllocator<'b, A>,
@@ -196,7 +164,7 @@ impl PrettyForConsole for BoardOperation {
                         .double_quotes()
                         .append(allocator.text(","))
                         .append(allocator.hardline())
-                        .append(note.pretty(allocator, default_project_id))
+                        .append(note.pretty(allocator, data))
                         .nest(4),
                 )
                 .append(allocator.hardline())
