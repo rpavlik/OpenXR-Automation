@@ -15,7 +15,7 @@ import xml.etree.ElementTree as etree
 import gitlab
 import gitlab.v4.objects
 
-find_mr = re.compile(r"Main extension MR:\s*!([0-9]+)")
+find_mr = re.compile(r"Main extension MR:\s*(!|https://gitlab.khronos.org/openxr/openxr/-/merge_requests/)(?P<mrnum>[0-9]+)")
 
 
 @dataclass
@@ -270,8 +270,11 @@ def get_issues_to_mr(proj) -> Dict[int, int]:
     for issue in proj.issues.list(labels="Release Checklist", iterator=True):
         issue: gitlab.v4.objects.ProjectIssue
         match_iter = find_mr.finditer(issue.attributes["description"])
-        m = next(match_iter)
-        issue_to_mr[issue.get_id()] = int(m.group(1))
+        m = next(match_iter, None)
+        if not m:
+            print("Release checklist has no MR indicated:", issue.attributes['web_url'])
+            continue
+        issue_to_mr[issue.get_id()] = int(m.group('mrnum'))
     return issue_to_mr
 
 
@@ -331,4 +334,4 @@ if __name__ == "__main__":
     collection.handle_mr_if_needed(2407)
     collection.handle_mr_if_needed(2138)
     collection.handle_mr_if_needed(2410)
-    collection.handle_mr_if_needed(2397)
+    collection.handle_mr_if_needed(2555)
