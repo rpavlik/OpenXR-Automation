@@ -15,7 +15,9 @@ import xml.etree.ElementTree as etree
 import gitlab
 import gitlab.v4.objects
 
-find_mr = re.compile(r"Main extension MR:\s*(!|https://gitlab.khronos.org/openxr/openxr/-/merge_requests/)(?P<mrnum>[0-9]+)")
+find_mr = re.compile(
+    r"Main extension MR:\s*(!|https://gitlab.khronos.org/openxr/openxr/-/merge_requests/)(?P<mrnum>[0-9]+)"
+)
 
 
 @dataclass
@@ -272,9 +274,9 @@ def get_issues_to_mr(proj) -> Dict[int, int]:
         match_iter = find_mr.finditer(issue.attributes["description"])
         m = next(match_iter, None)
         if not m:
-            print("Release checklist has no MR indicated:", issue.attributes['web_url'])
+            print("Release checklist has no MR indicated:", issue.attributes["web_url"])
             continue
-        issue_to_mr[issue.get_id()] = int(m.group('mrnum'))
+        issue_to_mr[issue.get_id()] = int(m.group("mrnum"))
     return issue_to_mr
 
 
@@ -302,6 +304,24 @@ if __name__ == "__main__":
 
     load_dotenv()
 
+    import argparse
+
+    parser = argparse.ArgumentParser()
+    parser.add_argument(
+        "mr",
+        type=int,
+        nargs="+",
+        help="MR number to generate an extension checklist for",
+    )
+    parser.add_argument(
+        "--extname", type=str, help="Manually specify the extension name"
+    )
+    parser.add_argument(
+        "-i", "--vendorid", type=str, action="append", help="Specify the vendor ID"
+    )
+
+    args = parser.parse_args()
+
     gl = gitlab.Gitlab(
         url=os.environ["GL_URL"], private_token=os.environ["GL_ACCESS_TOKEN"]
     )
@@ -314,24 +334,32 @@ if __name__ == "__main__":
         vendor_names=VendorNames(proj),
     )
 
-    collection.handle_mr_if_needed(2208)
-    collection.handle_mr_if_needed(2288)
-    collection.handle_mr_if_needed(2299)
-    collection.handle_mr_if_needed(2312)
-    collection.handle_mr_if_needed(2313)
-    collection.handle_mr_if_needed(2329)
-    collection.handle_mr_if_needed(2331)
-    collection.handle_mr_if_needed(2332)
-    collection.handle_mr_if_needed(2334)
-    collection.handle_mr_if_needed(2336)
-    collection.handle_mr_if_needed(2339)
-    collection.handle_mr_if_needed(2344)
-    collection.handle_mr_if_needed(2347)
-    collection.handle_mr_if_needed(2349)
-    collection.handle_mr_if_needed(2344)
-    collection.handle_mr_if_needed(2385)
-    collection.handle_mr_if_needed(2377)
-    collection.handle_mr_if_needed(2407)
-    collection.handle_mr_if_needed(2138)
-    collection.handle_mr_if_needed(2410)
-    collection.handle_mr_if_needed(2555)
+    # collection.handle_mr_if_needed(2208)
+    # collection.handle_mr_if_needed(2288)
+    # collection.handle_mr_if_needed(2299)
+    # collection.handle_mr_if_needed(2312)
+    # collection.handle_mr_if_needed(2313)
+    # collection.handle_mr_if_needed(2329)
+    # collection.handle_mr_if_needed(2331)
+    # collection.handle_mr_if_needed(2332)
+    # collection.handle_mr_if_needed(2334)
+    # collection.handle_mr_if_needed(2336)
+    # collection.handle_mr_if_needed(2339)
+    # collection.handle_mr_if_needed(2344)
+    # collection.handle_mr_if_needed(2347)
+    # collection.handle_mr_if_needed(2349)
+    # collection.handle_mr_if_needed(2344)
+    # collection.handle_mr_if_needed(2385)
+    # collection.handle_mr_if_needed(2377)
+    # collection.handle_mr_if_needed(2407)
+    # collection.handle_mr_if_needed(2138)
+    # collection.handle_mr_if_needed(2410)
+    # collection.handle_mr_if_needed(2555)
+
+    kwargs = {}
+    if "extname" in args:
+        kwargs["ext_names"] = [args.extname]
+    if "vendorid" in args:
+        kwargs["vendor_ids"] = args.vendorid
+    for num in args.mr:
+        collection.handle_mr_if_needed(num, **kwargs)
