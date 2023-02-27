@@ -40,22 +40,50 @@ def guess_list(item: WorkUnit) -> str:
     return ListName.TODO
 
 
-def _make_api_item_text(api_item: Union[ProjectIssue, ProjectMergeRequest]) -> str:
-    state = ""
+def _make_api_item_text(
+    api_item: Union[ProjectIssue, ProjectMergeRequest],
+    show_votes: bool = False,
+    show_mr_votes: bool = False,
+) -> str:
+    state = []
     if api_item.state == "closed":
-        state = "(CLOSED) "
+        state.append("(CLOSED)")
     elif api_item.state == "merged":
-        state = "(MERGED) "
+        state.append("(MERGED)")
+
+    is_mr = hasattr(api_item, "target_branch")
+    really_show_votes = show_votes or (is_mr and show_mr_votes)
+
+    if really_show_votes and hasattr(api_item, "upvotes") and api_item.upvotes > 0:
+        state.append("👍" * api_item.upvotes)
+
+    if really_show_votes and hasattr(api_item, "downvotes") and api_item.downvotes > 0:
+        state.append("👎" * api_item.downvotes)
+
+    if state:
+        # If we have at least one item, add an empty entry for the trailing space
+        state.append("")
+
+    state_str = " ".join(state)
+
     return "[{ref}]({url}): {state}{title}".format(
         ref=api_item.references["short"],
+        state=state_str,
         title=api_item.title,
-        state=state,
         url=api_item.web_url,
     )
 
 
-def make_item_bullet(api_item: Union[ProjectIssue, ProjectMergeRequest]) -> str:
-    return "• {}".format(_make_api_item_text(api_item))
+def make_item_bullet(
+    api_item: Union[ProjectIssue, ProjectMergeRequest],
+    show_votes: bool = False,
+    show_mr_votes: bool = False,
+) -> str:
+    return "• {}".format(
+        _make_api_item_text(
+            api_item, show_votes=show_votes, show_mr_votes=show_mr_votes
+        )
+    )
 
 
 @dataclass
@@ -110,11 +138,18 @@ def merge_note(existing_note: str, notelines: List[NoteLine]) -> str:
     return "\n".join(merged_lines)
 
 
-def make_note_text(item: WorkUnit) -> str:
+def make_note_text(
+    item: WorkUnit, show_votes: bool = False, show_mr_votes: bool = False
+) -> str:
     return "{key_item}\n{rest}".format(
-        key_item=_make_api_item_text(item.key_item),
+        key_item=_make_api_item_text(
+            item.key_item, show_votes=show_votes, show_mr_votes=show_mr_votes
+        ),
         rest="\n".join(
-            make_item_bullet(api_item) for api_item in item.non_key_issues_and_mrs()
+            make_item_bullet(
+                api_item, show_votes=show_votes, show_mr_votes=show_mr_votes
+            )
+            for api_item in item.non_key_issues_and_mrs()
         ),
     )
 
