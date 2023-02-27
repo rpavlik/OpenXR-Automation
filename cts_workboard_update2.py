@@ -16,7 +16,12 @@ import gitlab
 import gitlab.v4.objects
 from dotenv import load_dotenv
 
-from nullboard_gitlab import ListName, parse_board, update_board
+from nullboard_gitlab import (
+    ListName,
+    make_note_text,
+    parse_board,
+    update_board,
+)
 from work_item_and_collection import WorkUnitCollection, get_short_ref
 
 load_dotenv()
@@ -78,7 +83,12 @@ def main(in_filename, out_filename):
         work.add_refs(proj, [ref])
 
     log.info("Updating board with the latest data")
-    update_board(work, existing_board, list_titles_to_skip_adding_to=[ListName.DONE])
+    update_board(
+        work,
+        existing_board,
+        list_titles_to_skip_adding_to=[ListName.DONE],
+        note_text_maker=lambda x: make_note_text(x, show_mr_votes=True),
+    )
 
     log.info("Writing output file %s", out_filename)
     with open(out_filename, "w", encoding="utf-8") as fp:
