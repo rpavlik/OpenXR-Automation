@@ -41,6 +41,7 @@ def main(in_filename, out_filename):
     log.info("Parsing board loaded from %s", in_filename)
     parse_board(proj, work, existing_board)
 
+    # Grab all "Contractor Approved Backlog" issues.
     log.info("Handling GitLab issues")
     for issue in proj.issues.list(
         labels=["Contractor Approved Backlog"], state="opened", iterator=True
@@ -49,7 +50,8 @@ def main(in_filename, out_filename):
         ref = get_short_ref(proj_issue)
         refs = [ref]
         refs.extend(
-            mr["references"]["short"] for mr in proj_issue.related_merge_requests()  # type: ignore
+            mr["references"]["short"]  # type: ignore
+            for mr in proj_issue.related_merge_requests()
         )
         log.info(
             "GitLab Issue Search: %s: %s  (refs: %s)",
@@ -59,6 +61,11 @@ def main(in_filename, out_filename):
         )
         work.add_refs(proj, refs)
 
+    # Grab all "contractor approved backlog" MRs as well as all
+    # "Conformance Implementation" ones (whether or not written
+    #  by contractor, as part of maintaining the cts)
+
+    log.info("Handling GitLab MRs")
     for mr in itertools.chain(
         *[
             proj.mergerequests.list(labels=[label], state="opened", iterator=True)
