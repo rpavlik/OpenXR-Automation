@@ -120,7 +120,7 @@ impl PrettyForConsole for ProcessedNote {
     {
         let unit_id = self
             .work_unit_id()
-            .map(|id| allocator.text(format!("{:?}", id)))
+            .map(|id| allocator.text(format!("{id:?}")))
             .unwrap_or_else(|| allocator.nil());
 
         let lines = self
@@ -180,7 +180,7 @@ impl PrettyForConsole for BoardOperation {
                     allocator.text("->"),
                     allocator.text(new_list_name.as_str()),
                     allocator.text("for"),
-                    allocator.text(format!("{:?}", work_unit_id)),
+                    allocator.text(format!("{work_unit_id:?}")),
                 ];
                 allocator
                     .text("MoveNote(")

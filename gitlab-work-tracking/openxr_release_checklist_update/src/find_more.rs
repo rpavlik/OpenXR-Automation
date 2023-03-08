@@ -30,11 +30,10 @@ pub fn find_mr(description: &str) -> Option<MergeRequest> {
             format!(
                 r"(?x)
                 Main extension MR:\s*
-                {}?
+                {PROJECT_NAME_PATTERN}?
                 !
-                {}
-            ",
-                PROJECT_NAME_PATTERN, REFERENCE_IID_PATTERN
+                {REFERENCE_IID_PATTERN}
+            "
             )
             .as_str()
         )
@@ -90,7 +89,7 @@ fn lookup_from_checklist(
             .flat_map(|v| v.into_iter().map(gitlab_work_units::MergeRequest::from)),
     );
 
-    let ret: Vec<ProjectItemReference> = once(current_ref.clone())
+    let ret: Vec<ProjectItemReference> = once(current_ref)
         .chain(mrs.map(ProjectItemReference::from))
         .collect();
 

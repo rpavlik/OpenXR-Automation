@@ -30,7 +30,7 @@ pub fn format_reference(
                 title_mangler(info.title())
             )
         }
-        Err(e) => format!("{} (error in query: {})", reference, e),
+        Err(e) => format!("{reference} (error in query: {e})"),
     }
 }
 

@@ -4,16 +4,13 @@
 //
 // Author: Ryan Pavlik <ryan.pavlik@collabora.com>
 
-use std::{borrow::Borrow, iter::once};
+use std::iter::once;
 
 use gitlab::{
-    api::{
-        common::NameOrId, endpoint_prelude::Method, issues::ProjectIssues, ApiError, Client,
-        Endpoint, Query,
-    },
+    api::{common::NameOrId, endpoint_prelude::Method, issues::ProjectIssues, Endpoint, Query},
     IssueInternalId, MergeRequestInternalId, ProjectId,
 };
-use gitlab_work_units::{BaseGitLabItemReference, Issue, MergeRequest, ProjectItemReference};
+use gitlab_work_units::{BaseGitLabItemReference, ProjectItemReference};
 use log::warn;
 use serde::Deserialize;
 
@@ -160,8 +157,8 @@ pub enum QueryError {
     MRs(#[source] Box<dyn std::error::Error + Send + Sync>),
 }
 
-pub fn find_related_mrs<'a>(
-    client: &'a gitlab::Gitlab,
+pub fn find_related_mrs(
+    client: &gitlab::Gitlab,
     project_name: &str,
     issue: &gitlab_work_units::Issue,
 ) -> Result<Vec<MRData>, QueryError> {
@@ -205,7 +202,7 @@ impl<'a> FindIssues<'a> {
         self,
         project_name: &'a str,
     ) -> impl 'a + Iterator<Item = (IssueData, Vec<ProjectItemReference>)> {
-        let iter = self.vec.into_iter().map(|issue| {
+        self.vec.into_iter().map(|issue| {
             let issue_ref = gitlab_work_units::Issue::from(&issue);
             let current = ProjectItemReference::from(issue_ref.clone());
             let references = find_related_mrs(self.client, project_name, &issue_ref)
@@ -226,8 +223,7 @@ impl<'a> FindIssues<'a> {
                     vec![current]
                 });
             (issue, references)
-        });
-        iter
+        })
     }
 }
 

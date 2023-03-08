@@ -147,13 +147,13 @@ pub fn format_reference(
 ) -> std::fmt::Result {
     match project {
         ProjectReference::ProjectId(id) => {
-            write!(f, "{}{}{}", id, symbol, raw_iid)
+            write!(f, "{id}{symbol}{raw_iid}")
         }
         ProjectReference::ProjectName(name) => {
-            write!(f, "{}{}{}", name, symbol, raw_iid)
+            write!(f, "{name}{symbol}{raw_iid}")
         }
         ProjectReference::UnknownProject => {
-            write!(f, "{}{}", symbol, raw_iid)
+            write!(f, "{symbol}{raw_iid}")
         }
     }
 }
@@ -433,11 +433,10 @@ pub fn find_refs(input: &str) -> impl Iterator<Item = ProjectItemReference> + '_
         static ref RE: Regex = Regex::new(
             format!(
                 r"(?x)
-                {}?
+                {PROJECT_NAME_PATTERN}?
                 (?P<symbol>[\#!])
-                {}
-            ",
-                PROJECT_NAME_PATTERN, REFERENCE_IID_PATTERN
+                {REFERENCE_IID_PATTERN}
+            "
             )
             .as_str()
         )

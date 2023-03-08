@@ -132,7 +132,7 @@ fn main() -> Result<(), anyhow::Error> {
 
     info!("Looking for new checklists");
     if let Ok(new_checklists) = find_new_checklists(&gitlab, &args.project.default_project) {
-        for (issue_data, note) in find_new_notes(&mut collection, new_checklists) {
+        for (_issue_data, note) in find_new_notes(&mut collection, new_checklists) {
             changes.push(BoardOperation::AddNote {
                 list_name: "Initial Composition".to_owned(),
                 note,
@@ -151,7 +151,7 @@ fn main() -> Result<(), anyhow::Error> {
             .build()
             .map_err(|e| anyhow!("Endpoint issue building failed: {}", e))?;
         let issues_and_refs = find_issues(&gitlab, issue_endpoint)?.and_related_mrs(project_name);
-        for (issue_data, refs) in issues_and_refs {
+        for (issue_data, _refs) in issues_and_refs {
             if issue_data.title().starts_with("Release") {
                 let reference = ProjectItemReference::from(&issue_data);
                 if collection.try_get_unit_for_ref(&reference).is_none() {

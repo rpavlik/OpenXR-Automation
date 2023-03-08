@@ -24,11 +24,10 @@ pub fn find_mr(description: &str) -> Option<ProjectItemReference> {
             format!(
                 r"(?x)
                 Main extension MR:\s*
-                {}?
+                {PROJECT_NAME_PATTERN}?
                 !
-                {}
-            ",
-                PROJECT_NAME_PATTERN, REFERENCE_IID_PATTERN
+                {REFERENCE_IID_PATTERN}
+            "
             )
             .as_str()
         )

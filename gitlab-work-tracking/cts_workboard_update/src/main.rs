@@ -219,7 +219,7 @@ fn main() -> Result<(), anyhow::Error> {
         }
     }
 
-    let mr_endpoints: Result<Vec<_>, _> = vec![APPROVED_BACKLOG, CTS_IMPL]
+    let _mr_endpoints: Result<Vec<_>, _> = vec![APPROVED_BACKLOG, CTS_IMPL]
         .into_iter()
         .map(|label| {
             gitlab::api::projects::merge_requests::MergeRequests::builder()
