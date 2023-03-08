@@ -4,7 +4,6 @@
 //
 // Author: Ryan Pavlik <ryan.pavlik@collabora.com>
 
-mod atom_table;
 mod collection;
 pub mod error;
 mod insert_outcome;

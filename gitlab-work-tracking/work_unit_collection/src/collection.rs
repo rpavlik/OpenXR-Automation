@@ -5,7 +5,6 @@
 // Author: Ryan Pavlik <ryan.pavlik@collabora.com>
 
 use crate::{
-    atom_table::AtomTable,
     error::{
         ExtinctWorkUnitId, FollowExtinctionUnitIdError, GetUnitIdError, InsertError,
         InvalidWorkUnitId, NoReferencesError, RecursionLimitReached,
@@ -15,6 +14,7 @@ use crate::{
     },
     UnitId, WorkUnit,
 };
+use atom_table::AtomTable;
 use itertools::Itertools;
 use log::{debug, warn};
 use std::{
@@ -70,7 +70,7 @@ where
     }
 
     fn get_reference(&self, ref_id: RefId) -> Option<&Self::Reference> {
-        self.0.get_value(ref_id)
+        self.0.get(ref_id)
     }
 }
 
