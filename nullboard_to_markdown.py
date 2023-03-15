@@ -52,7 +52,8 @@ def _list_to_md(nb_list: Dict):
         if sub_parts:
             outline.current_indent_level += 1
             for part in sub_parts:
-                outline.add_item(part)
+                if part.strip():
+                    outline.add_item(part)
             outline.current_indent_level -= 1
 
     return str(outline)
