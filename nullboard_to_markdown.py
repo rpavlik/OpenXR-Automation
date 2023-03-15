@@ -83,7 +83,30 @@ def main(in_filename, out_md_filename):
 
 
 if __name__ == "__main__":
+    import argparse
+
+    parser = argparse.ArgumentParser()
+    parser.add_argument(
+        "input",
+        type=str,
+        nargs=1,
+        default="Nullboard-1661545038-OpenXR-Release-Checklists.nbx",
+        help="Input nullboard JSON file",
+    )
+    parser.add_argument(
+        "output",
+        type=str,
+        nargs="?",
+        help="Output .md filename: auto-generated if not specified",
+    )
+    args = parser.parse_args()
+
+    input = args.input[0]
+    if args.output:
+        output = args.output
+    else:
+        output = input.replace(".nbx", ".md")
     main(
-        "Nullboard-1661545038-OpenXR-Release-Checklists.nbx",
-        "Release-Checklists.md",
+        input,
+        output,
     )
