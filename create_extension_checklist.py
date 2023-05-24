@@ -104,7 +104,10 @@ class VendorNames:
         return vendor_code in self.known and vendor_code not in self.not_runtime_vendors
 
     def get_vendor_name(self, vendor_code: str) -> Optional[str]:
-        return self.known.get(vendor_code)
+        name = self.known.get(vendor_code)
+        if not name and vendor_code.endswith("X"):
+            name = self.known.get(vendor_code[:-1])
+        return name
 
 
 class ReleaseChecklistFactory:
