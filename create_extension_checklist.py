@@ -206,7 +206,8 @@ class ChecklistData:
 
         template.fill_in_mr(self.mr_num)
         template.fill_in_champion(self.mr.author["name"], self.mr.author["username"])
-
+        if not self.ext_names:
+            raise RuntimeError("ext names not detected")
         return {
             "title": f"Release checklist for {self.ext_names}",
             "description": str(template),
@@ -360,9 +361,9 @@ if __name__ == "__main__":
     # collection.handle_mr_if_needed(2555)
 
     kwargs = {}
-    if "extname" in args:
+    if "extname" in args and args.extname:
         kwargs["ext_names"] = [args.extname]
-    if "vendorid" in args:
+    if "vendorid" in args and args.vendorid:
         kwargs["vendor_ids"] = args.vendorid
     for num in args.mr:
         collection.handle_mr_if_needed(num, **kwargs)
