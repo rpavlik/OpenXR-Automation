@@ -7,6 +7,7 @@
 
 
 from dataclasses import dataclass
+import itertools
 import os
 import re
 from typing import Dict, Optional, cast
@@ -15,9 +16,11 @@ import xml.etree.ElementTree as etree
 import gitlab
 import gitlab.v4.objects
 
-find_mr = re.compile(
-    r"Main extension MR:\s*(!|https://gitlab.khronos.org/openxr/openxr/-/merge_requests/)(?P<mrnum>[0-9]+)"
+_MAIN_MR_RE = re.compile(
+    r"Main extension MR:\s*(openxr!|!|https://gitlab.khronos.org/openxr/openxr/-/merge_requests/)(?P<mrnum>[0-9]+)"
 )
+
+_CHECKLIST_RE = re.compile(r"^Release [Cc]hecklist:([^\n]+)$", re.MULTILINE)
 
 
 @dataclass
@@ -30,15 +33,18 @@ class ReleaseChecklistTemplate:
         return self.contents
 
     def fill_in_vendor(self, vendor_name: str):
+        """Populate a vendor name."""
         self.contents = self.contents.replace("(_vendor name_)", vendor_name, 1)
 
     def fill_in_champion(self, name: str, username: str):
+        """Populate an extension champion"""
         self.contents = self.contents.replace(
             "(_gitlab username_)", f"{name} @{username}", 1
         )
 
     def fill_in_mr(self, mr_num: int):
-        self.contents = self.contents.replace("(_MR_)", f"!{mr_num}", 1)
+        """Populate the main merge request num."""
+        self.contents = self.contents.replace("(_MR_)", f"openxr!{mr_num}", 1)
 
 
 class LazyGitFile:
@@ -64,6 +70,8 @@ def is_EXT_EXTX(vendor_code: str):
 
 
 class VendorNames:
+    """Data structure storing vendor/author codes to vendor names."""
+
     def __init__(self, gl_proj: gitlab.v4.objects.Project, ref="main") -> None:
         pf = gl_proj.files.get("specification/registry/xr.xml", ref)
         self._contents = pf.decode().decode("utf-8")
@@ -94,16 +102,19 @@ class VendorNames:
             "EXTX",
             "FREDEMMOTT",
             "INTEL",
+            "KHR",
             "NV",
             "PLUTO",
             "UNITY",
         }
 
     def is_runtime_vendor(self, vendor_code: str) -> bool:
+        """Guess if a vendor/author is a runtime vendor."""
         # Just a guess/heuristic
         return vendor_code in self.known and vendor_code not in self.not_runtime_vendors
 
     def get_vendor_name(self, vendor_code: str) -> Optional[str]:
+        """Get the vendor's name from their author code, if possible."""
         name = self.known.get(vendor_code)
         if not name and vendor_code.endswith("X"):
             name = self.known.get(vendor_code[:-1])
@@ -120,9 +131,6 @@ class ReleaseChecklistFactory:
         )
         self.khr_tmpl = LazyGitFile(
             ".gitlab/issue_templates/KHR_release_checklist.md", "main", gl_proj
-        )
-        self.registry_xml = LazyGitFile(
-            "specification/registry/xr.xml", "main", gl_proj
         )
         self.proj = gl_proj
 
@@ -167,9 +175,9 @@ def get_extension_names_for_diff(diff):
 
 
 def get_extension_names_for_mr(mr: gitlab.v4.objects.ProjectMergeRequest):
-    for c in mr.commits(all=True):
-        c = cast(gitlab.v4.objects.ProjectCommit, c)
-        yield from get_extension_names_for_diff(c.diff())
+    for commit in mr.commits(all=True):
+        commit = cast(gitlab.v4.objects.ProjectCommit, commit)
+        yield from get_extension_names_for_diff(commit.diff())
 
 
 _KHR_EXT_LABEL = "KHR Extensions"
@@ -188,12 +196,14 @@ class ChecklistData:
     ext_names: str
     vendor_id: str
     mr_num: int
-    mr: gitlab.v4.objects.ProjectMergeRequest
+    merge_request: gitlab.v4.objects.ProjectMergeRequest
     checklist_issue: Optional[gitlab.v4.objects.ProjectIssue] = None
+    checklist_issue_ref: Optional[str] = None
 
     def make_issue_params(
         self, vendor_names: VendorNames, checklist_factory: ReleaseChecklistFactory
     ):
+        """Produce the dict used for the checklist template"""
 
         vendor_name = vendor_names.get_vendor_name(self.vendor_id)
         if not vendor_name:
@@ -205,14 +215,16 @@ class ChecklistData:
             template.fill_in_vendor(vendor_name)
 
         template.fill_in_mr(self.mr_num)
-        template.fill_in_champion(self.mr.author["name"], self.mr.author["username"])
+        template.fill_in_champion(
+            self.merge_request.author["name"], self.merge_request.author["username"]
+        )
         if not self.ext_names:
             raise RuntimeError("ext names not detected")
         return {
             "title": f"Release checklist for {self.ext_names}",
             "description": str(template),
-            "assignee_ids": [self.mr.author["id"]],
-            "labels": ["Release Checklist"] + get_labels(self.vendor_id),
+            "assignee_ids": [self.merge_request.author["id"]],
+            "labels": ["status:InitialComposition"] + get_labels(self.vendor_id),
         }
 
     @classmethod
@@ -222,6 +234,7 @@ class ChecklistData:
         mr_num,
         **kwargs,
     ) -> "ChecklistData":
+        """Create a ChecklistData based on a merge request number."""
 
         mr = proj.mergerequests.get(mr_num)
 
@@ -236,71 +249,120 @@ class ChecklistData:
 
         if len(vendor_ids) != 1:
             print(vendor_ids)
-            raise RuntimeError(f"got too many vendors for {ext_names} : {mr_num}")
+            raise RuntimeError(f"wrong number of vendors for {ext_names} : {mr_num}")
         vendor_id = list(vendor_ids)[0]
         return ChecklistData(
-            ext_names=ext_names, vendor_id=vendor_id, mr_num=mr_num, mr=mr
+            ext_names=ext_names, vendor_id=vendor_id, mr_num=mr_num, merge_request=mr
         )
 
     def handle_mr(
         self,
-        proj,
+        proj: gitlab.v4.objects.Project,
+        ops_proj: gitlab.v4.objects.Project,
         vendor_names: VendorNames,
         checklist_factory: ReleaseChecklistFactory,
     ):
+        """Create a release checklist issue for an MR."""
         issue_params = self.make_issue_params(vendor_names, checklist_factory)
-        issue = proj.issues.create(issue_params)
-        self.issue = cast(gitlab.v4.objects.ProjectIssue, issue)
+        issue = ops_proj.issues.create(issue_params)
+        self.checklist_issue = cast(gitlab.v4.objects.ProjectIssue, issue)
         # issue_data  = typing.cast(gitlab.v4.objects.ProjectIssue,  issue_data)
         issue_link = issue.attributes["references"]["full"]
-        print(self.mr_num, issue_link)
+        self.checklist_issue_ref = issue_link
+        print(self.mr_num, issue_link, issue.attributes["web_url"])
 
-        mr = proj.mergerequests.get(self.mr_num)
+        merge_request = proj.mergerequests.get(self.mr_num)
         message = (
             f"A release checklist for this extension has been opened at {issue_link}. "
-            f"@{mr.author['username']} please update it to reflect the current state "
-            "of this extension merge request and request review, if applicable."
+            f"@{merge_request.author['username']} please update it to reflect the "
+            "current state of this extension merge request and request review, "
+            "if applicable."
         )
-        mr.notes.create({"body": message})
+        merge_request.notes.create({"body": message})
 
         for label in get_labels(self.vendor_id):
-            if label not in self.mr.labels:
-                self.mr.labels.append(label)
+            if label not in self.merge_request.labels:
+                self.merge_request.labels.append(label)
 
-        mr.description = f"Release checklist: {issue_link}\n\n" + mr.description
-        mr.save()
+        merge_request.description = (
+            f"Release checklist: {issue_link}\n\n" + merge_request.description
+        )
+        merge_request.save()
 
 
-def get_issues_to_mr(proj) -> Dict[int, int]:
+def get_issues_to_mr(
+    proj: gitlab.v4.objects.Project, ops_proj: gitlab.v4.objects.Project
+) -> Dict[str, int]:
     issue_to_mr = {}
-    for issue in proj.issues.list(labels="Release Checklist", iterator=True):
-        issue: gitlab.v4.objects.ProjectIssue
-        match_iter = find_mr.finditer(issue.attributes["description"])
-        m = next(match_iter, None)
-        if not m:
+    for issue in itertools.chain(
+        proj.issues.list(labels="Release Checklist", iterator=True),
+        ops_proj.issues.list(iterator=True),
+    ):
+        issue = cast(gitlab.v4.objects.ProjectIssue, issue)
+        match_iter = _MAIN_MR_RE.finditer(issue.attributes["description"])
+        match = next(match_iter, None)
+        if not match:
             print("Release checklist has no MR indicated:", issue.attributes["web_url"])
             continue
-        issue_to_mr[issue.get_id()] = int(m.group("mrnum"))
+        issue_to_mr[issue.attributes["references"]["full"]] = int(match.group("mrnum"))
     return issue_to_mr
 
 
 class ReleaseChecklistCollection:
-    def __init__(self, proj, checklist_factory, vendor_names):
+    """The main object associating checklists and MRs."""
+
+    def __init__(self, proj, ops_proj, checklist_factory, vendor_names):
         self.proj = proj
+        """Main project"""
+        self.ops_proj = ops_proj
+        """Operations project containing (some) release checklists"""
         self.checklist_factory: ReleaseChecklistFactory = checklist_factory
         self.vendor_names: VendorNames = vendor_names
-        self.issue_to_mr = get_issues_to_mr(proj)
-        self.mr_to_issue = {mr: issue for issue, mr in self.issue_to_mr.items()}
+        self.issue_to_mr: Dict[str, int] = get_issues_to_mr(proj, ops_proj)
+        self.mr_to_issue: Dict[int, str] = {
+            mr: issue for issue, mr in self.issue_to_mr.items()
+        }
 
     def handle_mr_if_needed(self, mr_num, **kwargs):
+        """Create a release checklist issue if one is not already created for this MR."""
         if mr_num not in self.mr_to_issue:
             data = ChecklistData.lookup(self.proj, mr_num, **kwargs)
-            data.handle_mr(self.proj, self.vendor_names, self.checklist_factory)
-            issue_num = data.issue.iid
-            self.mr_to_issue[mr_num] = issue_num
-            self.issue_to_mr[issue_num] = mr_num
+            data.handle_mr(
+                self.proj, self.ops_proj, self.vendor_names, self.checklist_factory
+            )
+            assert data.checklist_issue
+            issue_ref = data.checklist_issue.attributes["references"]["full"]
+            self.mr_to_issue[mr_num] = issue_ref
+            self.issue_to_mr[issue_ref] = mr_num
         else:
             print(mr_num, "already processed")
+
+    def update_mr_desc(self):
+        for issue_ref, mr_num in self.issue_to_mr.items():
+            merge_request: gitlab.v4.objects.ProjectMergeRequest = (
+                self.proj.mergerequests.get(mr_num)
+            )
+            new_front = f"Release checklist: {issue_ref}"
+            prepend = f"{new_front}\n\n"
+            if merge_request.description == new_front:
+                # minimal MR desc
+                continue
+            matches = _CHECKLIST_RE.findall(merge_request.description)
+            if not matches:
+                url = merge_request.attributes["web_url"]
+                print(f"MR does not mention its issue: {url}")
+                if merge_request.attributes["state"] not in ("closed", "merged"):
+                    print("Updating it")
+                    merge_request.description = prepend + merge_request.description
+                    print(merge_request.description)
+                    merge_request.save()
+            else:
+                if not matches[0].startswith(new_front):
+                    print(f"Updating MR {merge_request.get_id()} description")
+                    merge_request.description = _CHECKLIST_RE.sub(
+                        prepend, merge_request.description, 1
+                    )
+                    merge_request.save()
 
 
 if __name__ == "__main__":
@@ -330,14 +392,20 @@ if __name__ == "__main__":
         url=os.environ["GL_URL"], private_token=os.environ["GL_ACCESS_TOKEN"]
     )
 
-    proj = gl.projects.get("openxr/openxr")
+    main_proj = gl.projects.get("openxr/openxr")
+    operations_proj = gl.projects.get("openxr/openxr-operations")
 
+    print("Performing startup queries")
     collection = ReleaseChecklistCollection(
-        proj,
-        checklist_factory=ReleaseChecklistFactory(proj),
-        vendor_names=VendorNames(proj),
+        main_proj,
+        operations_proj,
+        checklist_factory=ReleaseChecklistFactory(main_proj),
+        vendor_names=VendorNames(main_proj),
     )
+    # from pprint import pprint
 
+    # pprint(collection.issue_to_mr)
+    # pprint(collection.mr_to_issue)
     # collection.handle_mr_if_needed(2208)
     # collection.handle_mr_if_needed(2288)
     # collection.handle_mr_if_needed(2299)
@@ -359,6 +427,7 @@ if __name__ == "__main__":
     # collection.handle_mr_if_needed(2138)
     # collection.handle_mr_if_needed(2410)
     # collection.handle_mr_if_needed(2555)
+    # collection.update_mr_desc()
 
     kwargs = {}
     if "extname" in args and args.extname:
