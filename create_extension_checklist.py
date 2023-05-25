@@ -159,23 +159,25 @@ EXT_ADOC_DECOMP = re.compile(
 
 def get_extension_names_for_diff(diff):
     names = set()
-    for d in diff:
-        if not d["new_file"]:
+    for diff_elt in diff:
+        if not diff_elt["new_file"]:
             continue
-        m = EXT_ADOC_DECOMP.match(d["new_path"])
-        if m:
-            name = "XR_{}_{}".format(m.group("vendor").upper(), m.group("undecorated"))
+        path_match = EXT_ADOC_DECOMP.match(diff_elt["new_path"])
+        if path_match:
+            vendor = path_match.group("vendor").upper()
+            undecorated = path_match.group("undecorated")
+            name = f"XR_{vendor}_{undecorated}"
             if name not in names:
                 names.add(name)
                 yield {
-                    "vendor": m.group("vendor").upper(),
-                    "undecorated": m.group("undecorated"),
+                    "vendor": vendor,
+                    "undecorated": undecorated,
                     "full_name": name,
                 }
 
 
 def get_extension_names_for_mr(mr: gitlab.v4.objects.ProjectMergeRequest):
-    for commit in mr.commits(all=True):
+    for commit in mr.commits(iterator=True):
         commit = cast(gitlab.v4.objects.ProjectCommit, commit)
         yield from get_extension_names_for_diff(commit.diff())
 
