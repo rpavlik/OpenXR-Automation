@@ -182,7 +182,7 @@ def get_extension_names_for_mr(mr: gitlab.v4.objects.ProjectMergeRequest):
         yield from get_extension_names_for_diff(commit.diff())
 
 
-_KHR_EXT_LABEL = "KHR Extensions"
+_KHR_EXT_LABEL = "KHR_Extension"
 _VENDOR_EXT_LABEL = "Vendor_Extension"
 
 
