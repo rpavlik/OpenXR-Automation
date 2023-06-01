@@ -177,7 +177,7 @@ def get_extension_names_for_diff(diff):
 
 
 def get_extension_names_for_mr(mr: gitlab.v4.objects.ProjectMergeRequest):
-    for commit in mr.commits(iterator=True):
+    for commit in mr.commits():
         commit = cast(gitlab.v4.objects.ProjectCommit, commit)
         yield from get_extension_names_for_diff(commit.diff())
 
@@ -401,7 +401,7 @@ if __name__ == "__main__":
     collection = ReleaseChecklistCollection(
         main_proj,
         operations_proj,
-        checklist_factory=ReleaseChecklistFactory(main_proj),
+        checklist_factory=ReleaseChecklistFactory(operations_proj),
         vendor_names=VendorNames(main_proj),
     )
     # from pprint import pprint
