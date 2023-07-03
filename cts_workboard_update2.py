@@ -40,7 +40,7 @@ def main(in_filename, out_filename):
     proj = gl.projects.get("openxr/openxr")
 
     log.info("Reading %s", in_filename)
-    with open(in_filename, "r") as fp:
+    with open(in_filename, "r", encoding="utf-8") as fp:
         existing_board = json.load(fp)
 
     log.info("Parsing board loaded from %s", in_filename)

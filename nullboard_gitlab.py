@@ -170,7 +170,7 @@ def _iterate_notes(board) -> Generator[Tuple[Dict, Dict], None, None]:
     # Go through all existing lists
     for notelist in board["lists"]:
         list_name = notelist["title"]
-        log.info("In list %s" % list_name)
+        log.info("In list %s", list_name)
 
         # For each item in those lists, extract the ref, and update the text if we can
         for note in notelist["notes"]:
@@ -186,7 +186,6 @@ def parse_board(
     log = logging.getLogger(__name__)
 
     for notelist, note in _iterate_notes(board):
-
         # For each item in those lists, extract the ref, and update the text if we can
         refs = _REF_RE.findall(note["text"])
         log.debug("Found these refs in a note: %s", str(refs))
@@ -209,7 +208,6 @@ def mark_note_for_deletion(note: Dict[str, Union[str, bool]]):
 
 
 def remove_marked_for_deletion(board: Dict[str, Any]):
-
     log = logging.getLogger(__name__)
     for notelist in board["lists"]:
         newlist = [note for note in notelist["notes"] if _DELETION_MARKER not in note]
@@ -301,7 +299,7 @@ def update_board(
         if item.ref in existing:
             # we already did this
             continue
-        log.info("New item for %s" % item.title)
+        log.info("New item for %s", item.title)
         note = {"text": note_text_maker(item)}
         list_name = item.list_name or list_guesser(item)
         if list_name not in all_new:
