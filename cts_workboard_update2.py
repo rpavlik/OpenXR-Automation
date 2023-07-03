@@ -26,6 +26,9 @@ from work_item_and_collection import WorkUnitCollection, get_short_ref
 
 load_dotenv()
 
+# List stuff that causes undesired merging here
+SKIP_RELATED_MR_LOOKUP = {"#1828", "#1978", "#1950", "#1460"}
+
 
 def main(in_filename, out_filename):
     logging.basicConfig(level=logging.INFO)
@@ -53,6 +56,13 @@ def main(in_filename, out_filename):
     ):
         proj_issue = cast(gitlab.v4.objects.ProjectIssue, issue)
         ref = get_short_ref(proj_issue)
+        if ref in SKIP_RELATED_MR_LOOKUP:
+            log.info(
+                "Skipping GitLab Issue Search for: %s: %s",
+                ref,
+                proj_issue.title,
+            )
+            continue
         refs = [ref]
         refs.extend(
             mr["references"]["short"]  # type: ignore
