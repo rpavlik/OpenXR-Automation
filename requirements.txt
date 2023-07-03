@@ -7,3 +7,6 @@ black
 
 # Improve performance, especially during development
 requests-cache
+
+# More types, compat with old Python, etc
+typing_extensions
