@@ -223,7 +223,7 @@ class ChecklistData:
         if not self.ext_names:
             raise RuntimeError("ext names not detected")
         return {
-            "title": f"Release checklist for {self.ext_names}",
+            "title": f"{self.ext_names}",
             "description": str(template),
             "assignee_ids": [self.merge_request.author["id"]],
             "labels": ["status:InitialComposition"] + get_labels(self.vendor_id),
@@ -273,12 +273,28 @@ class ChecklistData:
         self.checklist_issue_ref = issue_link
         print(self.mr_num, issue_link, issue.attributes["web_url"])
 
+        may_or_must = "may also want to"
+        reviews_suffix = ""
+        if self.vendor_id == "KHR":
+            may_or_must = "must"
+            reviews_suffix = " as well as discussion in weekly calls"
+
         merge_request = proj.mergerequests.get(self.mr_num)
         message = (
             f"A release checklist for this extension has been opened at {issue_link}. "
             f"@{merge_request.author['username']} please update it to reflect the "
             "current state of this extension merge request and request review, "
-            "if applicable."
+            "if applicable.\n\n"
+            "You should also update the [OpenXR Operations Workboard]"
+            "(https://gitlab.khronos.org/openxr/openxr-operations/-/boards) "
+            "according to the status of your extension: most likely this means "
+            "moving it to 'NeedsReview' once you complete the self-review steps in "
+            "the checklist.\n\n"
+            "See the [OpenXR Operations Readme]("
+            "https://gitlab.khronos.org/openxr/openxr-operations/-/blob/main/README.md"
+            ") for the flowchart showing the extension workboard process.\n\n"
+            f"You {may_or_must} request feedback from other WG members through our "
+            f"chat at <https://chat.khronos.org>{reviews_suffix}."
         )
         merge_request.notes.create({"body": message})
 
