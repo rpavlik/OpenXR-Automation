@@ -152,12 +152,15 @@ class ReleaseChecklistFactory:
 
 
 EXT_ADOC_DECOMP = re.compile(
-    r"specification/sources/chapters/extensions/"
-    r"(?P<vendor>[a-z]+)/(?P=vendor)_(?P<undecorated>[^.]+)[.]adoc"
+    r"""specification/sources/chapters/extensions/
+    (?P<vendor>[a-z]+)/ # vendor directory
+    (?P=vendor)_(?P<undecorated>[^.]+)[.]adoc""",  # filename in two parts
+    re.VERBOSE,
 )
 
 
 def get_extension_names_for_diff(diff):
+    """Yield the extension names added in a git diff."""
     names = set()
     for diff_elt in diff:
         if not diff_elt["new_file"]:
@@ -177,20 +180,25 @@ def get_extension_names_for_diff(diff):
 
 
 def get_extension_names_for_mr(mr: gitlab.v4.objects.ProjectMergeRequest):
+    """Yield the unique extension names added in a merge request."""
+    yielded = set()
     for commit in mr.commits():
         commit = cast(gitlab.v4.objects.ProjectCommit, commit)
-        yield from get_extension_names_for_diff(commit.diff())
+        for ext in get_extension_names_for_diff(commit.diff()):
+            if ext["full_name"] not in yielded:
+                yielded.add(ext["full_name"])
+                yield ext
 
 
 _KHR_EXT_LABEL = "KHR_Extension"
-_VENDOR_EXT_LABEL = "Vendor_Extension"
+VENDOR_EXT_LABEL = "Vendor_Extension"
 
 
 def get_labels(vendor_id):
     if is_KHR_KHX(vendor_id):
         return [_KHR_EXT_LABEL]
 
-    return [_VENDOR_EXT_LABEL]
+    return [VENDOR_EXT_LABEL]
 
 
 @dataclass
@@ -340,6 +348,10 @@ class ReleaseChecklistCollection:
         self.mr_to_issue: Dict[int, str] = {
             mr: issue for issue, mr in self.issue_to_mr.items()
         }
+
+    def mr_has_checklist(self, mr_num):
+        """Return true if the MR already has a checklist."""
+        return mr_num in self.mr_to_issue
 
     def handle_mr_if_needed(self, mr_num, **kwargs):
         """Create a release checklist issue if one is not already created for this MR."""
