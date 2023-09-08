@@ -106,11 +106,20 @@ class OpsBoardProcessing:
                 self.log_title()
                 log.info("Closing - found in release.")
                 issue.state = "closed"
+                issue.save()
 
             elif column != ColumnName.RELEASE_PENDING:
                 self.log_title()
                 log.info("Marking as release pending")
                 column = ColumnName.RELEASE_PENDING
+
+            else:
+                log.info(
+                    "%s - Commit is merged in %s, column is %s",
+                    mr.attributes["web_url"],
+                    sha,
+                    str(column),
+                )
 
         return column
 
