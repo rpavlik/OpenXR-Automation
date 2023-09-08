@@ -27,7 +27,13 @@ from work_item_and_collection import WorkUnitCollection, get_short_ref
 load_dotenv()
 
 # List stuff that causes undesired merging here
-SKIP_RELATED_MR_LOOKUP = {"#1828", "#1978", "#1950", "#1460"}
+SKIP_RELATED_MR_LOOKUP = {
+    "#1828",
+    "#1978",
+    "#1950",
+    "#1460",
+    "#2072",  # catch2 test number, etc mismatch
+}
 
 
 def main(in_filename, out_filename):
