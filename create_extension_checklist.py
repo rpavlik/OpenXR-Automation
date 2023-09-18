@@ -190,13 +190,13 @@ def get_extension_names_for_mr(mr: gitlab.v4.objects.ProjectMergeRequest):
                 yield ext
 
 
-_KHR_EXT_LABEL = "KHR_Extension"
+KHR_EXT_LABEL = "KHR_Extension"
 VENDOR_EXT_LABEL = "Vendor_Extension"
 
 
 def get_labels(vendor_id):
     if is_KHR_KHX(vendor_id):
-        return [_KHR_EXT_LABEL]
+        return [KHR_EXT_LABEL]
 
     return [VENDOR_EXT_LABEL]
 

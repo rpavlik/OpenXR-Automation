@@ -5,13 +5,14 @@
 #
 # Author: Ryan Pavlik <ryan.pavlik@collabora.com>
 
+import itertools
 import logging
 import os
 from typing import cast
 import gitlab
 from create_extension_checklist import (
+    KHR_EXT_LABEL,
     VENDOR_EXT_LABEL,
-    ReleaseChecklistTemplate,
     VendorNames,
     ReleaseChecklistFactory,
     ReleaseChecklistCollection,
@@ -39,8 +40,11 @@ def main():
         vendor_names=VendorNames(main_proj),
     )
 
-    for mr in main_proj.mergerequests.list(
-        labels=[VENDOR_EXT_LABEL], state="opened", iterator=True
+    for mr in itertools.chain(
+        *(
+            main_proj.mergerequests.list(labels=[label], state="opened", iterator=True)
+            for label in (KHR_EXT_LABEL, VENDOR_EXT_LABEL)
+        )
     ):
         proj_mr = cast(gitlab.v4.objects.ProjectMergeRequest, mr)
         ref = get_short_ref(proj_mr)
@@ -62,6 +66,7 @@ def main():
                 collection.handle_mr_if_needed(proj_mr.iid)
             except Exception as e:
                 log.warning("Failed trying to add/check for checklist: %s", str(e))
+                continue
 
 
 if __name__ == "__main__":
