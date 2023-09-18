@@ -44,6 +44,7 @@ def _make_api_item_text(
     api_item: Union[ProjectIssue, ProjectMergeRequest],
     show_votes: bool = False,
     show_mr_votes: bool = False,
+    show_objection_window: bool = False,
 ) -> str:
     state = []
     if api_item.state == "closed":
@@ -60,6 +61,12 @@ def _make_api_item_text(
     if really_show_votes and hasattr(api_item, "downvotes") and api_item.downvotes > 0:
         state.append("👎" * api_item.downvotes)
 
+    if (
+        show_objection_window
+        and hasattr(api_item, "labels")
+        and "Objection Window" in api_item.labels
+    ):
+        state.append("⏰")
     if state:
         # If we have at least one item, add an empty entry for the trailing space
         state.append("")
@@ -78,10 +85,14 @@ def make_item_bullet(
     api_item: Union[ProjectIssue, ProjectMergeRequest],
     show_votes: bool = False,
     show_mr_votes: bool = False,
+    show_objection_window: bool = False,
 ) -> str:
     return "• {}".format(
         _make_api_item_text(
-            api_item, show_votes=show_votes, show_mr_votes=show_mr_votes
+            api_item,
+            show_votes=show_votes,
+            show_mr_votes=show_mr_votes,
+            show_objection_window=show_objection_window,
         )
     )
 
@@ -139,15 +150,24 @@ def merge_note(existing_note: str, notelines: List[NoteLine]) -> str:
 
 
 def make_note_text(
-    item: WorkUnit, show_votes: bool = False, show_mr_votes: bool = False
+    item: WorkUnit,
+    show_votes: bool = False,
+    show_mr_votes: bool = False,
+    show_objection_window: bool = False,
 ) -> str:
     return "{key_item}\n{rest}".format(
         key_item=_make_api_item_text(
-            item.key_item, show_votes=show_votes, show_mr_votes=show_mr_votes
+            item.key_item,
+            show_votes=show_votes,
+            show_mr_votes=show_mr_votes,
+            show_objection_window=show_objection_window,
         ),
         rest="\n".join(
             make_item_bullet(
-                api_item, show_votes=show_votes, show_mr_votes=show_mr_votes
+                api_item,
+                show_votes=show_votes,
+                show_mr_votes=show_mr_votes,
+                show_objection_window=show_objection_window,
             )
             for api_item in item.non_key_issues_and_mrs()
         ),
