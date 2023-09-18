@@ -103,7 +103,9 @@ def main(in_filename, out_filename):
         work,
         existing_board,
         list_titles_to_skip_adding_to=[ListName.DONE],
-        note_text_maker=lambda x: make_note_text(x, show_mr_votes=True),
+        note_text_maker=lambda x: make_note_text(
+            x, show_mr_votes=True, show_objection_window=True
+        ),
     )
 
     log.info("Writing output file %s", out_filename)
