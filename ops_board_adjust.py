@@ -105,7 +105,7 @@ class OpsBoardProcessing:
             if sha in self.commits_in_last_release:
                 self.log_title()
                 log.info("Closing - found in release.")
-                issue.state = "closed"
+                issue.state_event = "close"
                 issue.save()
 
             elif column != ColumnName.RELEASE_PENDING:
