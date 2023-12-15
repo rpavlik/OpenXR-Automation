@@ -3,7 +3,7 @@
 #
 # SPDX-License-Identifier: BSL-1.0
 #
-# Author: Ryan Pavlik <ryan.pavlik@collabora.com>
+# Author: Rylie Pavlik <rylie.pavlik@collabora.com>
 
 import itertools
 import json

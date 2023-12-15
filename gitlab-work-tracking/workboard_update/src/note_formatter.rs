@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: BSL-1.0
 //
-// Author: Ryan Pavlik <ryan.pavlik@collabora.com>
+// Author: Rylie Pavlik <rylie.pavlik@collabora.com>
 
 use crate::{
     line_or_reference::LineOrReference, LineOrReferenceCollection, UNICODE_BULLET_AND_SPACE,

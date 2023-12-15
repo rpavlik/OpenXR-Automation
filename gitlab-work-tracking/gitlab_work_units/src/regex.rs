@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: BSL-1.0
 //
-// Author: Ryan Pavlik <ryan.pavlik@collabora.com>
+// Author: Rylie Pavlik <rylie.pavlik@collabora.com>
 
 pub const PROJECT_NAME_PATTERN: &str = r"(?P<proj>[-._a-zA-Z0-9]+[-./_a-zA-Z0-9]+)";
 

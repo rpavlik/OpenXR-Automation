@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: BSL-1.0
 //
-// Author: Ryan Pavlik <ryan.pavlik@collabora.com>
+// Author: Rylie Pavlik <rylie.pavlik@collabora.com>
 
 use crate::regex::{PROJECT_NAME_PATTERN, REFERENCE_IID_PATTERN};
 use gitlab::{api::common::NameOrId, IssueInternalId, MergeRequestInternalId, ProjectId};

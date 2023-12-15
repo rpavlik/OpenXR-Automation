@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: BSL-1.0
 //
-// Author: Ryan Pavlik <ryan.pavlik@collabora.com>
+// Author: Rylie Pavlik <rylie.pavlik@collabora.com>
 
 use gitlab_work_units::UnitId;
 use nullboard_tools::{GenericList, GenericNote, List, ListCollection, Note};

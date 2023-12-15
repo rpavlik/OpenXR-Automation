@@ -3,7 +3,7 @@
 #
 # SPDX-License-Identifier: BSL-1.0
 #
-# Author: Ryan Pavlik <ryan.pavlik@collabora.com>
+# Author: Rylie Pavlik <rylie.pavlik@collabora.com>
 """This updates a CTS workboard, but starting with the board, rather than GitLab."""
 
 import itertools

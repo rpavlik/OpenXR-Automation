@@ -2,10 +2,10 @@
 #
 # SPDX-License-Identifier: BSL-1.0
 #
-# Author: Ryan Pavlik <ryan.pavlik@collabora.com>
+# Author: Rylie Pavlik <rylie.pavlik@collabora.com>
 
 [package]
-authors = ["Ryan Pavlik <ryan.pavlik@collabora.com>"]
+authors = ["Rylie Pavlik <rylie.pavlik@collabora.com>"]
 description = "Functionality to work with Kanban-style workboards like those exported/imported by Nullboard"
 edition = "2021"
 license = "BSL-1.0"
