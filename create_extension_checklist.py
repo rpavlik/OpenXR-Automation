@@ -10,7 +10,7 @@ from dataclasses import dataclass
 import itertools
 import os
 import re
-from typing import Dict, Optional, cast
+from typing import Dict, Optional, Tuple, cast
 import xml.etree.ElementTree as etree
 
 import gitlab
@@ -318,13 +318,14 @@ class ChecklistData:
         self.add_mr_labels()
 
 
-def get_issues_to_mr(
+def _get_issues_to_mr(
     proj: gitlab.v4.objects.Project, ops_proj: gitlab.v4.objects.Project
-) -> Dict[str, int]:
+) -> Tuple[Dict[str, int], Dict[int, gitlab.v4.objects.ProjectIssue]]:
     issue_to_mr = {}
+    mr_to_issue_object: Dict[int, gitlab.v4.objects.ProjectIssue] = {}
     for issue in itertools.chain(
-        proj.issues.list(labels="Release Checklist", iterator=True),
-        ops_proj.issues.list(iterator=True),
+        proj.issues.list(labels="Release Checklist", state="opened", iterator=True),
+        ops_proj.issues.list(state="opened", iterator=True),
     ):
         issue = cast(gitlab.v4.objects.ProjectIssue, issue)
         match_iter = _MAIN_MR_RE.finditer(issue.attributes["description"])
@@ -332,8 +333,11 @@ def get_issues_to_mr(
         if not match:
             print("Release checklist has no MR indicated:", issue.attributes["web_url"])
             continue
-        issue_to_mr[issue.attributes["references"]["full"]] = int(match.group("mrnum"))
-    return issue_to_mr
+
+        mr_num = int(match.group("mrnum"))
+        issue_to_mr[issue.attributes["references"]["full"]] = mr_num
+        mr_to_issue_object[mr_num] = issue
+    return issue_to_mr, mr_to_issue_object
 
 
 class ReleaseChecklistCollection:
@@ -346,7 +350,12 @@ class ReleaseChecklistCollection:
         """Operations project containing (some) release checklists"""
         self.checklist_factory: ReleaseChecklistFactory = checklist_factory
         self.vendor_names: VendorNames = vendor_names
-        self.issue_to_mr: Dict[str, int] = get_issues_to_mr(proj, ops_proj)
+        issue_ref_to_mr, mr_to_issue_object = _get_issues_to_mr(proj, ops_proj)
+        self.issue_to_mr: Dict[str, int] = issue_ref_to_mr
+
+        self.mr_to_issue_object: Dict[
+            int, gitlab.v4.objects.ProjectIssue
+        ] = mr_to_issue_object
         self.mr_to_issue: Dict[int, str] = {
             mr: issue for issue, mr in self.issue_to_mr.items()
         }
