@@ -146,9 +146,9 @@ class ReleaseChecklistFactory:
         return ReleaseChecklistTemplate(str(self.khr_tmpl))
 
     def make_checklist_by_vendor(self, vendor_id: str):
-        if vendor_id == "KHR":
+        if is_KHR_KHX(vendor_id):
             return self.make_khr_checklist()
-        if vendor_id in ("EXT", "EXTX"):
+        if is_EXT_EXTX(vendor_id):
             return self.make_ext_checklist()
         return self.make_vendor_checklist()
 
