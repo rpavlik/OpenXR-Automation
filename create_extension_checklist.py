@@ -161,35 +161,59 @@ EXT_ADOC_DECOMP = re.compile(
 )
 
 
-def get_extension_names_for_diff(diff):
+@dataclass
+class ExtensionData:
+    """The decomposed parts of an OpenXR extension name"""
+
+    vendor: str
+    undecorated: str
+
+    @property
+    def full_name(self):
+        return f"XR_{self.vendor}_{self.undecorated}"
+
+
+class ExtensionNameGuesser:
+    """Process modified file paths to try to guess the extension related to an MR."""
+
+    def __init__(self):
+        self.names = set()
+        self.extensions = []
+
+    def handle_path(self, path_modified: str) -> Optional[ExtensionData]:
+        path_match = EXT_ADOC_DECOMP.match(path_modified)
+        if not path_match:
+            return None
+
+        vendor = path_match.group("vendor").upper()
+        undecorated = path_match.group("undecorated")
+        data = ExtensionData(vendor, undecorated)
+
+        if data.full_name not in self.names:
+            self.names.add(data.full_name)
+            self.extensions.append(data)
+            return data
+
+
+def get_extension_names_for_diff(guesser: ExtensionNameGuesser, diff):
     """Yield the extension names added in a git diff."""
-    names = set()
     for diff_elt in diff:
         if not diff_elt["new_file"]:
             continue
-        path_match = EXT_ADOC_DECOMP.match(diff_elt["new_path"])
-        if path_match:
-            vendor = path_match.group("vendor").upper()
-            undecorated = path_match.group("undecorated")
-            name = f"XR_{vendor}_{undecorated}"
-            if name not in names:
-                names.add(name)
-                yield {
-                    "vendor": vendor,
-                    "undecorated": undecorated,
-                    "full_name": name,
-                }
+        data = guesser.handle_path(diff_elt["new_path"])
+        if data is not None:
+            yield data
 
 
 def get_extension_names_for_mr(mr: gitlab.v4.objects.ProjectMergeRequest):
     """Yield the unique extension names added in a merge request."""
-    yielded = set()
+    guesser = ExtensionNameGuesser()
+    # print(mr.diffs.list())
+    # diff = mr.diffs.list()[0]
+
     for commit in mr.commits():
         commit = cast(gitlab.v4.objects.ProjectCommit, commit)
-        for ext in get_extension_names_for_diff(commit.diff()):
-            if ext["full_name"] not in yielded:
-                yielded.add(ext["full_name"])
-                yield ext
+        yield from get_extension_names_for_diff(guesser, commit.diff())
 
 
 KHR_EXT_LABEL = "KHR_Extension"
@@ -255,9 +279,9 @@ class ChecklistData:
         if not ext_names or not vendor_ids:
             ext_name_data = list(get_extension_names_for_mr(mr))
             if not ext_names:
-                ext_names = ", ".join(x["full_name"] for x in ext_name_data)
+                ext_names = ", ".join(x.full_name for x in ext_name_data)
             if not vendor_ids:
-                vendor_ids = {x["vendor"] for x in ext_name_data}
+                vendor_ids = {x.vendor for x in ext_name_data}
 
         if len(vendor_ids) != 1:
             print(vendor_ids)

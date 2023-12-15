@@ -60,7 +60,7 @@ def main():
             log.info("GitLab MR Search: %s: %s", ref, proj_mr.title)
             log.info(
                 "Extension name(s): %s",
-                str([ext["full_name"] for ext in ext_name_data]),
+                str([ext.full_name for ext in ext_name_data]),
             )
             try:
                 collection.handle_mr_if_needed(proj_mr.iid)
