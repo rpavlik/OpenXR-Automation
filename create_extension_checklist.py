@@ -376,6 +376,27 @@ class ReleaseChecklistCollection:
         else:
             print(mr_num, "already processed")
 
+    def update_mr_labels(self):
+        """Update the labels on the emrge requests if needed."""
+        print("Checking open extension MRs to verify their labels")
+        for mr_num, issue in self.mr_to_issue_object.items():
+            merge_request: gitlab.v4.objects.ProjectMergeRequest = (
+                self.proj.mergerequests.get(mr_num)
+            )
+            if merge_request.state != "opened":
+                # only touch open MRs
+                continue
+            # print("Issue:", issue.attributes["references"]["full"])
+            # print(issue.labels)
+            made_change = False
+            for label in (KHR_EXT_LABEL, VENDOR_EXT_LABEL):
+                if label in issue.labels and label not in merge_request.labels:
+                    merge_request.labels.append(label)
+                    made_change = True
+            if made_change:
+                print("Updating labels on MR", mr_num)
+                merge_request.save()
+
     def update_mr_desc(self):
         """Prepend the release checklist link to all MRs that need it."""
         print("Checking open extension MRs to verify they link to their checklist")
