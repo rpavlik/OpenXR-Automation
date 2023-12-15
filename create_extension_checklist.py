@@ -267,9 +267,14 @@ class ChecklistData:
             ext_names=ext_names, vendor_id=vendor_id, mr_num=mr_num, merge_request=mr
         )
 
+    def add_mr_labels(self):
+        for label in get_labels(self.vendor_id):
+            if label not in self.merge_request.labels:
+                self.merge_request.labels.append(label)
+        self.merge_request.save()
+
     def handle_mr(
         self,
-        proj: gitlab.v4.objects.Project,
         ops_proj: gitlab.v4.objects.Project,
         vendor_names: VendorNames,
         checklist_factory: ReleaseChecklistFactory,
@@ -289,10 +294,9 @@ class ChecklistData:
             may_or_must = "must"
             reviews_suffix = " as well as discussion in weekly calls"
 
-        merge_request = proj.mergerequests.get(self.mr_num)
         message = (
             f"A release checklist for this extension has been opened at {issue_link}. "
-            f"@{merge_request.author['username']} please update it to reflect the "
+            f"@{self.merge_request.author['username']} please update it to reflect the "
             "current state of this extension merge request and request review, "
             "if applicable.\n\n"
             "You should also update the [OpenXR Operations Workboard]"
@@ -306,16 +310,12 @@ class ChecklistData:
             f"You {may_or_must} request feedback from other WG members through our "
             f"chat at <https://chat.khronos.org>{reviews_suffix}."
         )
-        merge_request.notes.create({"body": message})
+        self.merge_request.notes.create({"body": message})
 
-        for label in get_labels(self.vendor_id):
-            if label not in self.merge_request.labels:
-                self.merge_request.labels.append(label)
-
-        merge_request.description = (
-            f"Release checklist: {issue_link}\n\n" + merge_request.description
+        self.merge_request.description = (
+            f"Release checklist: {issue_link}\n\n" + self.merge_request.description
         )
-        merge_request.save()
+        self.add_mr_labels()
 
 
 def get_issues_to_mr(
@@ -359,9 +359,7 @@ class ReleaseChecklistCollection:
         """Create a release checklist issue if one is not already created for this MR."""
         if mr_num not in self.mr_to_issue:
             data = ChecklistData.lookup(self.proj, mr_num, **kwargs)
-            data.handle_mr(
-                self.proj, self.ops_proj, self.vendor_names, self.checklist_factory
-            )
+            data.handle_mr(self.ops_proj, self.vendor_names, self.checklist_factory)
             assert data.checklist_issue
             issue_ref = data.checklist_issue.attributes["references"]["full"]
             self.mr_to_issue[mr_num] = issue_ref
