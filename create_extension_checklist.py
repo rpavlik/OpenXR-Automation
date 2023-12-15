@@ -20,7 +20,9 @@ _MAIN_MR_RE = re.compile(
     r"Main extension MR:\s*(openxr!|!|https://gitlab.khronos.org/openxr/openxr/-/merge_requests/)(?P<mrnum>[0-9]+)"
 )
 
-_CHECKLIST_RE = re.compile(r"^Release [Cc]hecklist:([^\n]+)$", re.MULTILINE)
+_CHECKLIST_RE = re.compile(
+    r"^(?P<line>Release [Cc]hecklist:([^\n]+))\n\n", re.MULTILINE
+)
 
 
 @dataclass
@@ -368,17 +370,23 @@ class ReleaseChecklistCollection:
             print(mr_num, "already processed")
 
     def update_mr_desc(self):
+        """Prepend the release checklist link to all MRs that need it."""
+        print("Checking open extension MRs to verify they link to their checklist")
         for issue_ref, mr_num in self.issue_to_mr.items():
             merge_request: gitlab.v4.objects.ProjectMergeRequest = (
                 self.proj.mergerequests.get(mr_num)
             )
+            if merge_request.state != "opened":
+                # only touch open MRs
+                continue
+
             new_front = f"Release checklist: {issue_ref}"
             prepend = f"{new_front}\n\n"
-            if merge_request.description == new_front:
+            if merge_request.description.strip() == new_front:
                 # minimal MR desc
                 continue
-            matches = _CHECKLIST_RE.findall(merge_request.description)
-            if not matches:
+            match = _CHECKLIST_RE.search(merge_request.description)
+            if not match:
                 url = merge_request.attributes["web_url"]
                 print(f"MR does not mention its issue: {url}")
                 if merge_request.attributes["state"] not in ("closed", "merged"):
@@ -387,11 +395,19 @@ class ReleaseChecklistCollection:
                     print(merge_request.description)
                     merge_request.save()
             else:
-                if not matches[0].startswith(new_front):
+                new_desc = (
+                    prepend
+                    + _CHECKLIST_RE.sub("", merge_request.description, 1).strip()
+                )
+                print(
+                    "did we start with new front",
+                    match.group("line").startswith(new_front),
+                )
+                # if new_desc != merge_request.description.strip():
+                if not match.group("line").startswith(new_front):
                     print(f"Updating MR {merge_request.get_id()} description")
-                    merge_request.description = _CHECKLIST_RE.sub(
-                        prepend, merge_request.description, 1
-                    )
+
+                    merge_request.description = new_desc
                     merge_request.save()
 
 
