@@ -455,32 +455,6 @@ if __name__ == "__main__":
         checklist_factory=ReleaseChecklistFactory(operations_proj),
         vendor_names=VendorNames(main_proj),
     )
-    # from pprint import pprint
-
-    # pprint(collection.issue_to_mr)
-    # pprint(collection.mr_to_issue)
-    # collection.handle_mr_if_needed(2208)
-    # collection.handle_mr_if_needed(2288)
-    # collection.handle_mr_if_needed(2299)
-    # collection.handle_mr_if_needed(2312)
-    # collection.handle_mr_if_needed(2313)
-    # collection.handle_mr_if_needed(2329)
-    # collection.handle_mr_if_needed(2331)
-    # collection.handle_mr_if_needed(2332)
-    # collection.handle_mr_if_needed(2334)
-    # collection.handle_mr_if_needed(2336)
-    # collection.handle_mr_if_needed(2339)
-    # collection.handle_mr_if_needed(2344)
-    # collection.handle_mr_if_needed(2347)
-    # collection.handle_mr_if_needed(2349)
-    # collection.handle_mr_if_needed(2344)
-    # collection.handle_mr_if_needed(2385)
-    # collection.handle_mr_if_needed(2377)
-    # collection.handle_mr_if_needed(2407)
-    # collection.handle_mr_if_needed(2138)
-    # collection.handle_mr_if_needed(2410)
-    # collection.handle_mr_if_needed(2555)
-    # collection.update_mr_desc()
 
     kwargs = {}
     if "extname" in args and args.extname:
