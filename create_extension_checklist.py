@@ -342,28 +342,6 @@ class ChecklistData:
         self.add_mr_labels()
 
 
-def _get_issues_to_mr(
-    proj: gitlab.v4.objects.Project, ops_proj: gitlab.v4.objects.Project
-) -> Tuple[Dict[str, int], Dict[int, gitlab.v4.objects.ProjectIssue]]:
-    issue_to_mr = {}
-    mr_to_issue_object: Dict[int, gitlab.v4.objects.ProjectIssue] = {}
-    for issue in itertools.chain(
-        proj.issues.list(labels="Release Checklist", state="opened", iterator=True),
-        ops_proj.issues.list(state="opened", iterator=True),
-    ):
-        issue = cast(gitlab.v4.objects.ProjectIssue, issue)
-        match_iter = _MAIN_MR_RE.finditer(issue.attributes["description"])
-        match = next(match_iter, None)
-        if not match:
-            print("Release checklist has no MR indicated:", issue.attributes["web_url"])
-            continue
-
-        mr_num = int(match.group("mrnum"))
-        issue_to_mr[issue.attributes["references"]["full"]] = mr_num
-        mr_to_issue_object[mr_num] = issue
-    return issue_to_mr, mr_to_issue_object
-
-
 class ReleaseChecklistCollection:
     """The main object associating checklists and MRs."""
 
@@ -374,15 +352,36 @@ class ReleaseChecklistCollection:
         """Operations project containing (some) release checklists"""
         self.checklist_factory: ReleaseChecklistFactory = checklist_factory
         self.vendor_names: VendorNames = vendor_names
-        issue_ref_to_mr, mr_to_issue_object = _get_issues_to_mr(proj, ops_proj)
-        self.issue_to_mr: Dict[str, int] = issue_ref_to_mr
 
-        self.mr_to_issue_object: Dict[
-            int, gitlab.v4.objects.ProjectIssue
-        ] = mr_to_issue_object
-        self.mr_to_issue: Dict[int, str] = {
-            mr: issue for issue, mr in self.issue_to_mr.items()
-        }
+        self.issue_to_mr: Dict[str, int] = {}
+        self.mr_to_issue_object: Dict[int, gitlab.v4.objects.ProjectIssue] = {}
+        self.mr_to_issue: Dict[int, str] = {}
+
+        print("Parsing all opened release checklists...")
+        for issue in itertools.chain(
+            self.proj.issues.list(
+                labels="Release Checklist", state="opened", iterator=True
+            ),
+            ops_proj.issues.list(state="opened", iterator=True),
+        ):
+            issue = cast(gitlab.v4.objects.ProjectIssue, issue)
+            match_iter = _MAIN_MR_RE.finditer(issue.attributes["description"])
+            match = next(match_iter, None)
+            if not match:
+                print(
+                    "Release checklist has no MR indicated:",
+                    issue.attributes["web_url"],
+                )
+                continue
+
+            mr_num = int(match.group("mrnum"))
+            issue_ref = issue.attributes["references"]["full"]
+            self.issue_to_mr[issue_ref] = mr_num
+            self.mr_to_issue_object[mr_num] = issue
+            self.mr_to_issue[mr_num] = issue_ref
+        print(
+            "Found", len(self.issue_to_mr), "open release checklists with associated MR"
+        )
 
     def mr_has_checklist(self, mr_num):
         """Return true if the MR already has a checklist."""
@@ -390,15 +389,16 @@ class ReleaseChecklistCollection:
 
     def handle_mr_if_needed(self, mr_num, **kwargs):
         """Create a release checklist issue if one is not already created for this MR."""
-        if mr_num not in self.mr_to_issue:
-            data = ChecklistData.lookup(self.proj, mr_num, **kwargs)
-            data.handle_mr(self.ops_proj, self.vendor_names, self.checklist_factory)
-            assert data.checklist_issue
-            issue_ref = data.checklist_issue.attributes["references"]["full"]
-            self.mr_to_issue[mr_num] = issue_ref
-            self.issue_to_mr[issue_ref] = mr_num
-        else:
+        if mr_num in self.mr_to_issue:
             print(mr_num, "already processed")
+            return
+
+        data = ChecklistData.lookup(self.proj, mr_num, **kwargs)
+        data.handle_mr(self.ops_proj, self.vendor_names, self.checklist_factory)
+        assert data.checklist_issue
+        issue_ref = data.checklist_issue.attributes["references"]["full"]
+        self.mr_to_issue[mr_num] = issue_ref
+        self.issue_to_mr[issue_ref] = mr_num
 
     def update_mr_labels(self):
         """Update the labels on the emrge requests if needed."""
@@ -421,7 +421,7 @@ class ReleaseChecklistCollection:
                 print("Updating labels on MR", mr_num)
                 merge_request.save()
 
-    def update_mr_desc(self):
+    def update_mr_descriptions(self):
         """Prepend the release checklist link to all MRs that need it."""
         print("Checking open extension MRs to verify they link to their checklist")
         for issue_ref, mr_num in self.issue_to_mr.items():
