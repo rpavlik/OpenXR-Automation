@@ -33,6 +33,7 @@ SKIP_RELATED_MR_LOOKUP = {
     "#1950",
     "#1460",
     "#2072",  # catch2 test number, etc mismatch
+    "!3053",  # 1.1 candidate
 }
 
 
@@ -41,6 +42,7 @@ def main(in_filename, out_filename):
 
     log = logging.getLogger(__name__)
     work = WorkUnitCollection()
+    work.do_not_merge = SKIP_RELATED_MR_LOOKUP
 
     gl = gitlab.Gitlab(
         url=os.environ["GL_URL"], private_token=os.environ["GL_ACCESS_TOKEN"]

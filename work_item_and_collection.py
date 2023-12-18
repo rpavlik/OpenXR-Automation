@@ -146,6 +146,9 @@ class WorkUnitCollection:
     items_by_ref: Dict[str, WorkUnit] = dataclasses.field(default_factory=dict)
     items: List[WorkUnit] = dataclasses.field(default_factory=list)
 
+    do_not_merge: Set[str] = dataclasses.field(default_factory=set)
+    """Refs that should not be fully parsed/merged"""
+
     def _add_item(
         self,
         api_item: Union[ProjectIssue, ProjectMergeRequest],
@@ -153,6 +156,12 @@ class WorkUnitCollection:
         log = logging.getLogger(__name__)
         short_ref = get_short_ref(api_item)
         if short_ref in self.items_by_ref:
+            return None
+        if short_ref in self.do_not_merge:
+            log.info(
+                "WorkUnitCollection: Not adding item for %s - in do_not_merge",
+                short_ref,
+            )
             return None
         item = WorkUnit(key_item=api_item)
         self.items.append(item)
@@ -207,11 +216,19 @@ class WorkUnitCollection:
         return None
 
     def get_items_for_refs(self, refs: Sequence[str]) -> List[WorkUnit]:
+        """Return a list of all unique WorkUnits that the refs belong to."""
         log = logging.getLogger(__name__)
         retrieved_items: List[WorkUnit] = []
         retrieved_key_refs: Set[str] = set()
         log.debug("Getting items for refs %s", str(refs))
         for ref in refs:
+            if ref in self.do_not_merge:
+                log.info(
+                    "WorkUnitCollection.get_items_for_refs: Not returning WorkUnit "
+                    "for %s - in do_not_merge",
+                    ref,
+                )
+                continue
             if ref not in self.items_by_ref:
                 # this ref not known already
                 log.debug("We don't yet know about %s", ref)
@@ -259,7 +276,7 @@ class WorkUnitCollection:
 
         # OK, nothing in common with existing items
         # Make an item for the first ref
-        ref = refs[0]
+        ref = [r for r in refs if r not in self.do_not_merge][0]
         ref_type = ReferenceType.parse_short_reference(ref)
         ref_num = int(ref[1:])
 
@@ -394,7 +411,6 @@ class WorkUnitCollection:
         self._merge_two_workunits(item, other)
 
     def merge_many_workunits(self, items: Sequence[WorkUnit]):
-
         log = logging.getLogger(__name__)
 
         deduplicated = []
