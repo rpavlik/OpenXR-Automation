@@ -68,6 +68,8 @@ def main():
                 log.warning("Failed trying to add/check for checklist: %s", str(e))
                 continue
 
+    collection.update_mr_descriptions()
+
 
 if __name__ == "__main__":
     from dotenv import load_dotenv
