@@ -101,7 +101,7 @@ def main(in_filename, out_filename):
         work.add_refs(proj, [ref])
 
     log.info("Updating board with the latest data")
-    update_board(
+    updated = update_board(
         work,
         existing_board,
         list_titles_to_skip_adding_to=[ListName.DONE],
@@ -113,6 +113,11 @@ def main(in_filename, out_filename):
     log.info("Writing output file %s", out_filename)
     with open(out_filename, "w", encoding="utf-8") as fp:
         json.dump(existing_board, fp, indent=4)
+
+    if updated:
+        log.info("Board contents have been changed.")
+    else:
+        log.info("No changes to board, output is the same data as input.")
 
 
 if __name__ == "__main__":
