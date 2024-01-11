@@ -248,8 +248,12 @@ def update_board(
     list_guesser: Callable[[WorkUnit], str] = guess_list,
     list_titles_to_skip_adding_to=None,
     project: Optional[gitlab.v4.objects.Project] = None,
-):
-    """Update the JSON data for a nullboard kanban board"""
+) -> bool:
+    """
+    Update the JSON data for a nullboard kanban board.
+
+    Returns True if any changes were made.
+    """
     log = logging.getLogger(__name__)
 
     if project is not None:
@@ -258,6 +262,8 @@ def update_board(
 
     # the refs for all items used to update an existing note
     existing: Set[str] = set()
+
+    changed = False
 
     deleted_any = False
     # Go through all existing lists
@@ -307,9 +313,11 @@ def update_board(
             merged_text = merge_note(old_text, parse_note(new_text))
             if old_text != merged_text:
                 log.info("Updated text for %s", refs[0])
+                changed = True
                 note["text"] = merged_text
 
     if deleted_any:
+        changed = True
         remove_marked_for_deletion(board)
 
     # Decide what list to put the leftovers in
@@ -319,6 +327,7 @@ def update_board(
         if item.ref in existing:
             # we already did this
             continue
+        changed = True
         log.info("New item for %s", item.title)
         note = {"text": note_text_maker(item)}
         list_name = item.list_name or list_guesser(item)
@@ -339,11 +348,15 @@ def update_board(
             handled_lists.add(title)
             notelist["notes"].extend(all_new[title])
             log.info("Added new items to %s", title)
+            changed = True
 
     # Add any missing lists
     missing_lists = set(all_new.keys()) - handled_lists
     for missing_title in missing_lists:
         log.info("Added new list %s", missing_title)
+        changed = True
         board["lists"].append({"title": missing_title, "notes": all_new[missing_title]})
 
-    board["revision"] = board["revision"] + 1
+    if changed:
+        board["revision"] = board["revision"] + 1
+    return changed
