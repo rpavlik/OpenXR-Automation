@@ -8,13 +8,14 @@
 
 from dataclasses import dataclass
 import itertools
-import os
 import re
 from typing import Dict, Optional, cast
 import xml.etree.ElementTree as etree
 
 import gitlab
 import gitlab.v4.objects
+
+from openxr import OpenXRGitlab
 
 _MAIN_MR_RE = re.compile(
     r"Main extension MR:\s*(openxr!|!|https://gitlab.khronos.org/openxr/openxr/-/merge_requests/)(?P<mrnum>[0-9]+)"
@@ -482,19 +483,14 @@ if __name__ == "__main__":
 
     args = parser.parse_args()
 
-    gl = gitlab.Gitlab(
-        url=os.environ["GL_URL"], private_token=os.environ["GL_ACCESS_TOKEN"]
-    )
-
-    main_proj = gl.projects.get("openxr/openxr")
-    operations_proj = gl.projects.get("openxr/openxr-operations")
+    oxr = OpenXRGitlab.create()
 
     print("Performing startup queries")
     collection = ReleaseChecklistCollection(
-        main_proj,
-        operations_proj,
-        checklist_factory=ReleaseChecklistFactory(operations_proj),
-        vendor_names=VendorNames(main_proj),
+        oxr.main_proj,
+        oxr.operations_proj,
+        checklist_factory=ReleaseChecklistFactory(oxr.operations_proj),
+        vendor_names=VendorNames(oxr.main_proj),
     )
 
     kwargs = {}
