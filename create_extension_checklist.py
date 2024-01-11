@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# Copyright 2022, Collabora, Ltd.
+# Copyright 2022-2024, Collabora, Ltd.
 #
 # SPDX-License-Identifier: BSL-1.0
 #
@@ -10,7 +10,7 @@ from dataclasses import dataclass
 import itertools
 import os
 import re
-from typing import Dict, Optional, Tuple, cast
+from typing import Dict, Optional, cast
 import xml.etree.ElementTree as etree
 
 import gitlab
@@ -401,7 +401,7 @@ class ReleaseChecklistCollection:
         self.issue_to_mr[issue_ref] = mr_num
 
     def update_mr_labels(self):
-        """Update the labels on the emrge requests if needed."""
+        """Update the labels on the merge requests if needed."""
         print("Checking open extension MRs to verify their labels")
         for mr_num, issue in self.mr_to_issue_object.items():
             merge_request: gitlab.v4.objects.ProjectMergeRequest = (
@@ -451,11 +451,7 @@ class ReleaseChecklistCollection:
                     prepend
                     + _CHECKLIST_RE.sub("", merge_request.description, 1).strip()
                 )
-                print(
-                    "did we start with new front",
-                    match.group("line").startswith(new_front),
-                )
-                # if new_desc != merge_request.description.strip():
+
                 if not match.group("line").startswith(new_front):
                     print(f"Updating MR {merge_request.get_id()} description")
 
