@@ -27,12 +27,13 @@ class ColumnName(Enum):
 
     INACTIVE = "status:Inactive"
     INITIAL_COMPOSITION = "status:InitialComposition"
+    NEEDS_REVIEW = "status:NeedsReview"
+    NEEDS_REVISION = "status:NeedsRevision"
+    NEEDS_OTHER = "status:NeedsOther"
     NEEDS_CHAMPION_APPROVAL_OR_RATIFICATION = (
         "status:NeedsChampionApprovalOrRatification"
     )
-    NEEDS_OTHER = "status:NeedsOther"
-    NEEDS_REVIEW = "status:NeedsReview"
-    NEEDS_REVISION = "status:NeedsRevision"
+    FROZEN_NEEDS_IMPL_OR_CTS = "status:FrozenNeedsImplOrCTS"
     RELEASE_PENDING = "status:ReleasePending"
 
     @classmethod
