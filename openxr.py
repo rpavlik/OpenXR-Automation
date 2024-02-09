@@ -24,6 +24,7 @@ class OpenXRGitlab:
 
     gl: gitlab.Gitlab
 
+    group: gitlab.v4.objects.Group
     main_proj: gitlab.v4.objects.Project
     operations_proj: gitlab.v4.objects.Project
 
@@ -37,6 +38,9 @@ class OpenXRGitlab:
             url=os.environ["GL_URL"], private_token=os.environ["GL_ACCESS_TOKEN"]
         )
 
+        group = gl.groups.get(GROUP_NAME)
         main_proj = gl.projects.get(MAIN_PROJECT_NAME)
         operations_proj = gl.projects.get(OPERATIONS_PROJECT_NAME)
-        return cls(gl=gl, main_proj=main_proj, operations_proj=operations_proj)
+        return cls(
+            gl=gl, group=group, main_proj=main_proj, operations_proj=operations_proj
+        )
