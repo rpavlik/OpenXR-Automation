@@ -29,11 +29,11 @@ class ColumnName(Enum):
     INITIAL_COMPOSITION = "status:InitialComposition"
     NEEDS_REVIEW = "status:NeedsReview"
     NEEDS_REVISION = "status:NeedsRevision"
-    NEEDS_OTHER = "status:NeedsOther"
+    FROZEN_NEEDS_IMPL_OR_CTS = "status:FrozenNeedsImplOrCTS"
     NEEDS_CHAMPION_APPROVAL_OR_RATIFICATION = (
         "status:NeedsChampionApprovalOrRatification"
     )
-    FROZEN_NEEDS_IMPL_OR_CTS = "status:FrozenNeedsImplOrCTS"
+    NEEDS_OTHER = "status:NeedsOther"
     RELEASE_PENDING = "status:ReleasePending"
 
     @classmethod
