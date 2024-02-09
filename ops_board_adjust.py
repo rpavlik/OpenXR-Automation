@@ -21,6 +21,8 @@ _FIND_MR_RE = re.compile(
 
 _ISSUE_TITLE_FIXING = re.compile(r"Release [Cc]hecklist for ")
 
+INITIAL_REVIEW_COMPLETE = "initial-review-complete"
+
 
 class ColumnName(Enum):
     """Board columns and their associated labels."""
@@ -164,6 +166,13 @@ class OpsBoardProcessing:
             log.warning("No main MR found?")
 
         new_labels = column.compute_new_labels(labels)
+        if (
+            ColumnName.NEEDS_REVISION.value in new_labels
+            and INITIAL_REVIEW_COMPLETE not in new_labels
+        ):
+            # If it's in needs-revision, that means it got reviewed.
+            new_labels.append(INITIAL_REVIEW_COMPLETE)
+
         if new_labels != labels:
             self.log_title()
             log.info("%s", repr(new_labels))
