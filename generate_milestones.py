@@ -6,9 +6,44 @@
 # Author: Rylie Pavlik <rylie.pavlik@collabora.com>
 
 import datetime
-from typing import Optional
+from typing import Any, Iterable, Optional
 
 from openxr import OpenXRGitlab
+
+
+def generate_milestone(
+    oxr: OpenXRGitlab,
+    title_prefix: str,
+    description: str,
+    milestones: Iterable[Any],
+    freeze: Optional[datetime.date] = None,
+    due_date: Optional[datetime.date] = None,
+):
+
+    if freeze:
+        desired_title = f"{title_prefix} - freeze {freeze.strftime('%d-%b')}"
+    else:
+        desired_title = title_prefix
+
+    matching_milestone = [m for m in milestones if m.title.startswith(title_prefix)]
+
+    if matching_milestone:
+        milestone = matching_milestone[0]
+        print(f"Found milestone: {milestone.title}")
+        if freeze and due_date and milestone.title != desired_title:
+            # We should add the freeze date and due date
+            print(f"Adding freeze date to title: {desired_title}")
+            new_data = {"due_date": due_date.isoformat(), "title": desired_title}
+            oxr.group.milestones.update(id=milestone.get_id(), new_data=new_data)
+    else:
+        print("Creating milestone:", desired_title)
+        data = {
+            "title": desired_title,
+            "description": description,
+        }
+        if due_date:
+            data["due_date"] = due_date.isoformat()
+        oxr.group.milestones.create(data=data)
 
 
 def generate_milestones(
@@ -19,56 +54,37 @@ def generate_milestones(
     freeze: Optional[datetime.date] = None,
 ):
     ver = f"{major}.{minor}.{patch}"
+    # Titles without freeze date
     release_milestone_title = f"{ver} release"
     cts_release_milestone_title = f"Conformance {ver}.0 release"
 
-    desired_release_title = release_milestone_title
-    due_date = None
+    due_date: Optional[datetime.date] = None
+    cts_freeze: Optional[datetime.date] = None
     if freeze:
-        desired_release_title = (
-            f"{release_milestone_title} - freeze {freeze.strftime('%d-%b')}"
-        )
-        due_date = (freeze + datetime.timedelta(days=7)).isoformat()
+
+        due_date = freeze + datetime.timedelta(days=7)
+
+        cts_freeze = freeze + datetime.timedelta(days=14)
 
     print(f"Looking for milestones mentioning '{release_milestone_title}'")
     milestones = oxr.group.milestones.list(search=release_milestone_title, all=True)
 
-    spec_release_milestone = [
-        m for m in milestones if m.title.startswith(release_milestone_title)
-    ]
-
-    cts_release_milestone = [
-        m for m in milestones if m.title.startswith(cts_release_milestone_title)
-    ]
-
-    if spec_release_milestone:
-        milestone = spec_release_milestone[0]
-        print(f"Found spec milestone: {milestone.title}")
-        if freeze and due_date and milestone.title != desired_release_title:
-            # We should add the freeze date
-            print("Adding freeze date to title")
-            new_data = {"due_date": due_date, "title": desired_release_title}
-            oxr.group.milestones.update(id=milestone.get_id(), new_data=new_data)
-    else:
-        print("Creating spec release milestone")
-        data = {
-            "title": desired_release_title,
-            "description": f"Spec patch release {ver}",
-        }
-        if freeze and due_date:
-            data["due_date"] = due_date
-        oxr.group.milestones.create(data=data)
-
-    if cts_release_milestone:
-        print(f"Found CTS milestone: {cts_release_milestone[0].title}")
-    else:
-        print("Creating CTS release milestone")
-        oxr.group.milestones.create(
-            data={
-                "title": cts_release_milestone_title,
-                "description": f"Conformance test suite release {ver}.0",
-            }
-        )
+    generate_milestone(
+        oxr,
+        release_milestone_title,
+        f"Spec patch release {ver}",
+        milestones,
+        freeze,
+        due_date,
+    )
+    generate_milestone(
+        oxr,
+        cts_release_milestone_title,
+        f"Conformance test suite release {ver}.0",
+        milestones,
+        freeze=cts_freeze,
+        due_date=cts_freeze,
+    )
 
 
 if __name__ == "__main__":
