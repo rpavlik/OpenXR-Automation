@@ -97,6 +97,9 @@ def main(in_filename, out_filename):
     ):
         proj_mr = cast(gitlab.v4.objects.ProjectMergeRequest, mr)
         ref = get_short_ref(proj_mr)
+        if "release candidate" in proj_mr.title.casefold():
+            log.info("Skipping release candidate MR %s: %s", ref, proj_mr.title)
+            continue
         log.info("GitLab MR Search: %s: %s", ref, proj_mr.title)
         work.add_refs(proj, [ref])
 
