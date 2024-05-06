@@ -5,6 +5,7 @@
 #
 # Author: Rylie Pavlik <rylie.pavlik@collabora.com>
 
+import argparse
 import os
 from datetime import datetime, timedelta
 import gitlab
@@ -41,14 +42,14 @@ STALE_THRESHOLD = datetime.now() - timedelta(days = 21)
 class engineComments:
    title  = "Needs Comments - Engine"
    type   = [ISSUE, MERGE]
-   format = SIMPLE
+   format = COMBO
    includeLabels = [COMMENTS_ENGINE]
    excludeLabels = [NEEDS_MEETING]
 
 class runtimeComments:
    title  = "Needs Comments - Runtime"
    type   = [ISSUE, MERGE]
-   format = SIMPLE
+   format = COMBO
    includeLabels = [COMMENTS_RUNTIME]
    excludeLabels = [NEEDS_MEETING, COMMENTS_ENGINE]
 
@@ -92,6 +93,10 @@ class parsedData:
    createDate = []
    notes = []
    type = []
+
+class Options:
+   def __init__(self, use_short_format):
+      self.use_short_format = use_short_format
 
 # returns the labeled list of issues and merges sorted by updated date
 def get_labeled_issues_mrs(proj, labels):
@@ -144,8 +149,9 @@ def parsedata(obj):
 
    return parsedData
 
+
 # prints the data to file
-def mdprint(format, content, extras = None):
+def mdprint_full(format, content, extras = None):
    # format for the needs comments
    if(format == SIMPLE):
       for obj in content:
@@ -186,8 +192,59 @@ def mdprint(format, content, extras = None):
          txt = parsedata(obj)
          print("|" + txt.ref + "|" + txt.title + "|" + txt.author + "|" + txt.assignee + "|" + txt.thumbs + "|" + txt.labels + "|" + txt.createat + "|" + txt.updateat + "|" + txt.notes + "|")
 
+
+
+# prints the data to file
+def mdprint_short(format, content, extras = None):
+   # format for the needs comments
+   if(format == SIMPLE):
+      for obj in content:
+         txt = parsedata(obj)
+         print("- " + txt.ref + " - " + txt.title)
+      # attach issues after merges
+      if(extras != None):
+         for obj in extras:
+            txt = parsedata(obj)
+            print("- " + txt.ref + " - " + txt.title)
+
+   # format for github and vendor
+   elif(format == COMBO):
+      print("|Ref|Title|Type|Author|")
+      print("|---|-----|----|------|")
+      for obj in content:
+         txt = parsedata(obj)
+         print("|" + txt.ref + "|" + txt.title + "|" + txt.type + "|" + txt.author + "|")
+      # attach issues after merges
+      if(extras != None):
+         for obj in extras:
+            txt = parsedata(obj)
+            print("|" + txt.ref + "|" + txt.title + "|" + txt.type + "|" + txt.author + "|")
+
+   # format for meeting issues
+   elif(format == ISSUE):
+      print("|Ref|Title|Author|")
+      print("|---|-----|------|")
+      for obj in content:
+         txt = parsedata(obj)
+         print("|" + txt.ref + "|" + txt.title + "|" + txt.author + "|")
+
+   # format for meeting merges
+   elif(format == MERGE):
+      print("|Ref|Title|Author|")
+      print("|---|-----|------|")
+      for obj in content:
+         txt = parsedata(obj)
+         print("|" + txt.ref + "|" + txt.title + "|" + txt.author + "|")
+
+
+def mdprint(format, content, extras = None, options = Options(False)):
+   if options.use_short_format:
+      mdprint_short(format, content, extras)
+   else:
+      mdprint_full(format, content, extras)
+
 # takes a class and generates the agenda
-def agenda_from_class(proj, myclass):
+def agenda_from_class(proj, myclass, options):
    issues = []
    merges = []
    for type in myclass.type:
@@ -203,29 +260,38 @@ def agenda_from_class(proj, myclass):
    if((issues == []) and (merges == [])): # when both are blank we simply print "None"
       print("None")
    elif(issues == []): # add merges to agenda
-      mdprint(myclass.format, merges)
+      mdprint(myclass.format, merges, None, options)
    elif(merges == []): # add issues to agenda
-      mdprint(myclass.format, issues)
+      mdprint(myclass.format, issues, None, options)
    else: # add mrs first then issues
-      mdprint(myclass.format, merges, issues)
+      mdprint(myclass.format, merges, issues, options)
 
 # print using stdout >
 def main():
-    # connect to Gitlab
-    gl = gitlab.Gitlab(
-         url=os.environ["GL_URL"],
-         private_token=os.environ["GL_ACCESS_TOKEN"]
-    )
-    gl.auth()
-    proj = gl.projects.get("openxr/openxr")
+   # connect to Gitlab
+   gl = gitlab.Gitlab(
+      url=os.environ["GL_URL"],
+      private_token=os.environ["GL_ACCESS_TOKEN"]
+   )
+   gl.auth()
+   proj = gl.projects.get("openxr/openxr")
 
-    # process each class in the agenda order
-    agenda_from_class(proj, engineComments)
-    agenda_from_class(proj, runtimeComments)
-    agenda_from_class(proj, meetingMerges)
-    agenda_from_class(proj, meetingIssues)
-    agenda_from_class(proj, fromGithub)
-    agenda_from_class(proj, vendor)
+   parser = argparse.ArgumentParser(
+      prog='openxr_agenda',
+      description='generate openxr agenda')
+
+   parser.add_argument('-short', '-s', action="store_true", help="Use short format tables")
+
+   args = parser.parse_args()
+   options = Options(args.short)
+
+   # process each class in the agenda order
+   agenda_from_class(proj, engineComments, options)
+   agenda_from_class(proj, runtimeComments, options)
+   agenda_from_class(proj, meetingMerges, options)
+   agenda_from_class(proj, meetingIssues, options)
+   agenda_from_class(proj, fromGithub, options)
+   agenda_from_class(proj, vendor, options)
 
 if __name__ == "__main__":
     main()
