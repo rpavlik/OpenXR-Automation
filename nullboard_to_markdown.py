@@ -5,9 +5,9 @@
 #
 # Author: Rylie Pavlik <rylie.pavlik@collabora.com>
 
-from dataclasses import dataclass, field
 import json
 import logging
+from dataclasses import dataclass, field
 from typing import Dict, List, Optional
 
 

@@ -5,10 +5,10 @@
 #
 # Author: Rylie Pavlik <rylie.pavlik@collabora.com>
 
-from dataclasses import dataclass
 import logging
 import re
 import time
+from dataclasses import dataclass
 from typing import Any, Callable, Dict, Generator, List, Optional, Set, Tuple, Union
 
 import gitlab

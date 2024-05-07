@@ -5,8 +5,8 @@
 #
 # Author: Rylie Pavlik <rylie.pavlik@collabora.com>
 
-from dataclasses import dataclass
 import os
+from dataclasses import dataclass
 
 import gitlab
 import gitlab.v4.objects
