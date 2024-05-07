@@ -347,9 +347,9 @@ class ReleaseChecklistCollection:
     """The main object associating checklists and MRs."""
 
     def __init__(self, proj, ops_proj, checklist_factory, vendor_names):
-        self.proj = proj
+        self.proj: gitlab.v4.objects.Project = proj
         """Main project"""
-        self.ops_proj = ops_proj
+        self.ops_proj: gitlab.v4.objects.Project = ops_proj
         """Operations project containing (some) release checklists"""
         self.checklist_factory: ReleaseChecklistFactory = checklist_factory
         self.vendor_names: VendorNames = vendor_names
@@ -383,6 +383,14 @@ class ReleaseChecklistCollection:
         print(
             "Found", len(self.issue_to_mr), "open release checklists with associated MR"
         )
+
+    def issue_str_to_cached_issue_object(
+        self, issue_ref: str
+    ) -> Optional[gitlab.v4.objects.ProjectIssue]:
+        mr = self.issue_to_mr.get(issue_ref)
+        if mr is None:
+            return None
+        return self.mr_to_issue_object[mr]
 
     def mr_has_checklist(self, mr_num):
         """Return true if the MR already has a checklist."""
