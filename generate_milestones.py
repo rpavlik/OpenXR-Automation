@@ -19,7 +19,6 @@ def generate_milestone(
     freeze: Optional[datetime.date] = None,
     due_date: Optional[datetime.date] = None,
 ):
-
     if freeze:
         desired_title = f"{title_prefix} - freeze {freeze.strftime('%d-%b')}"
     else:
@@ -61,7 +60,6 @@ def generate_milestones(
     due_date: Optional[datetime.date] = None
     cts_freeze: Optional[datetime.date] = None
     if freeze:
-
         due_date = freeze + datetime.timedelta(days=7)
 
         cts_freeze = freeze + datetime.timedelta(days=14)

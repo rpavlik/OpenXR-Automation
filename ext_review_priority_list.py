@@ -6,18 +6,16 @@
 #
 # Author: Rylie Pavlik <rylie.pavlik@collabora.com>
 
-from collections import defaultdict
-from dataclasses import dataclass
 import datetime
 import re
 import sys
-from typing import List, Optional, cast
+from collections import defaultdict
+from dataclasses import dataclass
 from functools import cached_property
+from typing import List, Optional, cast
 
 import gitlab
 import gitlab.v4.objects
-
-from openxr import OpenXRGitlab
 
 from create_extension_checklist import (
     KHR_EXT_LABEL,
@@ -26,6 +24,7 @@ from create_extension_checklist import (
     ReleaseChecklistFactory,
     VendorNames,
 )
+from openxr import OpenXRGitlab
 
 _NEEDSREVIEW_LABEL = "status:NeedsReview"
 _INITIAL_COMPLETE = "initial-review-complete"
@@ -37,7 +36,6 @@ _EXT_DECOMP_RE = re.compile(r"XR_(?P<tag>[A-Z]+)_.*")
 
 @dataclass
 class ReleaseChecklistIssue:
-
     issue_obj: gitlab.v4.objects.ProjectIssue
 
     status: str
@@ -170,7 +168,6 @@ def load_needs_review(
 
 
 if __name__ == "__main__":
-
     oxr_gitlab = OpenXRGitlab.create()
 
     print("Performing startup queries", file=sys.stderr)

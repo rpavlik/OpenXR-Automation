@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# Copyright 2022-2023, Collabora, Ltd.
+# Copyright 2022-2024, Collabora, Ltd.
 #
 # SPDX-License-Identifier: BSL-1.0
 #
@@ -7,17 +7,19 @@
 
 import itertools
 import logging
-import os
 from typing import cast
+
 import gitlab
+
 from create_extension_checklist import (
     KHR_EXT_LABEL,
     VENDOR_EXT_LABEL,
-    VendorNames,
-    ReleaseChecklistFactory,
     ReleaseChecklistCollection,
+    ReleaseChecklistFactory,
+    VendorNames,
     get_extension_names_for_mr,
 )
+from openxr import OpenXRGitlab
 from work_item_and_collection import get_short_ref
 
 
@@ -25,24 +27,22 @@ def main():
     logging.basicConfig(level=logging.INFO)
 
     log = logging.getLogger(__name__)
-    gl = gitlab.Gitlab(
-        url=os.environ["GL_URL"], private_token=os.environ["GL_ACCESS_TOKEN"]
-    )
 
-    main_proj = gl.projects.get("openxr/openxr")
-    operations_proj = gl.projects.get("openxr/openxr-operations")
+    oxr_gitlab = OpenXRGitlab.create()
 
     log.info("Performing startup queries")
     collection = ReleaseChecklistCollection(
-        main_proj,
-        operations_proj,
-        checklist_factory=ReleaseChecklistFactory(operations_proj),
-        vendor_names=VendorNames(main_proj),
+        oxr_gitlab.main_proj,
+        oxr_gitlab.operations_proj,
+        checklist_factory=ReleaseChecklistFactory(oxr_gitlab.operations_proj),
+        vendor_names=VendorNames(oxr_gitlab.main_proj),
     )
 
     for mr in itertools.chain(
         *(
-            main_proj.mergerequests.list(labels=[label], state="opened", iterator=True)
+            oxr_gitlab.main_proj.mergerequests.list(
+                labels=[label], state="opened", iterator=True
+            )
             for label in (KHR_EXT_LABEL, VENDOR_EXT_LABEL)
         )
     ):

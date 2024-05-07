@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# Copyright 2022, Collabora, Ltd.
+# Copyright 2022-2024, Collabora, Ltd.
 #
 # SPDX-License-Identifier: BSL-1.0
 #
@@ -9,22 +9,14 @@
 import itertools
 import json
 import logging
-import os
 from typing import cast
 
 import gitlab
 import gitlab.v4.objects
-from dotenv import load_dotenv
 
-from nullboard_gitlab import (
-    ListName,
-    make_note_text,
-    parse_board,
-    update_board,
-)
+from nullboard_gitlab import ListName, make_note_text, parse_board, update_board
+from openxr import OpenXRGitlab
 from work_item_and_collection import WorkUnitCollection, get_short_ref
-
-load_dotenv()
 
 # List stuff that causes undesired merging here
 SKIP_RELATED_MR_LOOKUP = {
@@ -44,11 +36,9 @@ def main(in_filename, out_filename):
     work = WorkUnitCollection()
     work.do_not_merge = SKIP_RELATED_MR_LOOKUP
 
-    gl = gitlab.Gitlab(
-        url=os.environ["GL_URL"], private_token=os.environ["GL_ACCESS_TOKEN"]
-    )
+    oxr_gitlab = OpenXRGitlab.create()
 
-    proj = gl.projects.get("openxr/openxr")
+    proj = oxr_gitlab.main_proj
 
     log.info("Reading %s", in_filename)
     with open(in_filename, "r", encoding="utf-8") as fp:

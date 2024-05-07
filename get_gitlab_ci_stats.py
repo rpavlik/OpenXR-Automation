@@ -1,29 +1,20 @@
 #!/usr/bin/env python3
-# Copyright 2023, Collabora, Ltd.
+# Copyright 2023-2024, Collabora, Ltd.
 #
 # SPDX-License-Identifier: BSL-1.0
 #
 # Author: Rylie Pavlik <rylie.pavlik@collabora.com>
 
-import os
 import csv
 
-import gitlab
-import gitlab.v4.objects
+from openxr import OpenXRGitlab
 
 _MAX_JOB_ROWS = 2000
 _MAX_PIPELINE_ROWS = 1000
 
 if __name__ == "__main__":
-    from dotenv import load_dotenv
-
-    load_dotenv()
-
-    gl = gitlab.Gitlab(
-        url=os.environ["GL_URL"], private_token=os.environ["GL_ACCESS_TOKEN"]
-    )
-
-    main_proj = gl.projects.get("openxr/openxr")
+    oxr_gitlab = OpenXRGitlab.create()
+    main_proj = oxr_gitlab.main_proj
 
     with open("job_stats.csv", "w") as f:
         field_names = ["created", "duration", "status", "name", "web_url"]

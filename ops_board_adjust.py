@@ -1,19 +1,20 @@
 #!/usr/bin/env python3
-# Copyright 2022-2023, Collabora, Ltd.
+# Copyright 2022-2024, Collabora, Ltd.
 #
 # SPDX-License-Identifier: BSL-1.0
 #
 # Author: Rylie Pavlik <rylie.pavlik@collabora.com>
 """Process the operations board."""
 
-from enum import Enum
 import logging
-import os
-from typing import Iterable, Optional, cast
 import re
+from enum import Enum
+from typing import Iterable, Optional, cast
 
 import gitlab
 import gitlab.v4.objects
+
+from openxr import OpenXRGitlab
 
 _FIND_MR_RE = re.compile(
     r"Main extension MR:\s*((?P<proj>openxr|openxr/openxr)!|https://gitlab.khronos.org/openxr/openxr/-/merge_requests/)(?P<num>[0-9]+)"
@@ -185,16 +186,9 @@ class OpsBoardProcessing:
 
 
 if __name__ == "__main__":
-    from dotenv import load_dotenv
-
-    load_dotenv()
     logging.basicConfig(level=logging.INFO)
 
-    gl = gitlab.Gitlab(
-        url=os.environ["GL_URL"], private_token=os.environ["GL_ACCESS_TOKEN"]
-    )
-    ops_proj = gl.projects.get("openxr/openxr-operations")
-    main_proj = gl.projects.get("openxr/openxr")
+    oxr_gitlab = OpenXRGitlab.create()
 
-    app = OpsBoardProcessing(ops_proj, main_proj)
+    app = OpsBoardProcessing(oxr_gitlab.operations_proj, oxr_gitlab.main_proj)
     app.process_all()

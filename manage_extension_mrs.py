@@ -5,23 +5,17 @@
 #
 # Author: Rylie Pavlik <rylie.pavlik@collabora.com>
 
-import os
+import logging
 import sys
-
-import gitlab
-import gitlab.v4.objects
 
 from create_extension_checklist import (
     ReleaseChecklistCollection,
     ReleaseChecklistFactory,
     VendorNames,
 )
+from openxr import OpenXRGitlab
 
 if __name__ == "__main__":
-    from dotenv import load_dotenv
-
-    load_dotenv()
-
     import argparse
 
     parser = argparse.ArgumentParser()
@@ -37,25 +31,22 @@ if __name__ == "__main__":
     )
 
     args = parser.parse_args()
+    logging.basicConfig(level=logging.INFO)
+
+    log = logging.getLogger(__name__)
 
     if not any((args.update_descriptions, args.update_labels)):
-        print("Pass at least one command!\n")
+        log.error("Pass at least one command!\n")
         parser.print_help()
         sys.exit(1)
 
-    gl = gitlab.Gitlab(
-        url=os.environ["GL_URL"], private_token=os.environ["GL_ACCESS_TOKEN"]
-    )
-
-    main_proj = gl.projects.get("openxr/openxr")
-    operations_proj = gl.projects.get("openxr/openxr-operations")
-
-    print("Performing startup queries")
+    oxr_gitlab = OpenXRGitlab.create()
+    log.info("Performing startup queries")
     collection = ReleaseChecklistCollection(
-        main_proj,
-        operations_proj,
-        checklist_factory=ReleaseChecklistFactory(operations_proj),
-        vendor_names=VendorNames(main_proj),
+        oxr_gitlab.main_proj,
+        oxr_gitlab.operations_proj,
+        checklist_factory=ReleaseChecklistFactory(oxr_gitlab.operations_proj),
+        vendor_names=VendorNames(oxr_gitlab.main_proj),
     )
 
     if args.update_labels:

@@ -6,11 +6,11 @@
 # Author: Rylie Pavlik <rylie.pavlik@collabora.com>
 
 
-from dataclasses import dataclass
 import itertools
 import re
-from typing import Dict, Optional, cast
 import xml.etree.ElementTree as etree
+from dataclasses import dataclass
+from typing import Dict, Optional, cast
 
 import gitlab
 import gitlab.v4.objects
