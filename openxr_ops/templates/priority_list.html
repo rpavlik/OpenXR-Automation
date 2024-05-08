@@ -16,7 +16,7 @@ SPDX-License-Identifier: CC-BY-4.0
 {% endblock style %}
 {% macro output_slot_links(slots) -%}
 {% for slotindex in slots -%}
-<a href="#slot-{{ slotindex }}">{{ slotindex }}</a> {%- if not loop.last %}, {% endif %}
+<a href="#slot-{{ slotindex }}" title="{{ results.sorted_items[slotindex - 1].title }}">{{ slotindex }}</a> {%- if not loop.last %}, {% endif %}
 {%- endfor %}
 {%- endmacro %}
 {% block contents %}
