@@ -17,9 +17,9 @@ from typing import List, Optional, cast
 import gitlab
 import gitlab.v4.objects
 
-from openxr_ops.checklists import ReleaseChecklistCollection
-from openxr_ops.gitlab import KHR_EXT_LABEL, VENDOR_EXT_LABEL, OpenXRGitlab
-from openxr_ops.vendors import VendorNames
+from .checklists import ReleaseChecklistCollection
+from .gitlab import KHR_EXT_LABEL, VENDOR_EXT_LABEL, OpenXRGitlab
+from .vendors import VendorNames
 
 _NEEDSREVIEW_LABEL = "status:NeedsReview"
 _INITIAL_COMPLETE = "initial-review-complete"
@@ -231,7 +231,29 @@ class PriorityResults:
         )
 
 
+def make_html(results: PriorityResults, fn: str):
+    from jinja2 import Environment, PackageLoader, select_autoescape
+
+    env = Environment(
+        loader=PackageLoader("openxr_ops"),
+        autoescape=select_autoescape(),
+        extensions=["jinja_markdown.MarkdownExtension"],
+    )
+    template = env.get_template("priority_list.html")
+    with open(fn, "w", encoding="utf-8") as fp:
+        fp.write(template.render(results=results, now=_NOW))
+
+
 if __name__ == "__main__":
+
+    import argparse
+
+    parser = argparse.ArgumentParser()
+
+    parser.add_argument("--html", type=str, help="Output HTML to filename")
+
+    args = parser.parse_args()
+
     oxr_gitlab = OpenXRGitlab.create()
 
     print("Performing startup queries", file=sys.stderr)
@@ -239,16 +261,20 @@ if __name__ == "__main__":
         oxr_gitlab.main_proj,
         oxr_gitlab.operations_proj,
         checklist_factory=None,
-        vendor_names=VendorNames(oxr_gitlab.main_proj),
+        vendor_names=VendorNames.from_git(oxr_gitlab.main_proj),
     )
 
     items = load_needs_review(collection)
 
     results = PriorityResults.from_items(items)
 
-    print(results.list_markdown)
-    print("\n")
+    if args.html:
+        print("Outputting to HTML:", args.html)
+        make_html(results, args.html)
+    else:
+        print(results.list_markdown)
+        print("\n")
 
-    for vendor, slots in results.vendor_name_to_slots.items():
-        print(f"* {vendor} - slots {slots}")
-    print(f"* Unknown: {results.unknown_slots}")
+        for vendor, slots in results.vendor_name_to_slots.items():
+            print(f"* {vendor} - slots {slots}")
+        print(f"* Unknown: {results.unknown_slots}")

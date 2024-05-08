@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: CC0-1.0
-# SPDX-FileCopyrightText: 2022-2023, Collabora, Ltd.
+# SPDX-FileCopyrightText: 2022-2024, Collabora, Ltd.
 .*
 !.gitignore
 .vscode
@@ -16,3 +16,5 @@ __pycache__
 agenda.md
 gitlab_cache.sqlite
 !.mailmap
+
+/*.html

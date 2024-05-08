@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <title>OpenXR Extension Review Priority List</title>
+    </head>
+    <body>
+        <h1>OpenXR Extension Review Priority List</h1>
+        <p>
+            Generated {{ now }}
+        </p>
+        <section>
+            <h2>Extensions in needs-review by review priority order</h2>
+{% markdown %}
+{{ results.list_markdown }}
+{% endmarkdown %}
+        </section>
+        <section>
+            <h2>Extension review slots by vendor</h2>
+
+            <ul>
+            {% for vendor, slots in results.vendor_name_to_slots.items() %}
+                <li>{{ vendor }} - slots {{ slots | join(", ") }}</li>
+            {% endfor %}
+
+            {% if results.unknown_slots %}
+                <li>Unknown - slots {{ results.unknown_slots | join(", ") }}</li>
+            {% endif %}
+            </ul>
+
+        </section>
+    </body>
+</html>
