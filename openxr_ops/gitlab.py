@@ -11,6 +11,7 @@ from dataclasses import dataclass
 
 import gitlab
 import gitlab.v4.objects
+from requests_cache import Optional
 
 KHR_EXT_LABEL = "KHR_Extension"
 VENDOR_EXT_LABEL = "Vendor_Extension"
@@ -28,7 +29,7 @@ class OpenXRGitlab:
 
     gl: gitlab.Gitlab
 
-    group: gitlab.v4.objects.Group
+    group: Optional[gitlab.v4.objects.Group]
     main_proj: gitlab.v4.objects.Project
     operations_proj: gitlab.v4.objects.Project
 
@@ -46,12 +47,15 @@ class OpenXRGitlab:
 
         job_token = os.environ.get("CI_JOB_TOKEN")
         private_token = os.environ.get("GL_ACCESS_TOKEN")
+
+        group: Optional[gitlab.v4.objects.Group] = None
+
         if private_token:
             gl = gitlab.Gitlab(url=url, private_token=private_token)
+            group = gl.groups.get(GROUP_NAME)
         else:
             gl = gitlab.Gitlab(url=url, job_token=job_token)
 
-        group = gl.groups.get(GROUP_NAME)
         main_proj = gl.projects.get(MAIN_PROJECT_NAME)
         operations_proj = gl.projects.get(OPERATIONS_PROJECT_NAME)
         return cls(
