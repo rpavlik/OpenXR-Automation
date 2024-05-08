@@ -208,12 +208,12 @@ if __name__ == "__main__":
 
         print(
             f"""
-* {slot} - [{title}]({url}) [MR {mr_ref}]({mr_url}) {disc_resolved}
+* {slot} - [{title}]({url}) -  [MR {mr_ref}]({mr_url}) {disc_resolved}
   * Latency: {item.latency} days since last status change
   * Ops issue age: {item.ops_issue_age} days
   * MR age: {item.mr_age} days
   * Checklist: {completed_count} of {total_count} checked
-  * Labels: {item.issue_obj.labels}
+  * Labels: {', '.join(item.issue_obj.labels)}
 """.strip()
         )
         # * Sort key: {item.get_sort_key()}
