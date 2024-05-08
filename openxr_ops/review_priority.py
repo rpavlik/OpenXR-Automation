@@ -101,6 +101,30 @@ class ReleaseChecklistIssue:
             -self.latency,  # negate so largerst comes first
         )
 
+    @property
+    def checklist_completed_count(self) -> int:
+        return self.issue_obj.task_completion_status["completed_count"]
+
+    @property
+    def checklist_total_count(self) -> int:
+        return self.issue_obj.task_completion_status["count"]
+
+    @property
+    def title(self) -> str:
+        return self.issue_obj.title
+
+    @property
+    def url(self) -> str:
+        return self.issue_obj.web_url
+
+    @property
+    def mr_ref(self) -> str:
+        return self.mr.references["short"]
+
+    @property
+    def mr_url(self) -> str:
+        return self.mr.web_url
+
     @classmethod
     def create(
         cls,
@@ -169,8 +193,11 @@ class PriorityResults:
     list_markdown: str
     """The main list of priorities."""
 
+    sorted_items: list[ReleaseChecklistIssue]
+    """The release checklist items sorted in priority order."""
+
     vendor_name_to_slots: dict[str, list[int]]
-    """Maps vendor name to a list of slot numbers their extensions occupy"""
+    """Maps vendor name to a list of slot numbers their extensions occupy."""
 
     unknown_slots: list[int]
     """Slots occupied by extensions for which we could not guess the vendor."""
@@ -226,6 +253,7 @@ class PriorityResults:
 
         return cls(
             "\n".join(body_text),
+            sorted_items=sorted_items,
             vendor_name_to_slots=vendor_name_to_slots,
             unknown_slots=unknown_slots,
         )
@@ -237,7 +265,6 @@ def make_html(results: PriorityResults, fn: str):
     env = Environment(
         loader=PackageLoader("openxr_ops"),
         autoescape=select_autoescape(),
-        extensions=["jinja_markdown.MarkdownExtension"],
     )
     template = env.get_template("priority_list.html")
     with open(fn, "w", encoding="utf-8") as fp:

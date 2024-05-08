@@ -5,27 +5,48 @@ Copyright 2024, The Khronos Group Inc.
 SPDX-License-Identifier: CC-BY-4.0
 #}
 {% block title %}OpenXR Extension Review Priority List{% endblock %}
-
+{% block style %}
+{{ super() }}
+<style>
+    /* give our top level lists more room to breathe */
+    section>ul>li {
+        padding-top: 1em;
+    }
+</style>
+{% endblock style %}
 {% block contents %}
 <p>
     Generated {{ now }}
 </p>
 <section>
     <h2>Extensions in needs-review by review priority order</h2>
-    {% markdown -%}
-    {{- results.list_markdown }}
-    {% endmarkdown %}
+    <ul>
+        {% for item in results.sorted_items %}
+        <li>
+            Slot {{ loop.index }} - <a href="{{ item.url }}">{{ item.title }}</a>
+            - MR <a href="{{ item.mr_url }}">{{ item.mr_ref }}</a>
+            {% if not item.mr.blocking_discussions_resolved %} blocking discussions not resolved {% endif %}
+            <ul>
+                <li>Latency: {{ item.latency }} days since last status change</li>
+                <li>Ops issue age: {{ item.ops_issue_age }} days</li>
+                <li>MR age: {{ item.mr_age }} days</li>
+                <li>Checklist: {{ item.checklist_completed_count }} of {{ item.checklist_total_count }} checked</li>
+                <li>Labels: {{ item.issue_obj.labels | join(", ") }}</li>
+            </ul>
+        </li>
+        {% endfor %}
+    </ul>
 </section>
 <section>
     <h2>Extension review slots by vendor</h2>
 
     <ul>
         {% for vendor, slots in results.vendor_name_to_slots.items() %}
-        <li>{{ vendor }} - slots {{ slots | join(", ") }}</li>
+        <li>{{ vendor }} - {{ slots | join(", ") }}</li>
         {% endfor %}
 
         {% if results.unknown_slots %}
-        <li>Unknown - slots {{ results.unknown_slots | join(", ") }}</li>
+        <li>Unknown - {{ results.unknown_slots | join(", ") }}</li>
         {% endif %}
     </ul>
 
