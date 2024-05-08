@@ -248,7 +248,7 @@ class ChecklistData:
         self.merge_request.notes.create({"body": message})
 
         self.merge_request.description = (
-            f"Release checklist: {issue_link}\n\n" + self.merge_request.description
+            f"Release checklist: {issue_link}\n\n{self.merge_request.description}"
         )
         self.add_mr_labels()
 

@@ -112,7 +112,7 @@ class ReferenceType(Enum):
         for reftype in cls:
             if short_ref[0] == reftype.value:
                 return reftype
-        raise RuntimeError("Cannot detect reference type of" + short_ref)
+        raise RuntimeError(f"Cannot detect reference type of{short_ref}")
 
 
 def get_short_ref(api_item: Union[ProjectIssue, ProjectMergeRequest]) -> str:

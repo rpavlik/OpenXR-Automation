@@ -111,7 +111,7 @@ class NoteLine:
         if not matches:
             return NoteLine(s)
         if len(matches) > 1:
-            logging.warn("Found more than one ref in line: '" + s + "'")
+            logging.warn(f"Found more than one ref in line: '{s}'")
         return NoteLine(s, str(matches[0]))
 
 

@@ -143,7 +143,7 @@ class OpsBoardProcessing:
             mr_num = int(match.group("num"))
             mr = self.main_proj.mergerequests.get(mr_num)
             self.title = (
-                self.title + f": main MR: {mr.references['short']} aka <{mr.web_url}>"
+                f"{self.title}: main MR: {mr.references['short']} aka <{mr.web_url}>"
             )
 
         # Tidy up the title.

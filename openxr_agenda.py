@@ -148,13 +148,13 @@ def parsedata(obj):
         parsedData.type = "Issue"
     else:
         parsedData.type = "Merge"
-    parsedData.ref = "[" + ref + "](" + obj.web_url + ")"
+    parsedData.ref = f"[{ref}]({obj.web_url})"
     parsedData.title = obj.title
     author = obj.author["name"]
-    parsedData.author = "[" + author + "](" + obj.author["web_url"] + ")"
+    parsedData.author = f"[{author}]({obj.author['web_url']})"
     try:
         assignee = obj.assignee["name"]
-        parsedData.assignee = "[" + assignee + "](" + obj.assignee["web_url"] + ")"
+        parsedData.assignee = f"[{assignee}]({obj.assignee['web_url']})"
     except:
         parsedData.assignee = "None"
 
@@ -176,12 +176,12 @@ def mdprint(format, content, extras=None):
     if format == SIMPLE:
         for obj in content:
             txt = parsedata(obj)
-            print("- " + txt.ref + " - " + txt.title)
+            print(f"- {txt.ref} - {txt.title}")
         # attach issues after merges
         if extras != None:
             for obj in extras:
                 txt = parsedata(obj)
-                print("- " + txt.ref + " - " + txt.title)
+                print(f"- {txt.ref} - {txt.title}")
 
     # format for github and vendor
     elif format == COMBO:
@@ -321,7 +321,7 @@ def agenda_from_class(proj, myclass):
             )
             merges = remove_by_label(merges, myclass.excludeLabels)
 
-    print("\n## " + myclass.title)
+    print(f"\n## {myclass.title}")
     print()
     if (issues == []) and (merges == []):  # when both are blank we simply print "None"
         print("None")
