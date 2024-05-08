@@ -38,9 +38,18 @@ class OpenXRGitlab:
 
         load_dotenv()
 
-        gl = gitlab.Gitlab(
-            url=os.environ["GL_URL"], private_token=os.environ["GL_ACCESS_TOKEN"]
-        )
+        url = os.environ["CI_API_V4_URL"]
+        if not url:
+            url = os.environ["GL_URL"]
+        if "v4" in url:
+            url = url.removesuffix("/api/v4")
+
+        job_token = os.environ["CI_JOB_TOKEN"]
+        private_token = os.environ["GL_ACCESS_TOKEN"]
+        if job_token:
+            gl = gitlab.Gitlab(url=url, job_token=job_token)
+        else:
+            gl = gitlab.Gitlab(url=url, private_token=private_token)
 
         group = gl.groups.get(GROUP_NAME)
         main_proj = gl.projects.get(MAIN_PROJECT_NAME)
