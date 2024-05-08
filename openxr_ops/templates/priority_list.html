@@ -14,6 +14,11 @@ SPDX-License-Identifier: CC-BY-4.0
     }
 </style>
 {% endblock style %}
+{% macro output_slot_links(slots) -%}
+{% for slotindex in slots -%}
+<a href="#slot-{{ slotindex }}">{{ slotindex }}</a> {%- if not loop.last %}, {% endif %}
+{%- endfor %}
+{%- endmacro %}
 {% block contents %}
 <p>
     Generated {{ now }}
@@ -23,7 +28,7 @@ SPDX-License-Identifier: CC-BY-4.0
     <ul>
         {% for item in results.sorted_items %}
         <li>
-            Slot {{ loop.index }} - <a href="{{ item.url }}">{{ item.title }}</a>
+            <a id="slot-{{ loop.index }}"></a> Slot {{ loop.index }} - <a href="{{ item.url }}">{{ item.title }}</a>
             - MR <a href="{{ item.mr_url }}">{{ item.mr_ref }}</a>
             {% if not item.mr.blocking_discussions_resolved %} blocking discussions not resolved {% endif %}
             <ul>
@@ -42,11 +47,11 @@ SPDX-License-Identifier: CC-BY-4.0
 
     <ul>
         {% for vendor, slots in results.vendor_name_to_slots.items() %}
-        <li>{{ vendor }} - {{ slots | join(", ") }}</li>
+        <li>{{ vendor }} - {{ output_slot_links(slots) }}</li>
         {% endfor %}
 
         {% if results.unknown_slots %}
-        <li>Unknown - {{ results.unknown_slots | join(", ") }}</li>
+        <li>Unknown - {{ output_slot_links(results.unknown_slots) }}</li>
         {% endif %}
     </ul>
 
