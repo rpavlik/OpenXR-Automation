@@ -17,14 +17,10 @@ from typing import List, Optional, cast
 import gitlab
 import gitlab.v4.objects
 
-from create_extension_checklist import (
-    KHR_EXT_LABEL,
-    VENDOR_EXT_LABEL,
-    ReleaseChecklistCollection,
-    ReleaseChecklistFactory,
-    VendorNames,
-)
 from openxr import OpenXRGitlab
+from openxr_ops.checklists import ReleaseChecklistCollection
+from openxr_ops.gitlab import KHR_EXT_LABEL, VENDOR_EXT_LABEL
+from openxr_ops.vendors import VendorNames
 
 _NEEDSREVIEW_LABEL = "status:NeedsReview"
 _INITIAL_COMPLETE = "initial-review-complete"
@@ -242,7 +238,7 @@ if __name__ == "__main__":
     collection = ReleaseChecklistCollection(
         oxr_gitlab.main_proj,
         oxr_gitlab.operations_proj,
-        checklist_factory=ReleaseChecklistFactory(oxr_gitlab.operations_proj),
+        checklist_factory=None,
         vendor_names=VendorNames(oxr_gitlab.main_proj),
     )
 
