@@ -46,10 +46,10 @@ class OpenXRGitlab:
 
         job_token = os.environ.get("CI_JOB_TOKEN")
         private_token = os.environ.get("GL_ACCESS_TOKEN")
-        if job_token:
-            gl = gitlab.Gitlab(url=url, job_token=job_token)
-        else:
+        if private_token:
             gl = gitlab.Gitlab(url=url, private_token=private_token)
+        else:
+            gl = gitlab.Gitlab(url=url, job_token=job_token)
 
         group = gl.groups.get(GROUP_NAME)
         main_proj = gl.projects.get(MAIN_PROJECT_NAME)
