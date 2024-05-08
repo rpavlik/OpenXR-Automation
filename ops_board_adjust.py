@@ -4,7 +4,7 @@
 # SPDX-License-Identifier: BSL-1.0
 #
 # Author: Rylie Pavlik <rylie.pavlik@collabora.com>
-"""Process the operations board."""
+"""Process the operations board, auto-updating where applicable."""
 
 import logging
 import re
@@ -14,7 +14,7 @@ from typing import Iterable, Optional, cast
 import gitlab
 import gitlab.v4.objects
 
-from openxr import OpenXRGitlab
+from openxr_ops.gitlab import OpenXRGitlab
 
 _FIND_MR_RE = re.compile(
     r"Main extension MR:\s*((?P<proj>openxr|openxr/openxr)!|https://gitlab.khronos.org/openxr/openxr/-/merge_requests/)(?P<num>[0-9]+)"

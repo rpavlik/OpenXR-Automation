@@ -5,7 +5,7 @@
 #
 # Author: Rylie Pavlik <rylie.pavlik@collabora.com>
 
-import xml.etree.ElementTree as etree
+import xml.etree.ElementTree as ElementTree
 from typing import Optional
 
 import gitlab
@@ -23,7 +23,7 @@ class VendorNames:
     def __init__(self, registry_contents: str) -> None:
         self._contents = registry_contents
 
-        self.root = etree.fromstring(self._contents)
+        self.root = ElementTree.fromstring(self._contents)
         self.known = {}
         for tag in self.root.findall("tags/tag"):
             self.known[tag.get("name")] = tag.get("author")

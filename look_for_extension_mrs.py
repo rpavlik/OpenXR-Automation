@@ -10,16 +10,15 @@ import logging
 from typing import cast
 
 import gitlab
+import gitlab.v4.objects
 
-from create_extension_checklist import (
-    KHR_EXT_LABEL,
-    VENDOR_EXT_LABEL,
+from openxr_ops.checklists import (
     ReleaseChecklistCollection,
     ReleaseChecklistFactory,
-    VendorNames,
     get_extension_names_for_mr,
 )
-from openxr import OpenXRGitlab
+from openxr_ops.gitlab import KHR_EXT_LABEL, VENDOR_EXT_LABEL, OpenXRGitlab
+from openxr_ops.vendors import VendorNames
 from work_item_and_collection import get_short_ref
 
 

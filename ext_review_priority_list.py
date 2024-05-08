@@ -17,9 +17,8 @@ from typing import List, Optional, cast
 import gitlab
 import gitlab.v4.objects
 
-from openxr import OpenXRGitlab
 from openxr_ops.checklists import ReleaseChecklistCollection
-from openxr_ops.gitlab import KHR_EXT_LABEL, VENDOR_EXT_LABEL
+from openxr_ops.gitlab import KHR_EXT_LABEL, VENDOR_EXT_LABEL, OpenXRGitlab
 from openxr_ops.vendors import VendorNames
 
 _NEEDSREVIEW_LABEL = "status:NeedsReview"
@@ -164,7 +163,7 @@ def load_needs_review(
 
 
 @dataclass
-class PrioritizationResults:
+class PriorityResults:
     """Result of prioritizing extension review requests."""
 
     list_markdown: str
@@ -177,7 +176,8 @@ class PrioritizationResults:
     """Slots occupied by extensions for which we could not guess the vendor."""
 
     @classmethod
-    def from_items(cls, items: list[ReleaseChecklistIssue]) -> "PrioritizationResults":
+    def from_items(cls, items: list[ReleaseChecklistIssue]) -> "PriorityResults":
+        """Sort review requests and return output."""
 
         sorted_items = list(
             sorted(
@@ -244,7 +244,7 @@ if __name__ == "__main__":
 
     items = load_needs_review(collection)
 
-    results = PrioritizationResults.from_items(items)
+    results = PriorityResults.from_items(items)
 
     print(results.list_markdown)
     print("\n")

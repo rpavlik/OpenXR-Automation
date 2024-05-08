@@ -6,8 +6,8 @@
 # Author: Rylie Pavlik <rylie.pavlik@collabora.com>
 
 
-from openxr import OpenXRGitlab
 from openxr_ops.checklists import ReleaseChecklistCollection, ReleaseChecklistFactory
+from openxr_ops.gitlab import OpenXRGitlab
 from openxr_ops.vendors import VendorNames
 
 if __name__ == "__main__":

@@ -7,7 +7,7 @@
 
 import csv
 
-from openxr import OpenXRGitlab
+from openxr_ops.gitlab import OpenXRGitlab
 
 _MAX_JOB_ROWS = 2000
 _MAX_PIPELINE_ROWS = 1000

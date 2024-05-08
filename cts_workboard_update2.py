@@ -15,7 +15,7 @@ import gitlab
 import gitlab.v4.objects
 
 from nullboard_gitlab import ListName, make_note_text, parse_board, update_board
-from openxr import OpenXRGitlab
+from openxr_ops.gitlab import OpenXRGitlab
 from work_item_and_collection import WorkUnitCollection, get_short_ref
 
 # List stuff that causes undesired merging here

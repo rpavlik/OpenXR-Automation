@@ -8,7 +8,7 @@
 import datetime
 from typing import Any, Iterable, Optional
 
-from openxr import OpenXRGitlab
+from openxr_ops.gitlab import OpenXRGitlab
 
 
 def generate_milestone(

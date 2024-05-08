@@ -8,12 +8,9 @@
 import logging
 import sys
 
-from create_extension_checklist import (
-    ReleaseChecklistCollection,
-    ReleaseChecklistFactory,
-    VendorNames,
-)
-from openxr import OpenXRGitlab
+from openxr_ops.checklists import ReleaseChecklistCollection
+from openxr_ops.gitlab import OpenXRGitlab
+from openxr_ops.vendors import VendorNames
 
 if __name__ == "__main__":
     import argparse
@@ -45,7 +42,7 @@ if __name__ == "__main__":
     collection = ReleaseChecklistCollection(
         oxr_gitlab.main_proj,
         oxr_gitlab.operations_proj,
-        checklist_factory=ReleaseChecklistFactory(oxr_gitlab.operations_proj),
+        checklist_factory=None,
         vendor_names=VendorNames.from_git(oxr_gitlab.main_proj),
     )
 
