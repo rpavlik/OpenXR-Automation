@@ -46,7 +46,7 @@ if __name__ == "__main__":
         oxr_gitlab.main_proj,
         oxr_gitlab.operations_proj,
         checklist_factory=ReleaseChecklistFactory(oxr_gitlab.operations_proj),
-        vendor_names=VendorNames(oxr_gitlab.main_proj),
+        vendor_names=VendorNames.from_git(oxr_gitlab.main_proj),
     )
 
     if args.update_labels:

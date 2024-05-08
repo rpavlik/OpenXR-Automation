@@ -6,14 +6,17 @@
 # Author: Rylie Pavlik <rylie.pavlik@collabora.com>
 
 
+from functools import cached_property
 import itertools
 import re
-import xml.etree.ElementTree as etree
 from dataclasses import dataclass
 from typing import Dict, Optional, cast
 
 import gitlab
 import gitlab.v4.objects
+
+from openxr_ops.gitlab import KHR_EXT_LABEL, VENDOR_EXT_LABEL
+from openxr_ops.vendors import VendorNames
 
 from openxr import OpenXRGitlab
 
@@ -72,70 +75,39 @@ def is_EXT_EXTX(vendor_code: str):
     return vendor_code in ("EXT", "EXTX")
 
 
-class VendorNames:
-    """Data structure storing vendor/author codes to vendor names."""
-
-    def __init__(self, gl_proj: gitlab.v4.objects.Project, ref="main") -> None:
-        pf = gl_proj.files.get("specification/registry/xr.xml", ref)
-        self._contents = pf.decode().decode("utf-8")
-        self.root = etree.fromstring(self._contents)
-        self.known = {}
-        for tag in self.root.findall("tags/tag"):
-            self.known[tag.get("name")] = tag.get("author")
-        self.known.update(
-            {
-                "FB": "Meta Platforms",
-                "META": "Meta Platforms",
-                "OCULUS": "Meta Platforms",
-                # "QCOM": "Qualcomm",
-                # "EPIC": "Epic Games",
-                # "ML": "Magic Leap",
-                # "VARJO": "Varjo",
-                # "HTC": "HTC",
-                "EXT": "Multi-vendor",
-                "KHR": "The Khronos Group",
-            }
-        )
-        # Author tags that are not runtime vendors
-        self.not_runtime_vendors = {
-            "ALMALENCE",
-            "ARM",
-            "EPIC",
-            "EXT",
-            "EXTX",
-            "FREDEMMOTT",
-            "INTEL",
-            "KHR",
-            "NV",
-            "PLUTO",
-            "UNITY",
-        }
-
-    def is_runtime_vendor(self, vendor_code: str) -> bool:
-        """Guess if a vendor/author is a runtime vendor."""
-        # Just a guess/heuristic
-        return vendor_code in self.known and vendor_code not in self.not_runtime_vendors
-
-    def get_vendor_name(self, vendor_code: str) -> Optional[str]:
-        """Get the vendor's name from their author code, if possible."""
-        name = self.known.get(vendor_code)
-        if not name and vendor_code.endswith("X"):
-            name = self.known.get(vendor_code[:-1])
-        return name
-
-
 class ReleaseChecklistFactory:
     def __init__(self, gl_proj: gitlab.v4.objects.Project) -> None:
-        self.vendor_tmpl = LazyGitFile(
-            ".gitlab/issue_templates/vendor_ext_release_checklist.md", "main", gl_proj
-        )
-        self.ext_tmpl = LazyGitFile(
-            ".gitlab/issue_templates/EXT_release_checklist.md", "main", gl_proj
-        )
-        self.khr_tmpl = LazyGitFile(
-            ".gitlab/issue_templates/KHR_release_checklist.md", "main", gl_proj
-        )
         self.proj = gl_proj
+
+    @cached_property
+    def vendor_tmpl(self):
+        return (
+            self.proj.files.get(
+                ".gitlab/issue_templates/vendor_ext_release_checklist.md", "main"
+            )
+            .decode()
+            .decode("utf-8")
+        )
+
+    @cached_property
+    def ext_tmpl(self):
+        return (
+            self.proj.files.get(
+                ".gitlab/issue_templates/EXT_release_checklist.md", "main"
+            )
+            .decode()
+            .decode("utf-8")
+        )
+
+    @cached_property
+    def khr_tmpl(self):
+        return (
+            self.proj.files.get(
+                ".gitlab/issue_templates/KHR_release_checklist.md", "main"
+            )
+            .decode()
+            .decode("utf-8")
+        )
 
     def make_vendor_checklist(self):
         return ReleaseChecklistTemplate(str(self.vendor_tmpl))
@@ -215,10 +187,6 @@ def get_extension_names_for_mr(mr: gitlab.v4.objects.ProjectMergeRequest):
     for commit in mr.commits():
         commit = cast(gitlab.v4.objects.ProjectCommit, commit)
         yield from get_extension_names_for_diff(guesser, commit.diff())
-
-
-KHR_EXT_LABEL = "KHR_Extension"
-VENDOR_EXT_LABEL = "Vendor_Extension"
 
 
 def get_labels(vendor_id):
@@ -498,7 +466,7 @@ if __name__ == "__main__":
         oxr.main_proj,
         oxr.operations_proj,
         checklist_factory=ReleaseChecklistFactory(oxr.operations_proj),
-        vendor_names=VendorNames(oxr.main_proj),
+        vendor_names=VendorNames.from_git(oxr.main_proj),
     )
 
     kwargs = {}
