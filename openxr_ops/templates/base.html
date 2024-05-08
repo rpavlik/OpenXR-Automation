@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <!--
+        Copyright 2024, The Khronos Group Inc.
+
+        SPDX-License-Identifier: CC-BY-4.0
+    -->
+    <title>{{ self.title() }}</title>
+    {% block style %}
+    <style>
+        :root {
+            /* this is the OpenXR brand color */
+            --brand-color: #782B90;
+        }
+
+        html {
+            background: var(--brand-color);
+        }
+
+        body {
+            font-family: Arial, Helvetica, sans-serif;
+            margin: 5em;
+            padding: 2em;
+            border-radius: 0.5em;
+            border-width: 0;
+            border-style: solid;
+            background-color: white;
+        }
+    </style>
+    {% endblock style %}
+</head>
+
+<body>
+    <h1>{% block title %}{% endblock %}</h1>
+    {% block contents %}{% endblock %}
+
+    <footer>
+        {% block copyrightfooter %}
+        Copyright 2024, The Khronos Group Inc.
+        <br>
+        SPDX-License-Identifier: CC-BY-4.0
+        {% endblock %}
+    </footer>
+</body>
+
+</html>
