@@ -6,6 +6,8 @@
 # Author: Rylie Pavlik <rylie.pavlik@collabora.com>
 
 
+import logging
+
 from openxr_ops.checklists import ReleaseChecklistCollection, ReleaseChecklistFactory
 from openxr_ops.gitlab import OpenXRGitlab
 from openxr_ops.vendors import VendorNames
@@ -28,10 +30,13 @@ if __name__ == "__main__":
     )
 
     args = parser.parse_args()
+    logging.basicConfig(level=logging.INFO)
+
+    log = logging.getLogger(__name__)
 
     oxr = OpenXRGitlab.create()
 
-    print("Performing startup queries")
+    log.info("Performing startup queries")
     collection = ReleaseChecklistCollection(
         oxr.main_proj,
         oxr.operations_proj,

@@ -6,6 +6,7 @@
 # Author: Rylie Pavlik <rylie.pavlik@collabora.com>
 
 import itertools
+import logging
 import re
 from dataclasses import dataclass
 from functools import cached_property
@@ -25,6 +26,8 @@ _MAIN_MR_RE = re.compile(
 _CHECKLIST_RE = re.compile(
     r"^(?P<line>Release [Cc]hecklist:([^\n]+))\n\n", re.MULTILINE
 )
+
+_log = logging.getLogger(__name__)
 
 
 @dataclass
@@ -123,8 +126,6 @@ def get_extension_names_for_diff(guesser: ExtensionNameGuesser, diff):
 def get_extension_names_for_mr(mr: gitlab.v4.objects.ProjectMergeRequest):
     """Yield the unique extension names added in a merge request."""
     guesser = ExtensionNameGuesser()
-    # print(mr.diffs.list())
-    # diff = mr.diffs.list()[0]
 
     for commit in mr.commits():
         commit = cast(gitlab.v4.objects.ProjectCommit, commit)
@@ -195,7 +196,12 @@ class ChecklistData:
                 vendor_ids = {x.vendor for x in ext_name_data}
 
         if len(vendor_ids) != 1:
-            print(vendor_ids)
+            _log.error(
+                "wrong number of vendors for %s : %d : %s",
+                ext_names,
+                mr_num,
+                str(vendor_ids),
+            )
             raise RuntimeError(f"wrong number of vendors for {ext_names} : {mr_num}")
         vendor_id = list(vendor_ids)[0]
         return ChecklistData(
@@ -221,7 +227,7 @@ class ChecklistData:
         # issue_data  = typing.cast(gitlab.v4.objects.ProjectIssue,  issue_data)
         issue_link = issue.attributes["references"]["full"]
         self.checklist_issue_ref = issue_link
-        print(self.mr_num, issue_link, issue.attributes["web_url"])
+        _log.info("%d: %s %s", self.mr_num, issue_link, issue.attributes["web_url"])
 
         may_or_must = "may also want to"
         reviews_suffix = ""
@@ -274,7 +280,7 @@ class ReleaseChecklistCollection:
         self.mr_to_issue_object: Dict[int, gitlab.v4.objects.ProjectIssue] = {}
         self.mr_to_issue: Dict[int, str] = {}
 
-        print("Parsing all opened release checklists...")
+        _log.info("Parsing all opened release checklists...")
         for issue in itertools.chain(
             self.proj.issues.list(
                 labels="Release Checklist", state="opened", iterator=True
@@ -285,8 +291,8 @@ class ReleaseChecklistCollection:
             match_iter = _MAIN_MR_RE.finditer(issue.attributes["description"])
             match = next(match_iter, None)
             if not match:
-                print(
-                    "Release checklist has no MR indicated:",
+                _log.info(
+                    "Release checklist has no MR indicated: %s",
                     issue.attributes["web_url"],
                 )
                 continue
@@ -296,8 +302,8 @@ class ReleaseChecklistCollection:
             self.issue_to_mr[issue_ref] = mr_num
             self.mr_to_issue_object[mr_num] = issue
             self.mr_to_issue[mr_num] = issue_ref
-        print(
-            "Found", len(self.issue_to_mr), "open release checklists with associated MR"
+        _log.info(
+            "Found %d open release checklists with associated MR", len(self.issue_to_mr)
         )
 
     def issue_str_to_cached_issue_object(
@@ -315,7 +321,7 @@ class ReleaseChecklistCollection:
     def handle_mr_if_needed(self, mr_num, **kwargs):
         """Create a release checklist issue if one is not already created for this MR."""
         if mr_num in self.mr_to_issue:
-            print(mr_num, "already processed")
+            _log.info(mr_num, "already processed")
             return
 
         data = ChecklistData.lookup(self.proj, mr_num, **kwargs)
@@ -329,7 +335,7 @@ class ReleaseChecklistCollection:
 
     def update_mr_labels(self):
         """Update the labels on the merge requests if needed."""
-        print("Checking open extension MRs to verify their labels")
+        _log.info("Checking open extension MRs to verify their labels")
         for mr_num, issue in self.mr_to_issue_object.items():
             merge_request: gitlab.v4.objects.ProjectMergeRequest = (
                 self.proj.mergerequests.get(mr_num)
@@ -337,20 +343,19 @@ class ReleaseChecklistCollection:
             if merge_request.state != "opened":
                 # only touch open MRs
                 continue
-            # print("Issue:", issue.attributes["references"]["full"])
-            # print(issue.labels)
+
             made_change = False
             for label in (KHR_EXT_LABEL, VENDOR_EXT_LABEL):
                 if label in issue.labels and label not in merge_request.labels:
                     merge_request.labels.append(label)
                     made_change = True
             if made_change:
-                print("Updating labels on MR", mr_num)
+                _log.info("Updating labels on MR", mr_num)
                 merge_request.save()
 
     def update_mr_descriptions(self):
         """Prepend the release checklist link to all MRs that need it."""
-        print("Checking open extension MRs to verify they link to their checklist")
+        _log.info("Checking open extension MRs to verify they link to their checklist")
         for issue_ref, mr_num in self.issue_to_mr.items():
             merge_request: gitlab.v4.objects.ProjectMergeRequest = (
                 self.proj.mergerequests.get(mr_num)
@@ -367,11 +372,11 @@ class ReleaseChecklistCollection:
             match = _CHECKLIST_RE.search(merge_request.description)
             if not match:
                 url = merge_request.attributes["web_url"]
-                print(f"MR does not mention its issue: {url}")
+                _log.info(f"MR does not mention its issue: {url}")
                 if merge_request.attributes["state"] not in ("closed", "merged"):
-                    print("Updating it")
+                    _log.info("Updating it")
                     merge_request.description = prepend + merge_request.description
-                    print(merge_request.description)
+                    _log.info(merge_request.description)
                     merge_request.save()
             else:
                 new_desc = (
@@ -380,7 +385,7 @@ class ReleaseChecklistCollection:
                 )
 
                 if not match.group("line").startswith(new_front):
-                    print(f"Updating MR {merge_request.get_id()} description")
+                    _log.info(f"Updating MR {merge_request.get_id()} description")
 
                     merge_request.description = new_desc
                     merge_request.save()

@@ -7,8 +7,8 @@
 # Author: Rylie Pavlik <rylie.pavlik@collabora.com>
 
 import datetime
+import logging
 import re
-import sys
 from collections import defaultdict
 from dataclasses import dataclass
 from functools import cached_property
@@ -253,10 +253,13 @@ if __name__ == "__main__":
     parser.add_argument("--html", type=str, help="Output HTML to filename")
 
     args = parser.parse_args()
+    logging.basicConfig(level=logging.INFO)
+
+    log = logging.getLogger(__name__)
 
     oxr_gitlab = OpenXRGitlab.create()
 
-    print("Performing startup queries", file=sys.stderr)
+    log.info("Performing startup queries")
     collection = ReleaseChecklistCollection(
         oxr_gitlab.main_proj,
         oxr_gitlab.operations_proj,
@@ -269,7 +272,7 @@ if __name__ == "__main__":
     results = PriorityResults.from_items(items)
 
     if args.html:
-        print("Outputting to HTML:", args.html)
+        log.info("Outputting to HTML: %s", args.html)
         make_html(results, args.html)
     else:
         print(results.list_markdown)
