@@ -350,7 +350,9 @@ class PriorityResults:
         )
 
 
-def make_html(results: PriorityResults, fn: str):
+def make_html(
+    results: PriorityResults, fn: str, extra: Optional[str], extra_safe: Optional[str]
+):
     from jinja2 import Environment, PackageLoader, select_autoescape
 
     env = Environment(
@@ -364,6 +366,8 @@ def make_html(results: PriorityResults, fn: str):
                 results=results,
                 now=_NOW,
                 sort_description=ReleaseChecklistIssue.get_sort_description(),
+                extra=extra,
+                extra_safe=extra_safe,
             )
         )
 
@@ -375,6 +379,12 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
 
     parser.add_argument("--html", type=str, help="Output HTML to filename")
+    parser.add_argument("--extra", type=str, help="Extra text to add to HTML footer")
+    parser.add_argument(
+        "--extra-safe",
+        type=str,
+        help="Extra text to add to HTML footer without escaping special characters",
+    )
 
     args = parser.parse_args()
     logging.basicConfig(level=logging.INFO)
@@ -397,7 +407,7 @@ if __name__ == "__main__":
 
     if args.html:
         log.info("Outputting to HTML: %s", args.html)
-        make_html(results, args.html)
+        make_html(results, args.html, args.extra, args.extra_safe)
     else:
         print(results.list_markdown)
         print("\n")
