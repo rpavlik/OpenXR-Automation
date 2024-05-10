@@ -8,8 +8,8 @@ SPDX-License-Identifier: CC-BY-4.0
 {% block style %}
 {{ super() }}
 <style>
-    /* give our top level lists more room to breathe */
-    section>ul>li {
+    /* give our extension slot list more room to breathe */
+    .extension_slots>li {
         padding-top: 1em;
     }
 </style>
@@ -39,12 +39,15 @@ SPDX-License-Identifier: CC-BY-4.0
         <p>Adjustments to the actual priority are subject to spec editor discretion and vendor/WG request.</p>
     </details>
 
-    <ul>
+    <ul class="extension_slots">
         {% for item in results.sorted_items %}
         <li>
-            <a id="slot-{{ loop.index }}"></a> Slot {{ loop.index }} - <a href="{{ item.url }}">{{ item.title }}</a>
+            <a id="slot-{{ loop.index }}"></a>
+            Slot {{ loop.index }}
+            - <a href="{{ item.url }}">{{ item.title }}</a>
             - MR <a href="{{ item.mr_url }}">{{ item.mr_ref }}</a>
-            {% if not item.mr.blocking_discussions_resolved %} blocking discussions not resolved {% endif %}
+            {% if not item.mr.blocking_discussions_resolved %} - blocking discussions not resolved {% endif %}
+
             <ul>
                 <li>Latency: {{ item.latency }} days since last status change</li>
                 <li>Ops issue age: {{ item.ops_issue_age }} days</li>
@@ -52,9 +55,11 @@ SPDX-License-Identifier: CC-BY-4.0
                 <li>Checklist: {{ item.checklist_completed_count }} of {{ item.checklist_total_count }} checked</li>
                 <li>Labels: {{ item.issue_obj.labels | join(", ") }}</li>
             </ul>
+
         </li>
         {% endfor %}
     </ul>
+
 </section>
 <section>
     <h2>Extension review slots by vendor</h2>
