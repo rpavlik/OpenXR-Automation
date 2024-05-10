@@ -175,7 +175,8 @@ class ReleaseChecklistIssue:
         return (
             "author category (KHR highest priority, then EXT, then single vendor)",
             "whether initial review is complete (higher priority) or not complete (lower priority)",
-            "latency (time since put in review), older is higher priority",
+            "latency (time since the earlier of being put in review or last push by non-editor), "
+            "older is higher priority",
         )
 
     @property
@@ -195,7 +196,9 @@ class ReleaseChecklistIssue:
         return (
             self.author_category_priority,
             not self.initial_review_complete,  # negate so "review complete" comes first
-            -self.latency,  # negate so largerst comes first
+            -max(
+                self.last_author_revision_push_age, self.latency
+            ),  # negate so largerst comes first
         )
 
     @property
