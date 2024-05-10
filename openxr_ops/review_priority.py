@@ -84,6 +84,13 @@ class ReleaseChecklistIssue:
         age = _NOW - created_at
         return age.days
 
+    @staticmethod
+    def get_sort_description():
+        return (
+            "author category (KHR highest priority, then EXT, then single vendor)",
+            "whether initial review is complete (higher priority) or not complete (lower priority)",
+            "latency (time since put in review), older is higher priority",
+        )
 
     @property
     def author_category_priority(self):
@@ -265,7 +272,13 @@ def make_html(results: PriorityResults, fn: str):
     )
     template = env.get_template("priority_list.html")
     with open(fn, "w", encoding="utf-8") as fp:
-        fp.write(template.render(results=results, now=_NOW))
+        fp.write(
+            template.render(
+                results=results,
+                now=_NOW,
+                sort_description=ReleaseChecklistIssue.get_sort_description(),
+            )
+        )
 
 
 if __name__ == "__main__":
