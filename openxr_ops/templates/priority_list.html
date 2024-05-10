@@ -50,6 +50,12 @@ SPDX-License-Identifier: CC-BY-4.0
 
             <ul>
                 <li>Latency: {{ item.latency }} days since last status change</li>
+                <li>Age of last non-editor push: {{ item.last_author_revision_push_age }} days</li>
+                {% if item.last_push %}
+                <li> Last push: {{ item.last_push.author["name"] }}
+                    (@{{ item.last_push.author["username"] }}) - {{ item.last_push.created_at }}
+                </li>
+                {%- endif %}
                 <li>Ops issue age: {{ item.ops_issue_age }} days</li>
                 <li>MR age: {{ item.mr_age }} days</li>
                 <li>Checklist: {{ item.checklist_completed_count }} of {{ item.checklist_total_count }} checked</li>

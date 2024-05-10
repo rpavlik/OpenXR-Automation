@@ -24,9 +24,39 @@ from .vendors import VendorNames
 _NEEDSREVIEW_LABEL = "status:NeedsReview"
 _INITIAL_COMPLETE = "initial-review-complete"
 
+_IGNORE_PUSH_USERS = ("rpavlik", "safarimonkey", "khrbot")
+"""Do not consider pushes from these users when determining latency"""
+
 _NOW = datetime.datetime.now(datetime.UTC)
 
 _EXT_DECOMP_RE = re.compile(r"XR_(?P<tag>[A-Z]+)_.*")
+
+
+_PUSH_NOTE_RE = re.compile(r"added \d+ commit(s?)\n\n.*")
+
+
+def _is_note_a_push(note: gitlab.v4.objects.ProjectMergeRequestNote):
+    if not note.system:
+        return False
+
+    body = note.attributes.get("body")
+    if not body:
+        log.warning("No body?")
+        note.pprint()
+        return False
+
+    if not _PUSH_NOTE_RE.match(body):
+        return False
+
+    return True
+
+
+def _is_note_an_author_push(note: gitlab.v4.objects.ProjectMergeRequestNote):
+    return _is_note_a_push(note) and note.author["username"] not in _IGNORE_PUSH_USERS
+
+
+def _created_date(n):
+    return datetime.datetime.fromisoformat(n.attributes["created_at"])
 
 
 @dataclass
@@ -83,6 +113,62 @@ class ReleaseChecklistIssue:
         created_at = datetime.datetime.fromisoformat(self.mr.attributes["created_at"])
         age = _NOW - created_at
         return age.days
+
+    @cached_property
+    def _last_author_revision_push_with_date(
+        self,
+    ) -> tuple[
+        Optional[gitlab.v4.objects.ProjectMergeRequestNote], Optional[datetime.datetime]
+    ]:
+        """The system note and date for the last non-bot, non-spec-editor/contractor push to the MR."""
+
+        # def format_user(n):
+        #     return f'  ({n.attributes["author"]["username"]})'
+        pushes_by_create_date = {
+            _created_date(n): cast(gitlab.v4.objects.ProjectMergeRequestNote, n)
+            for n in self.mr_notes
+            if _is_note_an_author_push(
+                cast(gitlab.v4.objects.ProjectMergeRequestNote, n)
+            )
+        }
+        latest_date = max(pushes_by_create_date.keys(), default=None)
+        if not latest_date:
+            return None, None
+        return (
+            pushes_by_create_date[latest_date],
+            latest_date,
+        )
+
+    @cached_property
+    def last_push(
+        self,
+    ) -> Optional[gitlab.v4.objects.ProjectMergeRequestNote]:
+        """The system note for the last push to the MR."""
+        pushes = [
+            cast(gitlab.v4.objects.ProjectMergeRequestNote, n)
+            for n in self.mr_notes
+            if _is_note_a_push(cast(gitlab.v4.objects.ProjectMergeRequestNote, n))
+        ]
+        if not pushes:
+            return None
+        return pushes[-1]
+
+    @cached_property
+    def last_author_revision_push_age(
+        self,
+    ) -> int:
+        """Days since the last non-bot, non-spec-editor/contractor push to the MR."""
+        _, last_push_date = self._last_author_revision_push_with_date
+        if not last_push_date:
+            log.info("No last push date for %s, using MR create date", self.title)
+            last_push_date = datetime.datetime.fromisoformat(
+                self.mr.attributes["created_at"]
+            )
+        return (_NOW - last_push_date).days
+
+    @cached_property
+    def mr_notes(self):
+        return list(self.mr.notes.list(iterator=True))
 
     @staticmethod
     def get_sort_description():
@@ -195,6 +281,7 @@ class ReleaseChecklistIssue:
 def load_needs_review(
     collection: ReleaseChecklistCollection,
 ) -> List[ReleaseChecklistIssue]:
+    log.info("Loading items that need review")
     items = []
     for issue in collection.issue_to_mr.keys():
         issue_obj = collection.issue_str_to_cached_issue_object(issue)
@@ -234,7 +321,7 @@ class PriorityResults:
     @classmethod
     def from_items(cls, items: list[ReleaseChecklistIssue]) -> "PriorityResults":
         """Sort review requests and return output."""
-
+        log.info("Sorting %d items that need review", len(items))
         sorted_items = list(
             sorted(
                 items,
