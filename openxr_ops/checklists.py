@@ -288,11 +288,20 @@ class ReleaseChecklistCollection:
             ops_proj.issues.list(state="opened", iterator=True),
         ):
             issue = cast(gitlab.v4.objects.ProjectIssue, issue)
+            desc = issue.attributes["description"]
+            if not desc:
+                _log.warning(
+                    "Operations issue has no description: %s %s",
+                    issue.attributes["title"],
+                    issue.attributes["web_url"],
+                )
+                continue
             match_iter = _MAIN_MR_RE.finditer(issue.attributes["description"])
             match = next(match_iter, None)
             if not match:
                 _log.info(
-                    "Release checklist has no MR indicated: %s",
+                    "Release checklist has no MR indicated: %s <%s>",
+                    issue.attributes["title"],
                     issue.attributes["web_url"],
                 )
                 continue
