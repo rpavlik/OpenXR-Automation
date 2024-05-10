@@ -84,7 +84,9 @@ class ReleaseChecklistIssue:
         age = _NOW - created_at
         return age.days
 
-    def get_sort_key(self):
+
+    @property
+    def author_category_priority(self):
         author_category = 0
         if self.is_khr:
             author_category = -5
@@ -93,10 +95,12 @@ class ReleaseChecklistIssue:
         elif self.is_vendor:
             author_category = -1
         else:
-            print(f"Could not guess vendor category for {self.issue_obj.title}")
+            log.warning("Could not guess vendor category for %s", self.issue_obj.title)
+        return author_category
 
+    def get_sort_key(self):
         return (
-            author_category,
+            self.author_category_priority,
             not self.initial_review_complete,  # negate so "review complete" comes first
             -self.latency,  # negate so largerst comes first
         )
