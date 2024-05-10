@@ -129,6 +129,24 @@ class ReleaseChecklistIssue:
     def mr_url(self) -> str:
         return self.mr.web_url
 
+    def to_markdown(self, slot: int):
+        # Think this does nothing because we do not block merges on
+        # resolving discussions inside GitLab.
+        disc_resolved = (
+            ""
+            if self.mr.blocking_discussions_resolved
+            else " blocking discussions not resolved"
+        )
+
+        return f"""
+* {slot} - [{self.title}]({self.url}) -  [MR {self.mr_ref}]({self.mr_url}) {disc_resolved}
+    * Latency: {self.latency} days since last status change
+    * Ops issue age: {self.ops_issue_age} days
+    * MR age: {self.mr_age} days
+    * Checklist: {self.checklist_completed_count} of {self.checklist_total_count} checked
+    * Labels: {', '.join(self.issue_obj.labels)}
+    """.strip()
+
     @classmethod
     def create(
         cls,
@@ -223,32 +241,7 @@ class PriorityResults:
         body_text: list[str] = []
 
         for slot, item in enumerate(sorted_items, 1):
-            completed_count = item.issue_obj.task_completion_status["completed_count"]
-            total_count = item.issue_obj.task_completion_status["count"]
-            mr_ref = item.mr.references["short"]
-            mr_url = item.mr.web_url
-            title = item.issue_obj.title
-            url = item.issue_obj.web_url
-
-            # Think this does nothing because we do not block merges on
-            # resolving discussions inside GitLab.
-            disc_resolved = (
-                ""
-                if item.mr.blocking_discussions_resolved
-                else " blocking discussions not resolved"
-            )
-
-            body_text.append(
-                f"""
-* {slot} - [{title}]({url}) -  [MR {mr_ref}]({mr_url}) {disc_resolved}
-    * Latency: {item.latency} days since last status change
-    * Ops issue age: {item.ops_issue_age} days
-    * MR age: {item.mr_age} days
-    * Checklist: {completed_count} of {total_count} checked
-    * Labels: {', '.join(item.issue_obj.labels)}
-    """.strip()
-            )
-            # * Sort key: {item.get_sort_key()}
+            body_text.append(item.to_markdown(slot))
 
             if item.vendor_name is not None:
                 vendor_name_to_slots[item.vendor_name].append(slot)
