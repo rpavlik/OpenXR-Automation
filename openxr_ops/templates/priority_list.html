@@ -49,7 +49,9 @@ SPDX-License-Identifier: CC-BY-4.0
             {% if not item.mr.blocking_discussions_resolved %} - blocking discussions not resolved {% endif %}
 
             <ul>
-                <li>Latency: {{ item.latency }} days since last status change</li>
+                <li>Latency: {{ item.latency }} days since last status change
+                    {% if item.offset != 0 %}(Corrective offset of {{ item.offset }} applied){% endif %}
+                </li>
                 <li>Age of last non-editor push: {{ item.last_author_revision_push_age }} days</li>
                 {% if item.last_push %}
                 <li> Last push: {{ item.last_push.author["name"] }}

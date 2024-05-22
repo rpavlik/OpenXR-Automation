@@ -13,6 +13,7 @@ from collections import defaultdict
 from dataclasses import dataclass
 from functools import cached_property
 from typing import List, Optional, cast
+import tomllib
 
 import gitlab
 import gitlab.v4.objects
@@ -71,6 +72,9 @@ class ReleaseChecklistIssue:
 
     vendor_name: Optional[str] = None
 
+    offset: int = 0
+    """Corrective latency offset"""
+
     @property
     def initial_review_complete(self) -> bool:
         return _INITIAL_COMPLETE in self.issue_obj.attributes["labels"]
@@ -96,7 +100,7 @@ class ReleaseChecklistIssue:
             self.latest_status_label_event.attributes["created_at"]
         )
         age = _NOW - pending_since
-        return age.days
+        return age.days + self.offset
 
     @cached_property
     def ops_issue_age(self):
@@ -350,6 +354,16 @@ class PriorityResults:
         )
 
 
+def apply_offsets(filename: str, items: List[ReleaseChecklistIssue]):
+    with open(filename, "rb") as fp:
+        offsets = tomllib.load(fp)
+    for item in items:
+        offset = offsets.get(item.title)
+        if offset:
+            item.offset = offset
+            log.info("%s: Applying offset of %d", item.title, offset)
+
+
 def make_html(
     results: PriorityResults, fn: str, extra: Optional[str], extra_safe: Optional[str]
 ):
@@ -381,6 +395,11 @@ if __name__ == "__main__":
     parser.add_argument("--html", type=str, help="Output HTML to filename")
     parser.add_argument("--extra", type=str, help="Extra text to add to HTML footer")
     parser.add_argument(
+        "--offsets",
+        type=str,
+        help="TOML file to read latency offsets from",
+    )
+    parser.add_argument(
         "--extra-safe",
         type=str,
         help="Extra text to add to HTML footer without escaping special characters",
@@ -402,6 +421,8 @@ if __name__ == "__main__":
     )
 
     items = load_needs_review(collection)
+    if args.offsets:
+        apply_offsets(args.offsets, items)
 
     results = PriorityResults.from_items(items)
 
