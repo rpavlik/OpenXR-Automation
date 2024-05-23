@@ -44,11 +44,6 @@ if __name__ == "__main__":
 
     log = logging.getLogger(__name__)
 
-    if not any((args.update_descriptions, args.update_labels)):
-        log.error("Pass at least one command!\n")
-        parser.print_help()
-        sys.exit(1)
-
     oxr_gitlab = OpenXRGitlab.create()
     log.info("Performing startup queries")
     collection = ReleaseChecklistCollection(
