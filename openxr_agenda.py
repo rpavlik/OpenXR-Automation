@@ -118,7 +118,7 @@ def get_labeled_issues_mrs(proj, labels):
         updated_after=STALE_THRESHOLD,
     )
 
-    return issues, mergess
+    return issues, merges
 
 
 # removes items with the specified labels
