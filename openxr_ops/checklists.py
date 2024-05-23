@@ -376,7 +376,7 @@ class ReleaseChecklistCollection:
     def handle_mr_if_needed(self, mr_num, **kwargs) -> None:
         """Create a release checklist issue if one is not already created for this MR."""
         if mr_num in self.mr_to_issue:
-            _log.info(mr_num, "already processed")
+            _log.info("MR number %d is already processed", mr_num)
             return
 
         data = ChecklistData.lookup(self.proj, mr_num, **kwargs)
