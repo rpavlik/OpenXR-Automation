@@ -8,7 +8,7 @@
 import logging
 import sys
 
-from openxr_ops.checklists import ReleaseChecklistCollection
+from openxr_ops.checklists import ColumnName, ReleaseChecklistCollection
 from openxr_ops.gitlab import OpenXRGitlab
 from openxr_ops.vendors import VendorNames
 
@@ -25,6 +25,18 @@ if __name__ == "__main__":
         "--update-descriptions",
         action="store_true",
         help="Update descriptions on MRs",
+    )
+    parser.add_argument(
+        "--mr-needs-revision",
+        type=int,
+        nargs="*",
+        help="Update the ticket corresponding to the MR to NeedsRevision",
+    )
+    parser.add_argument(
+        "--mr-needs-champion",
+        type=int,
+        nargs="*",
+        help="Update the ticket corresponding to the MR to NeedsChampionApprovalOrRatification",
     )
 
     args = parser.parse_args()
@@ -50,3 +62,11 @@ if __name__ == "__main__":
         collection.update_mr_labels()
     if args.update_descriptions:
         collection.update_mr_descriptions()
+    if args.mr_needs_revision:
+        for mr in args.mr_needs_revision:
+            collection.mr_set_column(mr, ColumnName.NEEDS_REVISION)
+    if args.mr_needs_champion:
+        for mr in args.mr_needs_champion:
+            collection.mr_set_column(
+                mr, ColumnName.NEEDS_CHAMPION_APPROVAL_OR_RATIFICATION
+            )
