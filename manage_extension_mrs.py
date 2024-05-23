@@ -6,7 +6,6 @@
 # Author: Rylie Pavlik <rylie.pavlik@collabora.com>
 
 import logging
-import sys
 
 from openxr_ops.checklists import ColumnName, ReleaseChecklistCollection
 from openxr_ops.gitlab import OpenXRGitlab
@@ -25,6 +24,12 @@ if __name__ == "__main__":
         "--update-descriptions",
         action="store_true",
         help="Update descriptions on MRs",
+    )
+    parser.add_argument(
+        "--mr-needs-review",
+        type=int,
+        nargs="*",
+        help="Update the ticket corresponding to the MR to NeedsReview",
     )
     parser.add_argument(
         "--mr-needs-revision",
@@ -57,6 +62,9 @@ if __name__ == "__main__":
         collection.update_mr_labels()
     if args.update_descriptions:
         collection.update_mr_descriptions()
+    if args.mr_needs_review:
+        for mr in args.mr_needs_review:
+            collection.mr_set_column(mr, ColumnName.NEEDS_REVIEW)
     if args.mr_needs_revision:
         for mr in args.mr_needs_revision:
             collection.mr_set_column(mr, ColumnName.NEEDS_REVISION)
