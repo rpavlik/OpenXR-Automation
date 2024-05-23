@@ -34,7 +34,7 @@ class OpenXRGitlab:
     operations_proj: gitlab.v4.objects.Project
 
     @classmethod
-    def create(cls):
+    def create(cls) -> "OpenXRGitlab":
         from dotenv import load_dotenv
 
         load_dotenv()

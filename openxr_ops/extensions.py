@@ -56,3 +56,5 @@ class ExtensionNameGuesser:
             self.names.add(data.full_name)
             self.extensions.append(data)
             return data
+
+        return None

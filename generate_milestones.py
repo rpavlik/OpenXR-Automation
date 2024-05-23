@@ -19,6 +19,11 @@ def generate_milestone(
     freeze: Optional[datetime.date] = None,
     due_date: Optional[datetime.date] = None,
 ):
+    if not oxr.group:
+        raise RuntimeError(
+            "Access to the gitlab group is required for generating milestones"
+        )
+
     if freeze:
         desired_title = f"{title_prefix} - freeze {freeze.strftime('%d-%b')}"
     else:
@@ -52,6 +57,11 @@ def generate_milestones(
     patch: int,
     freeze: Optional[datetime.date] = None,
 ):
+    if not oxr.group:
+        raise RuntimeError(
+            "Access to the gitlab group is required for generating milestones"
+        )
+
     ver = f"{major}.{minor}.{patch}"
     # Titles without freeze date
     release_milestone_title = f"{ver} release"

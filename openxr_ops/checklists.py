@@ -373,7 +373,7 @@ class ReleaseChecklistCollection:
         """Return true if the MR already has a checklist."""
         return mr_num in self.mr_to_issue
 
-    def handle_mr_if_needed(self, mr_num, **kwargs):
+    def handle_mr_if_needed(self, mr_num, **kwargs) -> None:
         """Create a release checklist issue if one is not already created for this MR."""
         if mr_num in self.mr_to_issue:
             _log.info(mr_num, "already processed")
@@ -388,7 +388,7 @@ class ReleaseChecklistCollection:
         self.mr_to_issue[mr_num] = issue_ref
         self.issue_to_mr[issue_ref] = mr_num
 
-    def update_mr_labels(self):
+    def update_mr_labels(self) -> None:
         """Update the labels on the merge requests if needed."""
         _log.info("Checking open extension MRs to verify their labels")
         for mr_num, issue in self.mr_to_issue_object.items():
@@ -408,7 +408,7 @@ class ReleaseChecklistCollection:
                 _log.info("Updating labels on MR", mr_num)
                 merge_request.save()
 
-    def update_mr_descriptions(self):
+    def update_mr_descriptions(self) -> None:
         """Prepend the release checklist link to all MRs that need it."""
         _log.info("Checking open extension MRs to verify they link to their checklist")
         for issue_ref, mr_num in self.issue_to_mr.items():
@@ -445,7 +445,7 @@ class ReleaseChecklistCollection:
                     merge_request.description = new_desc
                     merge_request.save()
 
-    def mr_set_column(self, mr_num: int, new_column: ColumnName):
+    def mr_set_column(self, mr_num: int, new_column: ColumnName) -> None:
         issue = self.mr_to_issue_object[mr_num]
         labels = list(sorted(issue.attributes["labels"]))
         orig_column = ColumnName.from_labels(labels)
