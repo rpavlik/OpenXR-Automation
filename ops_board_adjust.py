@@ -4,16 +4,25 @@
 # SPDX-License-Identifier: BSL-1.0
 #
 # Author: Rylie Pavlik <rylie.pavlik@collabora.com>
-"""Process the operations board, auto-updating where applicable."""
+"""
+Process the operations board, auto-updating where applicable.
+
+* Ensures that each issue has exactly one column status label.
+* Applies any missing labels it knows about
+  * mainly that needs-revision implies initial-review-complete
+* Moves issues to "release pending" once the MR is merged
+* Closes "release pending" issues once the release occurs
+  * This part does not always work right.
+"""
 
 import logging
 import re
-from enum import Enum
-from typing import Iterable, Optional, cast
+from typing import Optional, cast
 
 import gitlab
 import gitlab.v4.objects
 
+from openxr_ops.checklists import ColumnName
 from openxr_ops.gitlab import OpenXRGitlab
 
 _FIND_MR_RE = re.compile(
@@ -21,43 +30,6 @@ _FIND_MR_RE = re.compile(
 )
 
 _ISSUE_TITLE_FIXING = re.compile(r"Release [Cc]hecklist for ")
-
-INITIAL_REVIEW_COMPLETE = "initial-review-complete"
-
-
-class ColumnName(Enum):
-    """Board columns and their associated labels."""
-
-    INACTIVE = "status:Inactive"
-    INITIAL_COMPOSITION = "status:InitialComposition"
-    NEEDS_REVIEW = "status:NeedsReview"
-    NEEDS_REVISION = "status:NeedsRevision"
-    FROZEN_NEEDS_IMPL_OR_CTS = "status:FrozenNeedsImplOrCTS"
-    NEEDS_CHAMPION_APPROVAL_OR_RATIFICATION = (
-        "status:NeedsChampionApprovalOrRatification"
-    )
-    NEEDS_OTHER = "status:NeedsOther"
-    RELEASE_PENDING = "status:ReleasePending"
-
-    @classmethod
-    def from_labels(cls, labels: Iterable[str]) -> Optional["ColumnName"]:
-        result = None
-        label_set = set(labels)
-        for column in cls:
-            if column.value in label_set:
-                # only keep the "highest"
-                result = column
-        return result
-
-    def compute_new_labels(self, labels: list[str]) -> list[str]:
-        column_labels = {x.value for x in ColumnName}
-
-        # Remove all column labels except the one we want.
-        new_labels = [x for x in labels if x == self.value or x not in column_labels]
-        if self.value not in new_labels:
-            # Add the one we want if it wasn't already there
-            new_labels.append(self.value)
-        return new_labels
 
 
 class OpsBoardProcessing:
@@ -137,14 +109,17 @@ class OpsBoardProcessing:
 
         # Find MR
         mr = None
-        match_iter = _FIND_MR_RE.finditer(issue.description)
-        match = next(match_iter, None)
-        if match:
-            mr_num = int(match.group("num"))
-            mr = self.main_proj.mergerequests.get(mr_num)
-            self.title = (
-                f"{self.title}: main MR: {mr.references['short']} aka <{mr.web_url}>"
-            )
+        desc = issue.description
+        if desc:
+            match_iter = _FIND_MR_RE.finditer(desc)
+            match = next(match_iter, None)
+            if match:
+                mr_num = int(match.group("num"))
+                mr = self.main_proj.mergerequests.get(mr_num)
+                self.title = f"{self.title}: main MR: {mr.references['short']} aka <{mr.web_url}>"
+        else:
+            self.log_title()
+            log.warning("No description in this issue")
 
         # Tidy up the title.
         new_title = _ISSUE_TITLE_FIXING.sub("", title)
@@ -167,12 +142,6 @@ class OpsBoardProcessing:
             log.warning("No main MR found?")
 
         new_labels = column.compute_new_labels(labels)
-        if (
-            ColumnName.NEEDS_REVISION.value in new_labels
-            and INITIAL_REVIEW_COMPLETE not in new_labels
-        ):
-            # If it's in needs-revision, that means it got reviewed.
-            new_labels.append(INITIAL_REVIEW_COMPLETE)
 
         if new_labels != labels:
             self.log_title()

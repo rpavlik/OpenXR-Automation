@@ -5,12 +5,13 @@
 #
 # Author: Rylie Pavlik <rylie.pavlik@collabora.com>
 
+from enum import Enum
 import itertools
 import logging
 import re
 from dataclasses import dataclass
 from functools import cached_property
-from typing import Dict, Optional, cast
+from typing import Dict, Iterable, Optional, cast
 
 import gitlab
 import gitlab.v4.objects
@@ -28,6 +29,51 @@ _CHECKLIST_RE = re.compile(
 )
 
 _log = logging.getLogger(__name__)
+
+INITIAL_REVIEW_COMPLETE = "initial-review-complete"
+
+
+class ColumnName(Enum):
+    """Board columns and their associated labels."""
+
+    INACTIVE = "status:Inactive"
+    INITIAL_COMPOSITION = "status:InitialComposition"
+    NEEDS_REVIEW = "status:NeedsReview"
+    NEEDS_REVISION = "status:NeedsRevision"
+    FROZEN_NEEDS_IMPL_OR_CTS = "status:FrozenNeedsImplOrCTS"
+    NEEDS_CHAMPION_APPROVAL_OR_RATIFICATION = (
+        "status:NeedsChampionApprovalOrRatification"
+    )
+    NEEDS_OTHER = "status:NeedsOther"
+    RELEASE_PENDING = "status:ReleasePending"
+
+    @classmethod
+    def from_labels(cls, labels: Iterable[str]) -> Optional["ColumnName"]:
+        result = None
+        label_set = set(labels)
+        for column in cls:
+            if column.value in label_set:
+                # only keep the "highest"
+                result = column
+        return result
+
+    def compute_new_labels(self, labels: list[str]) -> list[str]:
+        column_labels = {x.value for x in ColumnName}
+
+        # Remove all column labels except the one we want.
+        new_labels = [x for x in labels if x == self.value or x not in column_labels]
+        if self.value not in new_labels:
+            # Add the one we want if it wasn't already there
+            new_labels.append(self.value)
+
+        if (
+            self == ColumnName.NEEDS_REVISION
+            and INITIAL_REVIEW_COMPLETE not in new_labels
+        ):
+            # If it's in needs-revision, that means it got reviewed.
+            new_labels.append(INITIAL_REVIEW_COMPLETE)
+
+        return list(sorted(new_labels))
 
 
 @dataclass
@@ -398,3 +444,23 @@ class ReleaseChecklistCollection:
 
                     merge_request.description = new_desc
                     merge_request.save()
+
+    def mr_set_column(self, mr_num: int, new_column: ColumnName):
+        issue = self.mr_to_issue_object[mr_num]
+        labels = list(sorted(issue.attributes["labels"]))
+        orig_column = ColumnName.from_labels(labels)
+        if orig_column is None:
+            orig_column = ColumnName.INITIAL_COMPOSITION
+
+        if orig_column == new_column:
+            _log.warning("Issue %s is already in '%s'", issue.web_url, str(orig_column))
+
+        new_labels = new_column.compute_new_labels(labels)
+        if new_labels != labels:
+            title = issue.attributes["title"]
+
+            _log.info(
+                f"Updating labels: {issue.references['short']} aka <{issue.web_url}>: {title}: {repr(new_labels)}",
+            )
+            issue.labels = new_labels
+            issue.save()
