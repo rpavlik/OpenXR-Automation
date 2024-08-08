@@ -109,7 +109,7 @@ if __name__ == "__main__":
         "--major", type=int, default=1, help="Manually specify the major version"
     )
     parser.add_argument(
-        "--minor", type=int, default=0, help="Manually specify the minor version"
+        "--minor", type=int, default=1, help="Manually specify the minor version"
     )
 
     parser.add_argument(
