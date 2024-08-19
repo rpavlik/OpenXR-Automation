@@ -28,6 +28,16 @@ SKIP_RELATED_MR_LOOKUP = {
     "!3053",  # 1.1 candidate
 }
 
+# Must have at least one of these labels to show up on this board
+# since there are now two projects using "contractor approved"
+REQUIRED_LABEL_SET = set(
+    (
+        "Conformance Implementation",
+        "Conformance IN THE WILD",
+        "Conformance Question",
+    )
+)
+
 
 def main(in_filename, out_filename):
     logging.basicConfig(level=logging.INFO)
@@ -54,6 +64,16 @@ def main(in_filename, out_filename):
     ):
         proj_issue = cast(gitlab.v4.objects.ProjectIssue, issue)
         ref = get_short_ref(proj_issue)
+        issue_labels = set(proj_issue.attributes["labels"])
+        if not issue_labels.intersection(REQUIRED_LABEL_SET):
+            log.info(
+                "Skipping contractor approved but non-CTS issue: %s: %s  %s",
+                ref,
+                proj_issue.title,
+                proj_issue.attributes["web_url"],
+            )
+            continue
+
         if ref in SKIP_RELATED_MR_LOOKUP:
             log.info(
                 "Skipping GitLab Issue Search for: %s: %s",
