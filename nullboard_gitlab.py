@@ -37,6 +37,7 @@ def guess_list(item: WorkUnit) -> str:
             return ListName.DOING
         if "Needs Action" in mr.labels:
             return ListName.DOING
+        return ListName.REVIEW
     return ListName.TODO
 
 
