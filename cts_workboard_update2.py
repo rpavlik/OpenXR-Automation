@@ -9,14 +9,15 @@
 import itertools
 import json
 import logging
-from typing import cast
+from typing import Union, cast
 
 import gitlab
 import gitlab.v4.objects
+from gitlab.v4.objects import ProjectIssue, ProjectMergeRequest
 
-from nullboard_gitlab import ListName, make_note_text, parse_board, update_board
+from nullboard_gitlab import ListName, parse_board, update_board
 from openxr_ops.gitlab import OpenXRGitlab
-from work_item_and_collection import WorkUnitCollection, get_short_ref
+from work_item_and_collection import WorkUnit, WorkUnitCollection, get_short_ref
 
 # List stuff that causes undesired merging here
 SKIP_RELATED_MR_LOOKUP = {
@@ -37,6 +38,66 @@ REQUIRED_LABEL_SET = set(
         "Conformance Question",
     )
 )
+
+
+def _make_api_item_text(
+    api_item: Union[ProjectIssue, ProjectMergeRequest],
+) -> str:
+    state = []
+    if api_item.state == "closed":
+        state.append("(CLOSED)")
+    elif api_item.state == "merged":
+        state.append("(MERGED)")
+
+    is_mr = hasattr(api_item, "target_branch")
+
+    if is_mr and hasattr(api_item, "upvotes") and api_item.upvotes > 0:
+        state.append("👍" * api_item.upvotes)
+
+    if is_mr and hasattr(api_item, "downvotes") and api_item.downvotes > 0:
+        state.append("👎" * api_item.downvotes)
+
+    if api_item.attributes.get("has_conflicts"):
+        state.append("⚠️")
+
+    if hasattr(api_item, "labels"):
+        if "Objection Window" in api_item.labels:
+            state.append("⏰")
+
+        if "Needs Author Action" in api_item.labels:
+            state.append("🚧")
+
+    if not api_item.attributes.get("blocking_discussions_resolved", True):
+        state.append("💬")
+
+    if state:
+        # If we have at least one item, add an empty entry for the trailing space
+        state.append("")
+
+    state_str = " ".join(state)
+
+    return "[{ref}]({url}): {state}{title}".format(
+        ref=api_item.references["short"],
+        state=state_str,
+        title=api_item.title,
+        url=api_item.web_url,
+    )
+
+
+def make_note_text(item: WorkUnit, item_formatter) -> str:
+    return "{key_item}\n{rest}".format(
+        key_item=item_formatter(
+            item.key_item,
+        ),
+        rest="\n".join(
+            "• {}".format(
+                item_formatter(
+                    api_item,
+                )
+            )
+            for api_item in item.non_key_issues_and_mrs()
+        ),
+    )
 
 
 def main(in_filename, out_filename):
@@ -118,9 +179,7 @@ def main(in_filename, out_filename):
         work,
         existing_board,
         list_titles_to_skip_adding_to=[ListName.DONE],
-        note_text_maker=lambda x: make_note_text(
-            x, show_mr_votes=True, show_objection_window=True
-        ),
+        note_text_maker=lambda x: make_note_text(x, _make_api_item_text),
     )
 
     log.info("Writing output file %s", out_filename)
