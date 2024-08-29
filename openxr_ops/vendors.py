@@ -44,6 +44,17 @@ class VendorNames:
                 "KHR": "The Khronos Group",
             }
         )
+
+        # Canonicalize vendor tags
+        self._canonicalize = {k: k for k in self.known.keys()}
+        self._canonicalize.update(
+            {
+                "FB": "META",
+                "META": "META",
+                "OCULUS": "META",
+            }
+        )
+
         # Author tags that are not runtime vendors
         self.not_runtime_vendors = {
             "ALMALENCE",
@@ -69,4 +80,11 @@ class VendorNames:
         name = self.known.get(vendor_code)
         if not name and vendor_code.endswith("X"):
             name = self.known.get(vendor_code[:-1])
+        return name
+
+    def canonicalize_vendor_tag(self, vendor_tag: str) -> Optional[str]:
+        """Get the canonical vendor tag from their author tag, if possible."""
+        name = self._canonicalize.get(vendor_tag)
+        if not name and vendor_tag.endswith("X"):
+            name = self._canonicalize.get(vendor_tag[:-1])
         return name
