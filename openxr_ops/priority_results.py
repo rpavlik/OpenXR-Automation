@@ -197,7 +197,7 @@ class ReleaseChecklistIssue:
         return (
             self.author_category_priority,
             not self.initial_review_complete,  # negate so "review complete" comes first
-            -self.latency,  # negate so largerst comes first
+            -self.latency,  # negate so largest comes first
         )
 
     @property
