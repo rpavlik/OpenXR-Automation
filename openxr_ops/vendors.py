@@ -84,3 +84,6 @@ class VendorNames:
         if name:
             return self.name_to_tag.get(name, vendor_tag)
         return vendor_tag
+
+    def vendor_name_to_canonical_tag(self, name: str) -> Optional[str]:
+        return self.name_to_tag.get(name)
