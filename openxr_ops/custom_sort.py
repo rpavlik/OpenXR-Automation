@@ -6,12 +6,12 @@
 #
 # Author: Rylie Pavlik <rylie.pavlik@collabora.com>
 
-from collections import defaultdict
-from review_priority import ReleaseChecklistIssue
-from vendors import VendorNames
+from .vendors import VendorNames
+from .priority_results import ReleaseChecklistIssue
 
 from typing import Any, Optional
 from dataclasses import dataclass, field
+from collections import defaultdict
 
 
 @dataclass
@@ -41,44 +41,38 @@ class VendorSortPolicy:
         return cls(newest_first=newest_first, priority=priority)
 
 
-class CustomSort:
+def perform_custom_sort(
+    vendors: VendorNames,
+    vendor_config: dict[str, Any],
+    issues: list[ReleaseChecklistIssue],
+):
+    vendor_policies: dict[str, VendorSortPolicy] = defaultdict(VendorSortPolicy)
+    for vendor_tag, config in vendor_config.items():
+        vendor_policies[vendor_tag] = VendorSortPolicy.from_dict(config)
 
-    def __init__(self, vendors: VendorNames) -> None:
-        self.vendors = vendors
-        self.vendor_policies: dict[str, VendorSortPolicy] = defaultdict(
-            VendorSortPolicy
-        )
+    # Split up
+    vendor_slots: list[Optional[str]] = []
 
-    def load_vendor_config(self, vendor_dict: dict[str, Any]):
-        """Load config from the 'vendor' table in the TOML file."""
-        for vendor_tag, config in vendor_dict.items():
-            self.vendor_policies[vendor_tag] = VendorSortPolicy.from_dict(config)
+    by_vendor: dict[Optional[str], list[ReleaseChecklistIssue]] = defaultdict(list)
 
-    def perform_custom_sort(self, issues: list[ReleaseChecklistIssue]):
+    for issue in issues:
+        tag: Optional[str] = None
+        if issue.vendor_name:
+            tag = vendors.vendor_name_to_canonical_tag(issue.vendor_name)
+        vendor_slots.append(tag)
+        by_vendor[tag].append(issue)
 
-        # Split up
-        vendor_slots: list[Optional[str]] = []
+    # Sort per-vendor lists
+    for tag, issues in by_vendor.items():
+        if tag:
+            policy = vendor_policies[tag]
+        else:
+            policy = VendorSortPolicy()
+        issues.sort(key=policy.get_sort_key)
 
-        by_vendor: dict[Optional[str], list[ReleaseChecklistIssue]] = defaultdict(list)
-
-        for issue in issues:
-            tag: Optional[str] = None
-            if issue.vendor_name:
-                tag = self.vendors.vendor_name_to_canonical_tag(issue.vendor_name)
-            vendor_slots.append(tag)
-            by_vendor[tag].append(issue)
-
-        # Sort per-vendor lists
-        for tag, issues in by_vendor.items():
-            if tag:
-                policy = self.vendor_policies[tag]
-            else:
-                policy = VendorSortPolicy()
-            issues.sort(key=policy.get_sort_key)
-
-        # Rebuild list
-        result: list[ReleaseChecklistIssue] = []
-        for slot in vendor_slots:
-            issue = by_vendor[slot].pop(0)
-            result.append(issue)
-        return result
+    # Rebuild list
+    result: list[ReleaseChecklistIssue] = []
+    for slot in vendor_slots:
+        issue = by_vendor[slot].pop(0)
+        result.append(issue)
+    return result

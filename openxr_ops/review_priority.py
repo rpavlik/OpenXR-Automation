@@ -14,6 +14,7 @@ from .checklists import ReleaseChecklistCollection
 from .gitlab import OpenXRGitlab
 from .vendors import VendorNames
 from .priority_results import NOW, ReleaseChecklistIssue, PriorityResults, apply_offsets
+from .custom_sort import perform_custom_sort
 
 _NEEDSREVIEW_LABEL = "status:NeedsReview"
 
@@ -72,6 +73,11 @@ if __name__ == "__main__":
     parser.add_argument("--html", type=str, help="Output HTML to filename")
     parser.add_argument("--extra", type=str, help="Extra text to add to HTML footer")
     parser.add_argument(
+        "--config",
+        type=str,
+        help="TOML file to read config from, including latency offsets and custom sorts",
+    )
+    parser.add_argument(
         "--offsets",
         type=str,
         help="TOML file to read latency offsets from",
@@ -90,11 +96,12 @@ if __name__ == "__main__":
     oxr_gitlab = OpenXRGitlab.create()
 
     log.info("Performing startup queries")
+    vendor_names = VendorNames.from_git(oxr_gitlab.main_proj)
     collection = ReleaseChecklistCollection(
         oxr_gitlab.main_proj,
         oxr_gitlab.operations_proj,
         checklist_factory=None,
-        vendor_names=VendorNames.from_git(oxr_gitlab.main_proj),
+        vendor_names=vendor_names,
     )
 
     items = load_needs_review(collection)
@@ -104,7 +111,21 @@ if __name__ == "__main__":
             offsets = tomllib.load(fp)
         apply_offsets(offsets, items)
 
+    config: Optional[dict] = None
+    if args.config:
+        with open(args.config, "rb") as fp:
+            config = tomllib.load(fp)
+        if "offsets" in config:
+            apply_offsets(config["offsets"], items)
+
     results = PriorityResults.from_items(items)
+
+    if config and "vendors" in config:
+        log.info("Performing custom sort")
+        resorted = perform_custom_sort(
+            vendor_names, config["vendors"], results.sorted_items
+        )
+        results = PriorityResults.from_sorted_items(resorted)
 
     if args.html:
         log.info("Outputting to HTML: %s", args.html)
