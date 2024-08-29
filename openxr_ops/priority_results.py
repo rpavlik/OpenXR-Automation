@@ -297,15 +297,10 @@ class PriorityResults:
     """Slots occupied by extensions for which we could not guess the vendor."""
 
     @classmethod
-    def from_items(cls, items: list[ReleaseChecklistIssue]) -> "PriorityResults":
-        """Sort review requests and return output."""
-        log.info("Sorting %d items that need review", len(items))
-        sorted_items = list(
-            sorted(
-                items,
-                key=lambda x: x.get_sort_key(),
-            )
-        )
+    def from_sorted_items(
+        cls, sorted_items: list[ReleaseChecklistIssue]
+    ) -> "PriorityResults":
+        """Return output without sorting again."""
 
         vendor_name_to_slots: dict[str, list[int]] = defaultdict(list)
         unknown_slots: list[int] = []
@@ -326,6 +321,18 @@ class PriorityResults:
             vendor_name_to_slots=vendor_name_to_slots,
             unknown_slots=unknown_slots,
         )
+
+    @classmethod
+    def from_items(cls, items: list[ReleaseChecklistIssue]) -> "PriorityResults":
+        """Sort review requests and return output."""
+        log.info("Sorting %d items that need review", len(items))
+        sorted_items = list(
+            sorted(
+                items,
+                key=lambda x: x.get_sort_key(),
+            )
+        )
+        return cls.from_sorted_items(sorted_items)
 
 
 def apply_offsets(offsets: dict[str, int], items: List[ReleaseChecklistIssue]):
