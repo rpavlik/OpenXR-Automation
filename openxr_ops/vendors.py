@@ -45,15 +45,8 @@ class VendorNames:
             }
         )
 
-        # Canonicalize vendor tags
-        self._canonicalize = {k: k for k in self.known.keys()}
-        self._canonicalize.update(
-            {
-                "FB": "META",
-                "META": "META",
-                "OCULUS": "META",
-            }
-        )
+        # Preferred tag for vendors with multiple.
+        self.name_to_tag = {"Meta Platforms": "META"}
 
         # Author tags that are not runtime vendors
         self.not_runtime_vendors = {
@@ -84,7 +77,10 @@ class VendorNames:
 
     def canonicalize_vendor_tag(self, vendor_tag: str) -> Optional[str]:
         """Get the canonical vendor tag from their author tag, if possible."""
-        name = self._canonicalize.get(vendor_tag)
+        name = self.known.get(vendor_tag)
         if not name and vendor_tag.endswith("X"):
-            name = self._canonicalize.get(vendor_tag[:-1])
-        return name
+            vendor_tag = vendor_tag[:-1]
+            name = self.known.get(vendor_tag)
+        if name:
+            return self.name_to_tag.get(name, vendor_tag)
+        return vendor_tag
