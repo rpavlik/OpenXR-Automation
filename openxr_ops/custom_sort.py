@@ -29,7 +29,7 @@ class SorterBase:
 
 
 class BasicSort(SorterBase):
-    """A standard basic sort, using a method of the issue."""
+    """A standard basic sort."""
 
     def __init__(self, _: VendorNames, vendor_config: dict[str, Any]) -> None:
         pass
@@ -44,10 +44,18 @@ class BasicSort(SorterBase):
     def get_sorted(self, items: list[ReleaseChecklistIssue]):
         """Sort review requests and return output."""
         log.info("Sorting %d items that need review, using basic sorter", len(items))
+
+        def get_sort_key(issue: ReleaseChecklistIssue):
+            return (
+                issue.author_category_priority,
+                not issue.initial_review_complete,  # negate so "review complete" comes first
+                -issue.latency,  # negate so largest comes first
+            )
+
         sorted_items = list(
             sorted(
                 items,
-                key=lambda x: x.get_sort_key(),
+                key=get_sort_key,
             )
         )
         return sorted_items

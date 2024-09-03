@@ -185,13 +185,6 @@ class ReleaseChecklistIssue:
             log.warning("Could not guess vendor category for %s", self.issue_obj.title)
         return author_category
 
-    def get_sort_key(self):
-        return (
-            self.author_category_priority,
-            not self.initial_review_complete,  # negate so "review complete" comes first
-            -self.latency,  # negate so largest comes first
-        )
-
     @property
     def checklist_completed_count(self) -> int:
         return self.issue_obj.task_completion_status["completed_count"]
@@ -292,7 +285,7 @@ class PriorityResults:
     def from_sorted_items(
         cls, sorted_items: list[ReleaseChecklistIssue]
     ) -> "PriorityResults":
-        """Return output without sorting again."""
+        """Populate the object from an already-sorted list."""
 
         vendor_name_to_slots: dict[str, list[int]] = defaultdict(list)
         unknown_slots: list[int] = []
@@ -313,18 +306,6 @@ class PriorityResults:
             vendor_name_to_slots=vendor_name_to_slots,
             unknown_slots=unknown_slots,
         )
-
-    @classmethod
-    def from_items(cls, items: list[ReleaseChecklistIssue]) -> "PriorityResults":
-        """Sort review requests and return output."""
-        log.info("Sorting %d items that need review", len(items))
-        sorted_items = list(
-            sorted(
-                items,
-                key=lambda x: x.get_sort_key(),
-            )
-        )
-        return cls.from_sorted_items(sorted_items)
 
 
 def apply_offsets(offsets: dict[str, int], items: List[ReleaseChecklistIssue]):
