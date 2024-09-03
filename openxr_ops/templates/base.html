@@ -59,7 +59,13 @@
             {{ extra_safe | safe }}
         </p>
         {% endif %}
-        {% endblock %}
+        {% block author %}
+        <p>
+            Original Author: <a href="mailto:rylie.pavlik@collabora.com">Rylie Pavlik</a> (she/her),
+            Collabora, Ltd.
+        </p>
+        {% endblock author %}
+        {% endblock footer %}
     </footer>
 </body>
 
