@@ -34,6 +34,20 @@
             text-align: center;
             padding: 2em;
         }
+
+        .rylie {
+            padding: 0.5em;
+
+            /* litter easter egg from Rylie */
+            margin-top: 1.5em;
+            margin-left: 30%;
+            margin-right: 30%;
+            border-radius: 1em;
+
+            /* ⚧️ from https://cesque.com/gaydient/ */
+            background:
+                linear-gradient(to right, rgb(85, 205, 252), rgb(179, 157, 233), rgb(247, 168, 184), rgb(246, 216, 221), rgb(255, 255, 255) 45%, rgb(255, 255, 255), rgb(255, 255, 255) 55%, rgb(246, 216, 221), rgb(247, 168, 184), rgb(179, 157, 233), rgb(85, 205, 252));
+        }
     </style>
     {% endblock style %}
 </head>
@@ -60,7 +74,7 @@
         </p>
         {% endif %}
         {% block author %}
-        <p>
+        <p class="rylie">
             Original Author: <a href="mailto:rylie.pavlik@collabora.com">Rylie Pavlik</a> (she/her),
             Collabora, Ltd.
         </p>
