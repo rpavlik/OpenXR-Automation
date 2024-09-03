@@ -5,11 +5,11 @@
 #
 # Author: Rylie Pavlik <rylie.pavlik@collabora.com>
 
-from enum import Enum
 import itertools
 import logging
 import re
 from dataclasses import dataclass
+from enum import Enum
 from functools import cached_property
 from typing import Dict, Iterable, Optional, cast
 
