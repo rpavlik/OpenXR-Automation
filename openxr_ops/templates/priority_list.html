@@ -12,6 +12,11 @@ SPDX-License-Identifier: CC-BY-4.0
     .extension_slots>li {
         padding-top: 1em;
     }
+
+    /* make the emoji symbols bigger */
+    .emoji-symbol {
+        font-size: x-large;
+    }
 </style>
 {% endblock style %}
 
@@ -44,9 +49,19 @@ SPDX-License-Identifier: CC-BY-4.0
         <li>
             <a id="slot-{{ loop.index }}"></a>
             Slot {{ loop.index }}
-            - <a href="{{ item.url }}">{{ item.title }}</a>
+            -
+            {% if item.unchangeable %}<span class="emoji-symbol" title="Shipped, API frozen">🧊</span>{% endif %}
+            {# or 🚫 ? #}
+            {% if item.initial_review_complete -%}
+            <span class="emoji-symbol" title="Initial review complete">🔄</span>
+            {%- endif %}
+            {% if item.needs_author_action %}<span class="emoji-symbol" title="Needs Author Action">🚧</span>{% endif %}
+            {% if not item.mr.blocking_discussions_resolved -%}
+            <span class="emoji-symbol" title="Blocking discussions not resolved">💬</span>
+            {%- endif %}
+
+            <a href="{{ item.url }}">{{ item.title }}</a>
             - MR <a href="{{ item.mr_url }}">{{ item.mr_ref }}</a>
-            {% if not item.mr.blocking_discussions_resolved %} - blocking discussions not resolved {% endif %}
 
             <ul>
                 <li>Latency: {{ item.latency }} days since last status change
@@ -88,3 +103,11 @@ SPDX-License-Identifier: CC-BY-4.0
 
 </section>
 {% endblock contents %}
+
+{% block footer %}
+<p><b>NOTE</b>: The contents of this page are confidential {# once populated and not just a jinja template #} under the
+    NDA associated with Khronos Group participation.</p>
+
+{{ super() }}
+
+{% endblock %}
