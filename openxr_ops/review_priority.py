@@ -125,8 +125,6 @@ if __name__ == "__main__":
             log.info("Applying offsets from config")
             apply_offsets(config["offsets"], items)
 
-    results = PriorityResults.from_items(items)
-
     vendor_config = dict()
     sorter: SorterBase = BasicSort(vendor_names, vendor_config)
 
