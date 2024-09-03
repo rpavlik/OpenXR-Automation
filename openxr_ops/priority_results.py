@@ -172,14 +172,6 @@ class ReleaseChecklistIssue:
     def mr_notes(self):
         return list(self.mr.notes.list(iterator=True))
 
-    @staticmethod
-    def get_sort_description():
-        return (
-            "author category (KHR highest priority, then EXT, then single vendor)",
-            "whether initial review is complete (higher priority) or not complete (lower priority)",
-            "latency (time since put in review), older is higher priority",
-        )
-
     @property
     def author_category_priority(self):
         author_category = 0

@@ -7,14 +7,15 @@
 # Author: Rylie Pavlik <rylie.pavlik@collabora.com>
 
 import logging
-from typing import List, Optional
+from typing import Iterable, List, Optional
+
 import tomllib
 
 from .checklists import ReleaseChecklistCollection
 from .gitlab import OpenXRGitlab
+from .priority_results import NOW, PriorityResults, ReleaseChecklistIssue, apply_offsets
 from .vendors import VendorNames
-from .priority_results import NOW, ReleaseChecklistIssue, PriorityResults, apply_offsets
-from .custom_sort import perform_custom_sort
+from .custom_sort import BasicSort, SORTERS, SorterBase
 
 _NEEDSREVIEW_LABEL = "status:NeedsReview"
 
@@ -44,7 +45,11 @@ def load_needs_review(
 
 
 def make_html(
-    results: PriorityResults, fn: str, extra: Optional[str], extra_safe: Optional[str]
+    results: PriorityResults,
+    sort_desc: Iterable[str],
+    fn: str,
+    extra: Optional[str],
+    extra_safe: Optional[str],
 ):
     from jinja2 import Environment, PackageLoader, select_autoescape
 
@@ -58,7 +63,7 @@ def make_html(
             template.render(
                 results=results,
                 now=NOW,
-                sort_description=ReleaseChecklistIssue.get_sort_description(),
+                sort_description=sort_desc,
                 extra=extra,
                 extra_safe=extra_safe,
             )
@@ -113,23 +118,40 @@ if __name__ == "__main__":
 
     config: Optional[dict] = None
     if args.config:
+        log.info("Opening config %s", args.config)
         with open(args.config, "rb") as fp:
             config = tomllib.load(fp)
         if "offsets" in config:
+            log.info("Applying offsets from config")
             apply_offsets(config["offsets"], items)
 
     results = PriorityResults.from_items(items)
 
-    if config and "vendors" in config:
-        log.info("Performing custom sort")
-        resorted = perform_custom_sort(
-            vendor_names, config["vendors"], results.sorted_items
-        )
-        results = PriorityResults.from_sorted_items(resorted)
+    vendor_config = dict()
+    sorter: SorterBase = BasicSort(vendor_names, vendor_config)
+
+    if config:
+        vendor_config = config.get("vendor", dict())
+
+        sorter_name = config.get("sorter")
+        if sorter_name:
+            (sorter_factory) = SORTERS.get(sorter_name)
+            assert sorter_factory
+            log.info("Using specified sorter: %s", sorter_name)
+            sorter = sorter_factory(vendor_names, vendor_config)
+    sorted = sorter.get_sorted(items)
+
+    results = PriorityResults.from_sorted_items(sorted)
 
     if args.html:
         log.info("Outputting to HTML: %s", args.html)
-        make_html(results, args.html, args.extra, args.extra_safe)
+        make_html(
+            results,
+            sorter.get_sort_description(),
+            args.html,
+            args.extra,
+            args.extra_safe,
+        )
     else:
         print(results.list_markdown)
         print("\n")

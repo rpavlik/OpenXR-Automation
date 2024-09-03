@@ -6,12 +6,51 @@
 #
 # Author: Rylie Pavlik <rylie.pavlik@collabora.com>
 
-from .vendors import VendorNames
-from .priority_results import ReleaseChecklistIssue
-
-from typing import Any, Optional
-from dataclasses import dataclass, field
+import logging
 from collections import defaultdict
+from dataclasses import dataclass, field
+from typing import Any, Optional
+
+from .priority_results import ReleaseChecklistIssue
+from .vendors import VendorNames
+
+log = logging.getLogger(__name__)
+
+
+class SorterBase:
+
+    def get_sort_description(self) -> tuple:
+        raise NotImplementedError
+
+    def get_sorted(
+        self, items: list[ReleaseChecklistIssue]
+    ) -> list[ReleaseChecklistIssue]:
+        raise NotImplementedError
+
+
+class BasicSort(SorterBase):
+    """A standard basic sort, using a method of the issue."""
+
+    def __init__(self, _: VendorNames, vendor_config: dict[str, Any]) -> None:
+        pass
+
+    def get_sort_description(self):
+        return (
+            "author category (KHR highest priority, then EXT, then single vendor)",
+            "whether initial review is complete (higher priority) or not complete (lower priority)",
+            "latency (time since put in review), older is higher priority",
+        )
+
+    def get_sorted(self, items: list[ReleaseChecklistIssue]):
+        """Sort review requests and return output."""
+        log.info("Sorting %d items that need review, using basic sorter", len(items))
+        sorted_items = list(
+            sorted(
+                items,
+                key=lambda x: x.get_sort_key(),
+            )
+        )
+        return sorted_items
 
 
 @dataclass
@@ -34,6 +73,18 @@ class VendorSortPolicy:
             issue.latency if self.newest_first else -issue.latency,
         )
 
+    def describe(self):
+        """Describe for the sort description."""
+        parts = ["extensions with initial review complete first"]
+        if self.priority:
+            prio_exts = f"[{', '.join(self.priority)}]"
+            parts.append(
+                f"then prioritizing the following in the specified order: {prio_exts}"
+            )
+        if self.newest_first:
+            parts.append("then newest (lowest latency) first")
+        return ", ".join(parts)
+
     @classmethod
     def from_dict(cls, vendor_policy):
         newest_first = vendor_policy.get("newest_first", False)
@@ -41,38 +92,67 @@ class VendorSortPolicy:
         return cls(newest_first=newest_first, priority=priority)
 
 
-def perform_custom_sort(
-    vendors: VendorNames,
-    vendor_config: dict[str, Any],
-    issues: list[ReleaseChecklistIssue],
-):
-    vendor_policies: dict[str, VendorSortPolicy] = defaultdict(VendorSortPolicy)
-    for vendor_tag, config in vendor_config.items():
-        vendor_policies[vendor_tag] = VendorSortPolicy.from_dict(config)
+class CustomizedSort(SorterBase):
 
-    # Split up
-    vendor_slots: list[Optional[str]] = []
+    def __init__(self, vendors: VendorNames, vendor_config: dict[str, Any]) -> None:
+        self.vendors: VendorNames = vendors
+        self.vendor_config: dict[str, Any] = vendor_config
+        self.initial_sort = BasicSort(vendors, vendor_config)
 
-    by_vendor: dict[Optional[str], list[ReleaseChecklistIssue]] = defaultdict(list)
+        self.vendor_policies: dict[str, VendorSortPolicy] = defaultdict(
+            VendorSortPolicy
+        )
+        for vendor_tag, config in self.vendor_config.items():
+            self.vendor_policies[vendor_tag] = VendorSortPolicy.from_dict(config)
 
-    for issue in issues:
-        tag: Optional[str] = None
-        if issue.vendor_name:
-            tag = vendors.vendor_name_to_canonical_tag(issue.vendor_name)
-        vendor_slots.append(tag)
-        by_vendor[tag].append(issue)
+    def get_sort_description(self):
+        parts = list(self.initial_sort.get_sort_description()) + [
+            "Preseving the association between review slots and vendors, re-sort those vendor's extensions where the"
+            " vendor has provided an alternate policy:",
+        ]
+        parts.extend(
+            f"{tag}: {policy.describe()}"
+            for tag, policy in self.vendor_policies.items()
+        )
 
-    # Sort per-vendor lists
-    for tag, issues in by_vendor.items():
-        if tag:
-            policy = vendor_policies[tag]
-        else:
-            policy = VendorSortPolicy()
-        issues.sort(key=policy.get_sort_key)
+        return parts
 
-    # Rebuild list
-    result: list[ReleaseChecklistIssue] = []
-    for slot in vendor_slots:
-        issue = by_vendor[slot].pop(0)
-        result.append(issue)
-    return result
+    def get_sorted(self, items: list[ReleaseChecklistIssue]):
+        # Initial sort to assign slots to vendors
+        issues = self.initial_sort.get_sorted(items)
+        log.info(
+            "Re-sorting %d items that need review, using %d custom vendor policies",
+            len(items),
+            len(self.vendor_policies),
+        )
+
+        # Split up
+        vendor_slots: list[Optional[str]] = []
+
+        by_vendor: dict[Optional[str], list[ReleaseChecklistIssue]] = defaultdict(list)
+
+        for issue in issues:
+            tag: Optional[str] = None
+            if issue.vendor_name:
+                tag = self.vendors.vendor_name_to_canonical_tag(issue.vendor_name)
+            vendor_slots.append(tag)
+            by_vendor[tag].append(issue)
+
+        # Sort per-vendor lists as required
+        for tag, vendor_issues in by_vendor.items():
+            if tag and tag in self.vendor_policies:
+                policy = self.vendor_policies[tag]
+                vendor_issues.sort(key=policy.get_sort_key)
+
+        # Rebuild list
+        result: list[ReleaseChecklistIssue] = []
+        for slot in vendor_slots:
+            issue = by_vendor[slot].pop(0)
+            result.append(issue)
+        return result
+
+
+SORTERS = {
+    "custom": CustomizedSort,
+    "basic": BasicSort,
+}
