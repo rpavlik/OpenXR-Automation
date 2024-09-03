@@ -12,10 +12,10 @@ from typing import Iterable, List, Optional
 import tomllib
 
 from .checklists import ReleaseChecklistCollection
+from .custom_sort import SORTERS, BasicSort, SorterBase
 from .gitlab import OpenXRGitlab
 from .priority_results import NOW, PriorityResults, ReleaseChecklistIssue, apply_offsets
 from .vendors import VendorNames
-from .custom_sort import BasicSort, SORTERS, SorterBase
 
 _NEEDSREVIEW_LABEL = "status:NeedsReview"
 
@@ -133,10 +133,12 @@ if __name__ == "__main__":
 
         sorter_name = config.get("sorter")
         if sorter_name:
-            (sorter_factory) = SORTERS.get(sorter_name)
+            sorter_factory = SORTERS.get(sorter_name)
             assert sorter_factory
+
             log.info("Using specified sorter: %s", sorter_name)
             sorter = sorter_factory(vendor_names, vendor_config)
+
     sorted = sorter.get_sorted(items)
 
     results = PriorityResults.from_sorted_items(sorted)
