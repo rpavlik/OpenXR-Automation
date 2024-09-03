@@ -21,6 +21,9 @@ from .gitlab import KHR_EXT_LABEL, VENDOR_EXT_LABEL
 from .vendors import VendorNames
 
 _INITIAL_COMPLETE = "initial-review-complete"
+_NEEDS_AUTHOR_ACTION = "Needs Author Action"
+_UNCHANGEABLE = "API Shipped publicly (unchangable)"
+
 NOW = datetime.datetime.now(datetime.UTC)
 log = logging.getLogger(__name__)
 
@@ -115,6 +118,22 @@ class ReleaseChecklistIssue:
         created_at = datetime.datetime.fromisoformat(self.mr.attributes["created_at"])
         age = NOW - created_at
         return age.days
+
+    @cached_property
+    def has_conflicts(self):
+        """If the MR has merge conflicts."""
+        return self.mr.attributes.get("has_conflicts", False)
+
+    @property
+    def needs_author_action(self):
+        return _NEEDS_AUTHOR_ACTION in self.mr.attributes["labels"]
+
+    @property
+    def unchangeable(self):
+        return (
+            _UNCHANGEABLE in self.mr.attributes["labels"]
+            or _UNCHANGEABLE in self.issue_obj.attributes["labels"]
+        )
 
     @cached_property
     def _last_author_revision_push_with_date(
