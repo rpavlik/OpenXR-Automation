@@ -18,7 +18,6 @@ log = logging.getLogger(__name__)
 
 
 class SorterBase:
-
     def get_sort_description(self) -> tuple:
         raise NotImplementedError
 
@@ -63,7 +62,6 @@ class BasicSort(SorterBase):
 
 @dataclass
 class VendorSortPolicy:
-
     newest_first: bool = False
     priority: list[str] = field(default_factory=list)
 
@@ -101,7 +99,6 @@ class VendorSortPolicy:
 
 
 class CustomizedSort(SorterBase):
-
     def __init__(self, vendors: VendorNames, vendor_config: dict[str, Any]) -> None:
         self.vendors: VendorNames = vendors
         self.vendor_config: dict[str, Any] = vendor_config

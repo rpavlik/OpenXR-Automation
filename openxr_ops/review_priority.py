@@ -7,9 +7,8 @@
 # Author: Rylie Pavlik <rylie.pavlik@collabora.com>
 
 import logging
-from typing import Iterable, List, Optional
-
 import tomllib
+from typing import Iterable, List, Optional
 
 from .checklists import ReleaseChecklistCollection
 from .custom_sort import SORTERS, BasicSort, SorterBase
