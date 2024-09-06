@@ -18,3 +18,5 @@ gitlab_cache.sqlite
 !.mailmap
 
 /*.html
+/*.pdf
+/*.csv
