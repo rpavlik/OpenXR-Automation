@@ -20,7 +20,8 @@ from openxr_ops.gitlab import OpenXRGitlab
 from work_item_and_collection import WorkUnit, WorkUnitCollection, get_short_ref
 
 # List stuff that causes undesired merging here
-SKIP_RELATED_MR_LOOKUP = {
+# Anything on this list will be excluded from the board
+DO_NOT_MERGE = {
     "#1828",
     "#1978",
     "#1950",
@@ -28,6 +29,17 @@ SKIP_RELATED_MR_LOOKUP = {
     "#2072",  # catch2 test number, etc mismatch
     "!3053",  # 1.1 candidate
 }
+
+# Anything on this list will skip looking for related MRs.
+# The contents of DO_NOT_MERGE are also included
+SKIP_RELATED_MR_LOOKUP = DO_NOT_MERGE.union(
+    {
+        # stuff getting merged into 1.0 v 1.1 that we don't want like that
+        "#2245",
+        "!3499",
+        "!3505",
+    }
+)
 
 # Must have at least one of these labels to show up on this board
 # since there are now two projects using "contractor approved"
@@ -105,7 +117,7 @@ def main(in_filename, out_filename):
 
     log = logging.getLogger(__name__)
     work = WorkUnitCollection()
-    work.do_not_merge = SKIP_RELATED_MR_LOOKUP
+    work.do_not_merge = DO_NOT_MERGE
 
     oxr_gitlab = OpenXRGitlab.create()
 
