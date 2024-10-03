@@ -16,6 +16,7 @@ if __name__ == "__main__":
 
     parser = argparse.ArgumentParser()
 
+    parser.add_argument("--dump", action="store_true", help="Dump out info")
     parser.add_argument(
         "-l", "--update-labels", action="store_true", help="Update labels on MRs"
     )
@@ -79,4 +80,18 @@ if __name__ == "__main__":
         for mr in args.mr_needs_champion:
             collection.mr_set_column(
                 mr, ColumnName.NEEDS_CHAMPION_APPROVAL_OR_RATIFICATION
+            )
+    if args.dump:
+        for issue_ref, mr in collection.issue_to_mr.items():
+            issue_obj = collection.mr_to_issue_object[mr]
+            print(
+                issue_obj.attributes["title"],
+                ",",
+                issue_ref,
+                ",",
+                issue_obj.attributes["state"],
+                ",",
+                mr,
+                issue_obj.attributes["web_url"],
+                issue_obj.attributes["labels"],
             )
