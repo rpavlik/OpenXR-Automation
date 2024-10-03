@@ -20,3 +20,4 @@ gitlab_cache.sqlite
 /*.html
 /*.pdf
 /*.csv
+/*.toml

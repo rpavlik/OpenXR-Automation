@@ -57,6 +57,12 @@ if __name__ == "__main__":
         checklist_factory=None,
         vendor_names=VendorNames.from_git(oxr_gitlab.main_proj),
     )
+
+    try:
+        collection.load_config("ops_issues.toml")
+    except IOError:
+        print("Could not load config")
+
     collection.load_initial_data(deep=False)
 
     if args.update_labels:
