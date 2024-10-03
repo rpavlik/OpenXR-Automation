@@ -108,6 +108,8 @@ if __name__ == "__main__":
         vendor_names=vendor_names,
     )
 
+    collection.load_initial_data()
+
     items = load_needs_review(collection)
 
     if args.offsets:

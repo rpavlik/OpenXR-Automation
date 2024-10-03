@@ -11,7 +11,8 @@ import re
 from dataclasses import dataclass
 from enum import Enum
 from functools import cached_property
-from typing import Dict, Iterable, Optional, cast
+from typing import Dict, Iterable, List, Optional, Set, cast
+import tomllib
 
 import gitlab
 import gitlab.v4.objects
@@ -314,6 +315,7 @@ class ReleaseChecklistCollection:
         ops_proj,
         checklist_factory: Optional[ReleaseChecklistFactory],
         vendor_names,
+        data: Optional[dict] = None,
     ):
         self.proj: gitlab.v4.objects.Project = proj
         """Main project"""
@@ -325,40 +327,86 @@ class ReleaseChecklistCollection:
         self.issue_to_mr: Dict[str, int] = {}
         self.mr_to_issue_object: Dict[int, gitlab.v4.objects.ProjectIssue] = {}
         self.mr_to_issue: Dict[int, str] = {}
+        self.ignore_issues: Set[str] = set()
+        self.include_issues: List[int] = []
+
+    def load_config(self, fn: str):
+        with open(fn, "rb") as fp:
+            config = tomllib.load(fp)
+
+            for ignore in config.get("ignore", []):
+                if isinstance(ignore, str):
+                    self.ignore_issues.add(ignore)
+                else:
+                    self.ignore_issues.add(f"openxr/openxr-operations#{ignore}")
+
+            for include in config.get("include", []):
+                self.include_issues.append(include)
+
+    def _handle_issue(self, issue: gitlab.v4.objects.ProjectIssue):
+        issue_ref = issue.attributes["references"]["full"]
+
+        if issue_ref in self.ignore_issues:
+            # skip
+            return
+
+        if issue_ref in self.issue_to_mr:
+            # we already processed this
+            return
+
+        desc = issue.attributes["description"]
+        if not desc:
+            _log.warning(
+                "Operations issue has no description: %s %s",
+                issue.attributes["title"],
+                issue.attributes["web_url"],
+            )
+            return
+        match_iter = _MAIN_MR_RE.finditer(issue.attributes["description"])
+        match = next(match_iter, None)
+        if not match:
+            _log.info(
+                "Release checklist has no MR indicated: %s <%s>",
+                issue.attributes["title"],
+                issue.attributes["web_url"],
+            )
+            return
+
+        mr_num = int(match.group("mrnum"))
+        self.issue_to_mr[issue_ref] = mr_num
+        self.mr_to_issue_object[mr_num] = issue
+        self.mr_to_issue[mr_num] = issue_ref
+
+    def load_initial_data(self, deep: bool = False):
 
         _log.info("Parsing all opened release checklists...")
-        for issue in itertools.chain(
+
+        queries = [
             self.proj.issues.list(
                 labels="Release Checklist", state="opened", iterator=True
             ),
-            ops_proj.issues.list(state="opened", iterator=True),
-        ):
-            issue = cast(gitlab.v4.objects.ProjectIssue, issue)
-            desc = issue.attributes["description"]
-            if not desc:
-                _log.warning(
-                    "Operations issue has no description: %s %s",
-                    issue.attributes["title"],
-                    issue.attributes["web_url"],
-                )
-                continue
-            match_iter = _MAIN_MR_RE.finditer(issue.attributes["description"])
-            match = next(match_iter, None)
-            if not match:
-                _log.info(
-                    "Release checklist has no MR indicated: %s <%s>",
-                    issue.attributes["title"],
-                    issue.attributes["web_url"],
-                )
-                continue
+            self.ops_proj.issues.list(state="opened", iterator=True),
+        ]
 
-            mr_num = int(match.group("mrnum"))
-            issue_ref = issue.attributes["references"]["full"]
-            self.issue_to_mr[issue_ref] = mr_num
-            self.mr_to_issue_object[mr_num] = issue
-            self.mr_to_issue[mr_num] = issue_ref
+        if deep:
+            queries.append(
+                self.ops_proj.issues.list(
+                    state="closed", label="status:ReleasePending", iterator=True
+                ),
+            )
+
+        for issue in itertools.chain(*queries):
+            issue = cast(gitlab.v4.objects.ProjectIssue, issue)
+            self._handle_issue(issue)
+
+        if self.include_issues:
+            _log.info("Parsing explicitly included release checklists...")
+
+            for issue_num in self.include_issues:
+                self._handle_issue(self.ops_proj.issues.get(issue_num))
+
         _log.info(
-            "Found %d open release checklists with associated MR", len(self.issue_to_mr)
+            "Loaded %d release checklists with associated MR", len(self.issue_to_mr)
         )
 
     def issue_str_to_cached_issue_object(

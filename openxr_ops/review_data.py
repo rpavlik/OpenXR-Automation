@@ -147,6 +147,8 @@ if __name__ == "__main__":
         vendor_names=vendor_names,
     )
 
+    collection.load_initial_data()
+
     events: list[IssueEvent] = []
 
     with open("events.csv", "w", newline="") as fp:

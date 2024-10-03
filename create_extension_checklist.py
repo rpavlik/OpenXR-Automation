@@ -44,6 +44,8 @@ if __name__ == "__main__":
         vendor_names=VendorNames.from_git(oxr.main_proj),
     )
 
+    collection.load_initial_data()
+
     kwargs = {}
     if "extname" in args and args.extname:
         kwargs["ext_names"] = [args.extname]

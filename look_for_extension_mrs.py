@@ -37,6 +37,8 @@ def main():
         vendor_names=VendorNames.from_git(oxr_gitlab.main_proj),
     )
 
+    collection.load_initial_data()
+
     for mr in itertools.chain(
         *(
             oxr_gitlab.main_proj.mergerequests.list(

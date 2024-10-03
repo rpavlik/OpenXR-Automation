@@ -57,6 +57,7 @@ if __name__ == "__main__":
         checklist_factory=None,
         vendor_names=VendorNames.from_git(oxr_gitlab.main_proj),
     )
+    collection.load_initial_data(deep=False)
 
     if args.update_labels:
         collection.update_mr_labels()
