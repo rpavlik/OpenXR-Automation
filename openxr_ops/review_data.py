@@ -151,6 +151,11 @@ if __name__ == "__main__":
         vendor_names=vendor_names,
     )
 
+    try:
+        collection.load_config("ops_issues.toml")
+    except IOError:
+        print("Could not load config")
+
     collection.load_initial_data()
 
     events: list[IssueEvent] = []
