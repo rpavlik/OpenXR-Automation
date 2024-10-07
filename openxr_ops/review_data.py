@@ -94,8 +94,12 @@ class IssueEvent:
         for evt in issue.resourcelabelevents.list(iterator=True):
             if evt.attributes["action"] != "add":
                 continue
-            label = evt.attributes["label"]["name"]
-            if label not in STATES:
+            label_dict = evt.attributes.get("label")
+            if not label_dict:
+                continue
+
+            label = label_dict.get("name")
+            if not label or label not in STATES:
                 continue
             yield cls.from_resource_label_event(
                 issue_title=title, evt=cast(ProjectIssueResourceLabelEvent, evt)
