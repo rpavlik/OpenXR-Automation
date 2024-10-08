@@ -28,6 +28,8 @@ DO_NOT_MERGE = {
     "#1460",
     "#2072",  # catch2 test number, etc mismatch
     "!3053",  # 1.1 candidate
+    "#2350",  # xml stuff with 2 parts
+    "#2312",  # subimage y offset with 2 parts
 }
 
 # Anything on this list will skip looking for related MRs.
