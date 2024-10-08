@@ -63,6 +63,10 @@ class VendorNames:
             "UNITY",
         }
 
+        for tag, name in self.known.items():
+            if not tag.endswith("X") and name not in self.name_to_tag:
+                self.name_to_tag[name] = tag
+
     def is_runtime_vendor(self, vendor_code: str) -> bool:
         """Guess if a vendor/author is a runtime vendor."""
         # Just a guess/heuristic
