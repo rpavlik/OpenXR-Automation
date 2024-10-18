@@ -112,7 +112,7 @@ class CustomizedSort(SorterBase):
 
     def get_sort_description(self):
         parts = list(self.initial_sort.get_sort_description()) + [
-            "Preseving the association between review slots and vendors, re-sort those vendor's extensions where the"
+            "Preserving the association between review slots and vendors, re-sort those vendor's extensions where the"
             " vendor has provided an alternate policy:",
         ]
         parts.extend(
