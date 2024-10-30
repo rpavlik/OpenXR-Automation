@@ -30,7 +30,7 @@ log = logging.getLogger(__name__)
 _EXT_DECOMP_RE = re.compile(r"XR_(?P<tag>[A-Z]+)_.*")
 
 
-_IGNORE_PUSH_USERS = ("rpavlik", "safarimonkey", "khrbot")
+_IGNORE_PUSH_USERS = ("rpavlik", "safarimonkey", "haagch", "khrbot")
 """Do not consider pushes from these users when determining latency"""
 
 
