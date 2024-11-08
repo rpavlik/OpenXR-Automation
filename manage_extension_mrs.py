@@ -39,6 +39,12 @@ if __name__ == "__main__":
         help="Update the ticket corresponding to the MR to NeedsRevision",
     )
     parser.add_argument(
+        "--mr-awaiting-merge",
+        type=int,
+        nargs="*",
+        help="Update the ticket corresponding to the MR to AwaitingMerge",
+    )
+    parser.add_argument(
         "--mr-needs-champion",
         type=int,
         nargs="*",
@@ -81,6 +87,10 @@ if __name__ == "__main__":
             collection.mr_set_column(
                 mr, ColumnName.NEEDS_CHAMPION_APPROVAL_OR_RATIFICATION
             )
+    if args.mr_awaiting_merge:
+        for mr in args.mr_awaiting_merge:
+            collection.mr_set_column(mr, ColumnName.AWAITING_MERGE)
+
     if args.dump:
         for issue_ref, mr in collection.issue_to_mr.items():
             issue_obj = collection.mr_to_issue_object[mr]
