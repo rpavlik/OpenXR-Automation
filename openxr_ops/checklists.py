@@ -46,6 +46,7 @@ class ColumnName(Enum):
         "status:NeedsChampionApprovalOrRatification"
     )
     NEEDS_OTHER = "status:NeedsOther"
+    AWAITING_MERGE = "status:AwaitingMerge"
     RELEASE_PENDING = "status:ReleasePending"
 
     @classmethod
