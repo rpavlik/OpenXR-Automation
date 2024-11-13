@@ -10,13 +10,11 @@ import logging
 import tomllib
 from typing import Iterable, List, Optional
 
-from .checklists import ReleaseChecklistCollection
+from .checklists import ColumnName, ReleaseChecklistCollection
 from .custom_sort import SORTERS, BasicSort, SorterBase
 from .gitlab import OpenXRGitlab
 from .priority_results import NOW, PriorityResults, ReleaseChecklistIssue, apply_offsets
 from .vendors import VendorNames
-
-_NEEDSREVIEW_LABEL = "status:NeedsReview"
 
 
 def load_needs_review(
@@ -29,7 +27,7 @@ def load_needs_review(
         if not issue_obj:
             continue
 
-        if _NEEDSREVIEW_LABEL not in issue_obj.labels:
+        if ColumnName.NEEDS_REVIEW.value not in issue_obj.labels:
             continue
 
         # print(issue_obj.attributes["title"])

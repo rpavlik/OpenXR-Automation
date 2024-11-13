@@ -10,40 +10,13 @@ import csv
 import logging
 from dataclasses import dataclass
 from datetime import datetime
-from typing import List, cast
+from typing import cast
 
 from gitlab.v4.objects import ProjectIssue, ProjectIssueResourceLabelEvent
 
-from .checklists import ReleaseChecklistCollection
+from .checklists import ReleaseChecklistCollection, ColumnName
 from .gitlab import OpenXRGitlab
-from .priority_results import ReleaseChecklistIssue
 from .vendors import VendorNames
-
-_NEEDSREVIEW_LABEL = "status:NeedsReview"
-
-
-def load_needs_review(
-    collection: ReleaseChecklistCollection,
-) -> List[ReleaseChecklistIssue]:
-    log.info("Loading items that need review")
-    items = []
-    for issue in collection.issue_to_mr.keys():
-        issue_obj = collection.issue_str_to_cached_issue_object(issue)
-        if not issue_obj:
-            continue
-
-        if _NEEDSREVIEW_LABEL not in issue_obj.labels:
-            continue
-
-        # print(issue_obj.attributes["title"])
-
-        mr_num = collection.issue_to_mr[issue]
-        mr = collection.proj.mergerequests.get(mr_num)
-
-        items.append(
-            ReleaseChecklistIssue.create(issue_obj, mr, collection.vendor_names)
-        )
-    return items
 
 
 # 📓 📑 📝🔬
@@ -55,14 +28,14 @@ STATES = {
     _NEW: "🆕",
     _SHIPPED: "🚢",
     # These are status labels
-    "status:Inactive": "💤",
-    "status:InitialComposition": "📓",
-    "status:NeedsReview": "🔬",
-    "status:NeedsRevision": "📑",
-    "status:NeedsChampionApprovalOrRatification": "☑️",
-    "status:NeedsOther": "🗳️",
-    "status:FrozenNeedsImplOrCTS": "💻",
-    "status:ReleasePending": "⏰",
+    ColumnName.INACTIVE: "💤",
+    ColumnName.INITIAL_COMPOSITION: "📓",
+    ColumnName.NEEDS_REVIEW.value: "🔬",
+    ColumnName.NEEDS_REVISION.value: "📑",
+    ColumnName.NEEDS_CHAMPION_APPROVAL_OR_RATIFICATION.value: "☑️",
+    ColumnName.NEEDS_OTHER.value: "🗳️",
+    ColumnName.FROZEN_NEEDS_IMPL_OR_CTS.value: "💻",
+    ColumnName.RELEASE_PENDING.value: "⏰",
 }
 
 
@@ -117,24 +90,6 @@ if __name__ == "__main__":
 
     parser = argparse.ArgumentParser()
 
-    # parser.add_argument("--html", type=str, help="Output HTML to filename")
-    # parser.add_argument("--extra", type=str, help="Extra text to add to HTML footer")
-    # parser.add_argument(
-    #     "--config",
-    #     type=str,
-    #     help="TOML file to read config from, including latency offsets and custom sorts",
-    # )
-    # parser.add_argument(
-    #     "--offsets",
-    #     type=str,
-    #     help="TOML file to read latency offsets from",
-    # )
-    # parser.add_argument(
-    #     "--extra-safe",
-    #     type=str,
-    #     help="Extra text to add to HTML footer without escaping special characters",
-    # )
-
     args = parser.parse_args()
     logging.basicConfig(level=logging.INFO)
 
@@ -183,40 +138,3 @@ if __name__ == "__main__":
                         evt.label,
                     ]
                 )
-
-        # for evt in IssueEvent.yield_events_from_issue(issue_obj):
-        #     events.append(evt)
-
-        # mr_num = collection.issue_to_mr[issue]
-        # mr = collection.proj.mergerequests.get(mr_num)
-
-        # items.append(
-        #     ReleaseChecklistIssue.create(issue_obj, mr, collection.vendor_names)
-        # )
-        # items = load_needs_review(collection)
-
-        # if args.offsets:
-        #     with open(args.offsets, "rb") as fp:
-        #         offsets = tomllib.load(fp)
-        #     apply_offsets(offsets, items)
-
-        # config: Optional[dict] = None
-        # if args.config:
-        #     log.info("Opening config %s", args.config)
-        #     with open(args.config, "rb") as fp:
-        #         config = tomllib.load(fp)
-        #     if "offsets" in config:
-        #         log.info("Applying offsets from config")
-        #         apply_offsets(config["offsets"], items)
-
-        # items[0].mr.pprint()
-        # mr = items[0].mr
-        # for note in mr.notes.list(iterator=True):
-        #     note.pprint()
-
-        # print("-----")
-        # from pprint import pprint
-
-        # for evt in IssueEvent.yield_events_from_issue(items[0].issue_obj):
-        #     # for evt in items[0].issue_obj.resourcelabelevents.list(iterator=True):
-        #     pprint(evt)
