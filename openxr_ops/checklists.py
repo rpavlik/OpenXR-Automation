@@ -454,7 +454,7 @@ class ReleaseChecklistCollection:
                     merge_request.labels.append(label)
                     made_change = True
             if made_change:
-                _log.info("Updating labels on MR", mr_num)
+                _log.info("Updating labels on MR %d", mr_num)
                 merge_request.save()
 
     def update_mr_descriptions(self) -> None:
