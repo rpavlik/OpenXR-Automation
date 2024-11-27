@@ -35,8 +35,8 @@ class BasicSort(SorterBase):
 
     def get_sort_description(self):
         return (
-            "author category (KHR highest priority, then EXT, then single vendor)",
             "whether initial review is complete (higher priority) or not complete (lower priority)",
+            "author category (KHR highest priority, then EXT, then single vendor)",
             "latency (time since put in review), older is higher priority",
         )
 
@@ -46,8 +46,8 @@ class BasicSort(SorterBase):
 
         def get_sort_key(issue: ReleaseChecklistIssue):
             return (
-                issue.author_category_priority,
                 not issue.initial_review_complete,  # negate so "review complete" comes first
+                issue.author_category_priority,
                 -issue.latency,  # negate so largest comes first
             )
 
