@@ -140,8 +140,9 @@ def main(in_filename, out_filename):
     ):
         proj_issue = cast(gitlab.v4.objects.ProjectIssue, issue)
         ref = get_short_ref(proj_issue)
-        issue_labels = set(proj_issue.attributes["labels"])
-        if not issue_labels.intersection(REQUIRED_LABEL_SET):
+
+        labels = set(proj_issue.attributes["labels"])
+        if not labels.intersection(REQUIRED_LABEL_SET):
             log.info(
                 "Skipping contractor approved but non-CTS issue: %s: %s  %s",
                 ref,
@@ -157,6 +158,7 @@ def main(in_filename, out_filename):
                 proj_issue.title,
             )
             continue
+
         refs = [ref]
         refs.extend(
             mr["references"]["short"]  # type: ignore
@@ -183,9 +185,21 @@ def main(in_filename, out_filename):
     ):
         proj_mr = cast(gitlab.v4.objects.ProjectMergeRequest, mr)
         ref = get_short_ref(proj_mr)
+
+        labels = set(proj_mr.attributes["labels"])
+        if not labels.intersection(REQUIRED_LABEL_SET):
+            log.info(
+                "Skipping contractor approved but non-CTS MR: %s: %s  %s",
+                ref,
+                proj_mr.title,
+                proj_mr.attributes["web_url"],
+            )
+            continue
+
         if "release candidate" in proj_mr.title.casefold():
             log.info("Skipping release candidate MR %s: %s", ref, proj_mr.title)
             continue
+
         log.info("GitLab MR Search: %s: %s", ref, proj_mr.title)
         work.add_refs(proj, [ref])
 
