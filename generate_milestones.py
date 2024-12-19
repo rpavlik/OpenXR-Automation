@@ -131,6 +131,9 @@ if __name__ == "__main__":
     if "month" in args and "day" in args:
         today = datetime.date.today()
         freeze = datetime.date(today.year, args.month, args.day)
+        if freeze < today:
+            # Wrap the year!
+            freeze = datetime.date(today.year + 1, args.month, args.day)
     for patch in args.patch:
         generate_milestones(oxr, args.major, args.minor, patch, freeze=freeze)
 
