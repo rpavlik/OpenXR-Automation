@@ -276,7 +276,10 @@ class WorkUnitCollection:
 
         # OK, nothing in common with existing items
         # Make an item for the first ref
-        ref = [r for r in refs if r not in self.do_not_merge][0]
+        refs_filtered = [r for r in refs if r not in self.do_not_merge]
+        if not refs_filtered:
+            return item, None
+        ref = refs_filtered[0]
         ref_type = ReferenceType.parse_short_reference(ref)
         ref_num = int(ref[1:])
 
