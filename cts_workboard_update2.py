@@ -30,6 +30,7 @@ DO_NOT_MERGE = {
     "!3053",  # 1.1 candidate
     "#2350",  # xml stuff with 2 parts
     "#2312",  # subimage y offset with 2 parts
+    "!3344",  # generate interaction profile spec from xml
 }
 
 # Anything on this list will skip looking for related MRs.
