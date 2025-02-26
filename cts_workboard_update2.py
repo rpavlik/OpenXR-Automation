@@ -82,6 +82,9 @@ def _make_api_item_text(
         if "Needs Author Action" in api_item.labels:
             state.append("🚧")
 
+        if any("fast track" in label.casefold() for label in api_item.labels):
+            state.append("⏩")
+
     if not api_item.attributes.get("blocking_discussions_resolved", True):
         state.append("💬")
 
