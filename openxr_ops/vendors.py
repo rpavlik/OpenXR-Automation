@@ -24,9 +24,16 @@ class VendorNames:
         self._contents = registry_contents
 
         self.root = ElementTree.fromstring(self._contents)
-        self.known = {}
+        self.known: dict[str, str] = {}
         for tag in self.root.findall("tags/tag"):
-            self.known[tag.get("name")] = tag.get("author")
+            tag_name = tag.get("name")
+            tag_author = tag.get("author")
+            assert tag_name
+            assert tag_author
+            if not tag_name or not tag_author:
+                # should not happen
+                continue
+            self.known[tag_name] = tag_author
 
         # Keep this table up to date with any vendors that have more than one tag
         # so they are merged in other operations.
@@ -63,9 +70,9 @@ class VendorNames:
             "UNITY",
         }
 
-        for tag, name in self.known.items():
-            if not tag.endswith("X") and name not in self.name_to_tag:
-                self.name_to_tag[name] = tag
+        for tag_name, tag_author in self.known.items():
+            if not tag_name.endswith("X") and tag_author not in self.name_to_tag:
+                self.name_to_tag[tag_author] = tag_name
 
     def is_runtime_vendor(self, vendor_code: str) -> bool:
         """Guess if a vendor/author is a runtime vendor."""
