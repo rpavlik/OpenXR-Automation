@@ -201,6 +201,9 @@ class WorkUnitCollection:
     ) -> WorkUnit:
         """Add a new item for the given refs, or extend an existing item. Returns the relevant item in either case"""
         item, _ = self._add_refs(proj, refs, data)
+        if item is None:
+            items = self.get_items_for_refs(refs)
+            item = items[0]
         return item
 
     def add_refs(
@@ -255,7 +258,7 @@ class WorkUnitCollection:
         proj: gitlab.v4.objects.Project,
         refs: Sequence[str],
         data: Optional[Dict[str, Union[ProjectIssue, ProjectMergeRequest]]] = None,
-    ) -> Tuple[WorkUnit, bool]:
+    ) -> Tuple[Optional[WorkUnit], bool]:
         """Add a new item for the given refs, or extend an existing item and return None if they overlap one."""
 
         item: Optional[WorkUnit] = None
@@ -278,7 +281,7 @@ class WorkUnitCollection:
         # Make an item for the first ref
         refs_filtered = [r for r in refs if r not in self.do_not_merge]
         if not refs_filtered:
-            return item, None
+            return item, False
         ref = refs_filtered[0]
         ref_type = ReferenceType.parse_short_reference(ref)
         ref_num = int(ref[1:])
