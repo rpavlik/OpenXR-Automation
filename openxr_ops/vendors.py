@@ -65,7 +65,6 @@ class VendorNames:
             "FREDEMMOTT",
             "INTEL",
             "KHR",
-            "NV",
             "PLUTO",
             "UNITY",
         }
