@@ -32,6 +32,7 @@ _CHECKLIST_RE = re.compile(
 _log = logging.getLogger(__name__)
 
 INITIAL_REVIEW_COMPLETE = "initial-review-complete"
+CHAMPION_APPROVED = "champion-approved"
 
 
 class ColumnName(Enum):
@@ -59,23 +60,23 @@ class ColumnName(Enum):
                 result = column
         return result
 
-    def compute_new_labels(self, labels: list[str]) -> list[str]:
+    def compute_new_labels(self, labels: Iterable[str]) -> set[str]:
         column_labels = {x.value for x in ColumnName}
 
         # Remove all column labels except the one we want.
-        new_labels = [x for x in labels if x == self.value or x not in column_labels]
-        if self.value not in new_labels:
-            # Add the one we want if it wasn't already there
-            new_labels.append(self.value)
+        new_labels = set(x for x in labels if x == self.value or x not in column_labels)
+
+        # Add the one we want if it wasn't already there
+        new_labels.update([self.value])
 
         if (
             self == ColumnName.NEEDS_REVISION
             and INITIAL_REVIEW_COMPLETE not in new_labels
         ):
             # If it's in needs-revision, that means it got reviewed.
-            new_labels.append(INITIAL_REVIEW_COMPLETE)
+            new_labels.update([INITIAL_REVIEW_COMPLETE])
 
-        return list(sorted(new_labels))
+        return new_labels
 
 
 @dataclass
@@ -494,9 +495,15 @@ class ReleaseChecklistCollection:
                     merge_request.description = new_desc
                     merge_request.save()
 
-    def mr_set_column(self, mr_num: int, new_column: ColumnName) -> None:
+    def mr_set_column(
+        self,
+        mr_num: int,
+        new_column: ColumnName,
+        add_labels: Optional[Iterable[str]] = None,
+        remove_labels: Optional[Iterable[str]] = None,
+    ) -> None:
         issue = self.mr_to_issue_object[mr_num]
-        labels = list(sorted(issue.attributes["labels"]))
+        labels = set(issue.attributes["labels"])
         orig_column = ColumnName.from_labels(labels)
         if orig_column is None:
             orig_column = ColumnName.INITIAL_COMPOSITION
@@ -504,7 +511,12 @@ class ReleaseChecklistCollection:
         if orig_column == new_column:
             _log.warning("Issue %s is already in '%s'", issue.web_url, str(orig_column))
 
-        new_labels = new_column.compute_new_labels(labels)
+        new_labels: set[str] = set(new_column.compute_new_labels(labels))
+        if add_labels:
+            new_labels.update(add_labels)
+        if remove_labels:
+            new_labels.difference_update(remove_labels)
+
         if new_labels != labels:
             title = issue.attributes["title"]
 
