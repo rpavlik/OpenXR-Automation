@@ -523,5 +523,5 @@ class ReleaseChecklistCollection:
             _log.info(
                 f"Updating labels: {issue.references['short']} aka <{issue.web_url}>: {title}: {repr(new_labels)}",
             )
-            issue.labels = new_labels
+            issue.labels = list(new_labels)
             issue.save()
