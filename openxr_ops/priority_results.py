@@ -263,6 +263,8 @@ class ReleaseChecklistIssue:
             e
             for e in issue.resourcelabelevents.list(iterator=True)
             if e.attributes["action"] == "add"
+            # handle deleted label
+            and e.attributes["label"] is not None
             and e.attributes["label"]["name"] == status
         ]
         assert status_events
