@@ -146,7 +146,7 @@ class OpsBoardProcessing:
         if new_labels != labels:
             self.log_title()
             log.info("%s", repr(new_labels))
-            issue.labels = new_labels
+            issue.labels = list(new_labels)
             issue.save()
 
     def process_all(self):
