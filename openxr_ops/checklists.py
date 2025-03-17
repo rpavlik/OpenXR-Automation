@@ -1,5 +1,5 @@
-# Copyright 2022-2024, Collabora, Ltd.
-# Copyright 2024, The Khronos Group Inc.
+# Copyright 2022-2025, Collabora, Ltd.
+# Copyright 2024-2025, The Khronos Group Inc.
 #
 # SPDX-License-Identifier: BSL-1.0
 #
@@ -18,7 +18,7 @@ import gitlab
 import gitlab.v4.objects
 
 from .extensions import ExtensionNameGuesser
-from .gitlab import KHR_EXT_LABEL, VENDOR_EXT_LABEL
+from .gitlab import EXT_LABEL, KHR_EXT_LABEL, OUTSIDE_IP_ZONE_LABEL, VENDOR_EXT_LABEL
 from .vendors import VendorNames
 
 _MAIN_MR_RE = re.compile(
@@ -183,9 +183,11 @@ def get_extension_names_for_mr(mr: gitlab.v4.objects.ProjectMergeRequest):
 
 def get_labels(vendor_id):
     if is_KHR_KHX(vendor_id):
-        return [KHR_EXT_LABEL]
-
-    return [VENDOR_EXT_LABEL]
+        return [EXT_LABEL, KHR_EXT_LABEL]
+    if is_EXT_EXTX(vendor_id):
+        # multi-vendor
+        return [EXT_LABEL]
+    return [EXT_LABEL, VENDOR_EXT_LABEL, OUTSIDE_IP_ZONE_LABEL]
 
 
 @dataclass
@@ -258,10 +260,13 @@ class ChecklistData:
         )
 
     def add_mr_labels(self):
+        changed = False
         for label in get_labels(self.vendor_id):
             if label not in self.merge_request.labels:
                 self.merge_request.labels.append(label)
+                changed = True
         self.merge_request.save()
+        return changed
 
     def handle_mr(
         self,
@@ -454,6 +459,12 @@ class ReleaseChecklistCollection:
                 if label in issue.labels and label not in merge_request.labels:
                     merge_request.labels.append(label)
                     made_change = True
+            try:
+                data = ChecklistData.lookup(self.proj, mr_num)
+                if data.add_mr_labels():
+                    made_change = True
+            except RuntimeError as e:
+                _log.warning("ugh got an error: %s", e)
             if made_change:
                 _log.info("Updating labels on MR %d", mr_num)
                 merge_request.save()

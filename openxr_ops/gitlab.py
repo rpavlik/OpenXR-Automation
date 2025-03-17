@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
-# Copyright 2022-2024, Collabora, Ltd.
-# Copyright 2024, The Khronos Group Inc.
+# Copyright 2022-2025, Collabora, Ltd.
+# Copyright 2024-2025, The Khronos Group Inc.
 #
 # SPDX-License-Identifier: BSL-1.0
 #
@@ -15,6 +15,8 @@ from requests_cache import Optional
 
 KHR_EXT_LABEL = "KHR_Extension"
 VENDOR_EXT_LABEL = "Vendor_Extension"
+EXT_LABEL = "Extension"
+OUTSIDE_IP_ZONE_LABEL = "Outside IP-Zone"
 
 MAIN_PROJECT_NAME = "openxr/openxr"
 
