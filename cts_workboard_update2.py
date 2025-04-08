@@ -31,6 +31,8 @@ DO_NOT_MERGE = {
     "#2350",  # xml stuff with 2 parts
     "#2312",  # subimage y offset with 2 parts
     "!3344",  # generate interaction profile spec from xml
+    "#2162",  # unordered sccess
+    "#2220",  # generic controller test
 }
 
 # Anything on this list will skip looking for related MRs.
