@@ -1,0 +1,119 @@
+{% extends "base.html" %}
+{#
+Copyright 2024, The Khronos Group Inc.
+
+SPDX-License-Identifier: CC-BY-4.0
+#}
+{% block title %}OpenXR Extension Review Details for {{ vendor }}{% endblock %}
+{% block style %}
+{{ super() }}
+<style>
+    /* give our extension slot list more room to breathe */
+    .extension_slots>li {
+        padding-top: 1em;
+    }
+
+    /* make the emoji symbols bigger */
+    .emoji-symbol {
+        font-size: x-large;
+    }
+</style>
+{% endblock style %}
+
+{% macro output_slot_links(slots) -%}
+{% for slotindex in slots -%}
+<a href="#slot-{{ slotindex }}" title="{{ results.sorted_items[slotindex - 1].title }}">
+    {{ slotindex }}
+</a> {%- if not loop.last %}, {% endif %}
+{%- endfor %}
+{%- endmacro %}
+
+{% block contents %}
+<p>
+    Generated {{ now }}
+</p>
+<section>
+    <h2>Extensions by {{ vendor }} in needs-review by review priority order</h2>
+    <details>
+        <summary>This initial priority order is based on sorting by the following:</summary>
+        <ul>
+            {% for factor in sort_description -%}
+            <li>{{ factor }}</li>
+            {%- endfor %}
+        </ul>
+        <p>Adjustments to the actual priority are subject to spec editor discretion and vendor/WG request.</p>
+    </details>
+
+    <ul class="extension_slots">
+        {% for item in results.sorted_items %}
+        <li>
+            <a id="slot-{{ loop.index }}"></a>
+            Slot {{ loop.index }}
+            -
+            {% if item.unchangeable %}<span class="emoji-symbol" title="Shipped, API frozen">🧊</span>{% endif %}
+            {# or 🚫 ? #}
+            {% if item.initial_review_complete -%}
+            <span class="emoji-symbol" title="Initial review complete">🔄</span>
+            {%- endif %}
+            {% if item.needs_author_action %}<span class="emoji-symbol" title="Needs Author Action">🚧</span>{% endif %}
+            {% if not item.mr.blocking_discussions_resolved -%}
+            <span class="emoji-symbol" title="Blocking discussions not resolved">💬</span>
+            {%- endif %}
+
+            <a href="{{ item.url }}">{{ item.title }}</a>
+            - MR <a href="{{ item.mr_url }}">{{ item.mr_ref }}</a>
+
+            <ul>
+                <li>Branch: <code>{{ item.mr.attributes['source_branch'] }}</code></li>
+                <li>Reviewer(s):
+                    {% for reviewer in item.mr.reviewers %}
+                    {{ reviewer.name }}{% if not loop.last %},{% endif %}
+                    {% endfor %}
+                </li>
+                <li>Latency: {{ item.latency }} days since last status change
+                    {% if item.offset != 0 %}(Corrective offset of {{ item.offset }} applied){% endif %}
+                </li>
+                <li>Age of last non-editor push: {{ item.last_author_revision_push_age }} days</li>
+                {% if item.last_push %}
+                <li> Last push: {{ item.last_push.author["name"] }}
+                    (@{{ item.last_push.author["username"] }}) - {{ item.last_push.created_at }}
+                </li>
+                {%- endif %}
+                <li>Ops issue age: {{ item.ops_issue_age }} days</li>
+                <li>MR age: {{ item.mr_age }} days</li>
+                <li>Checklist: {{ item.checklist_completed_count }} of {{ item.checklist_total_count }} checked</li>
+                <li>Labels: {{ item.issue_obj.labels | join(", ") }}</li>
+            </ul>
+
+        </li>
+        {% endfor %}
+    </ul>
+
+</section>
+<section>
+    <h2>Extension review slots by vendor</h2>
+
+    <p>
+        If a vendor needs a different priority order among their own extensions, they may request swapping of extensions
+        between their slots
+    </p>
+    <ul>
+        {% for vendor, slots in results.vendor_name_to_slots.items() %}
+        <li>{{ vendor }} - {{ output_slot_links(slots) }}</li>
+        {% endfor %}
+
+        {% if results.unknown_slots %}
+        <li>Unknown - {{ output_slot_links(results.unknown_slots) }}</li>
+        {% endif %}
+    </ul>
+
+</section>
+{% endblock contents %}
+
+{% block footer %}
+<p><b>NOTE</b>: The contents of this page are confidential {# once populated and not just a jinja template #} under the
+    NDA associated with Khronos Group participation.</p>
+
+{{ super() }}
+
+{% endblock %}
