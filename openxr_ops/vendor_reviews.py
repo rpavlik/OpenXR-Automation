@@ -14,6 +14,7 @@ from .checklists import ColumnName, ReleaseChecklistCollection
 from .custom_sort import SORTERS, BasicSort, SorterBase
 from .gitlab import OpenXRGitlab
 from .priority_results import NOW, PriorityResults, ReleaseChecklistIssue, apply_offsets
+from .review_priority import ReviewPriorityConfig
 from .vendors import VendorNames
 
 
@@ -132,29 +133,12 @@ if __name__ == "__main__":
 
     items, categories = load_in_flight(collection)
 
-    log.info("Opening config %s", args.config)
-    with open(args.config, "rb") as fp:
-        config: dict = tomllib.load(fp)
-    if "offsets" in config:
-        log.info("Applying offsets from config")
-        apply_offsets(config["offsets"], items)
-
-    vendor_config: dict[str, dict[str, Union[str, List[str]]]] = dict()
-    sorter: SorterBase = BasicSort(vendor_names, vendor_config)
-
-    vendor_config = config.get("vendor", dict())
-
-    sorter_name = config.get("sorter")
-    if sorter_name:
-        sorter_factory = SORTERS.get(sorter_name)
-        assert sorter_factory
-
-        log.info("Using specified sorter: %s", sorter_name)
-        sorter = sorter_factory(vendor_names, vendor_config)
+    config = ReviewPriorityConfig(args.config)
+    config.apply_offsets(items)
+    sorter: SorterBase = config.get_sorter(vendor_names)
 
     sorted = sorter.get_sorted(categories["needs_review"])
-
-    for vendor_tag, vendor_data in vendor_config.items():
+    for vendor_tag, vendor_data in config.vendor_config.items():
         vendor_name = vendor_names.get_vendor_name(vendor_tag)
         if not vendor_name:
             log.warning("Could not look up vendor name for %s", vendor_tag)

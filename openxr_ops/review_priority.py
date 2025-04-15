@@ -17,6 +17,40 @@ from .priority_results import NOW, PriorityResults, ReleaseChecklistIssue, apply
 from .vendors import VendorNames
 
 
+class ReviewPriorityConfig:
+    def __init__(self, fn: Optional[str]):
+        self.config: Optional[dict] = None
+        if fn:
+            self.log.info("Opening config %s", fn)
+            with open(fn, "rb") as fp:
+                self.config = tomllib.load(fp)
+
+    def apply_offsets(self, items: Iterable[ReleaseChecklistIssue]):
+        offsets = None
+        if self.config:
+            offsets = self.config.get("offsets")
+        if offsets:
+            apply_offsets(offsets, items)
+
+    def get_vendor_config(self) -> dict[str, dict[str, Union[str, List[str]]]]:
+        if not self.config:
+            return dict()
+        return self.config.get("vendor", dict())
+
+    def get_sorter(self, vendor_names: VendorNames) -> SorterBase:
+        basic_sorter = BasicSort(vendor_names, self.get_vendor_config())
+        if not self.config:
+            return basic_sorter
+        sorter_name = self.config.get("sorter")
+        if not sorter_name:
+            return basic_sorter
+        sorter_factory = SORTERS.get(sorter_name)
+        assert sorter_factory
+
+        log.info("Using specified sorter: %s", sorter_name)
+        return sorter_factory(vendor_names, self.get_vendor_config())
+
+
 def load_needs_review(
     collection: ReleaseChecklistCollection,
 ) -> List[ReleaseChecklistIssue]:
@@ -115,28 +149,10 @@ if __name__ == "__main__":
             offsets = tomllib.load(fp)
         apply_offsets(offsets, items)
 
-    config: Optional[dict] = None
-    if args.config:
-        log.info("Opening config %s", args.config)
-        with open(args.config, "rb") as fp:
-            config = tomllib.load(fp)
-        if "offsets" in config:
-            log.info("Applying offsets from config")
-            apply_offsets(config["offsets"], items)
+    config = ReviewPriorityConfig(args.config)
+    config.apply_offsets(items)
 
-    vendor_config: dict[str, dict[str, Union[str, List[str]]]] = dict()
-    sorter: SorterBase = BasicSort(vendor_names, vendor_config)
-
-    if config:
-        vendor_config = config.get("vendor", dict())
-
-        sorter_name = config.get("sorter")
-        if sorter_name:
-            sorter_factory = SORTERS.get(sorter_name)
-            assert sorter_factory
-
-            log.info("Using specified sorter: %s", sorter_name)
-            sorter = sorter_factory(vendor_names, vendor_config)
+    sorter: SorterBase = config.get_sorter(vendor_names)
 
     sorted = sorter.get_sorted(items)
 
