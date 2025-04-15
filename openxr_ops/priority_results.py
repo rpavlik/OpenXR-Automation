@@ -72,6 +72,7 @@ class ReleaseChecklistIssue:
     mr: gitlab.v4.objects.ProjectMergeRequest
 
     vendor_name: Optional[str] = None
+    vendor_tag: Optional[str] = None
 
     offset: int = 0
     """Corrective latency offset"""
@@ -271,10 +272,13 @@ class ReleaseChecklistIssue:
         latest_event = status_events[-1]
 
         m = _EXT_DECOMP_RE.match(issue.title)
-        vendor = None
+        vendor: Optional[str] = None
+        tag: Optional[str] = None
         if m is not None:
             tag = m.group("tag")
+            assert tag is not None
             vendor = vendors.get_vendor_name(tag)
+
         return cls(
             issue_obj=issue,
             status=status,
@@ -283,6 +287,7 @@ class ReleaseChecklistIssue:
             ),
             mr=main_mr,
             vendor_name=vendor,
+            vendor_tag=tag,
         )
 
 
