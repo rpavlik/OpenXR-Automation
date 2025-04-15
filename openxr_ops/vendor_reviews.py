@@ -8,7 +8,7 @@
 
 import logging
 import tomllib
-from typing import Iterable, List, Optional, Tuple, Union
+from typing import Iterable, List, Optional, Tuple, Union, cast
 
 from .checklists import ColumnName, ReleaseChecklistCollection
 from .custom_sort import SORTERS, BasicSort, SorterBase
@@ -18,13 +18,10 @@ from .vendors import VendorNames
 
 
 def load_in_flight(
-    vendor_name: str,
     collection: ReleaseChecklistCollection,
 ) -> Tuple[
     List[ReleaseChecklistIssue],
-    List[ReleaseChecklistIssue],
-    List[ReleaseChecklistIssue],
-    List[ReleaseChecklistIssue],
+    dict[str, List[ReleaseChecklistIssue]],
 ]:
     log.info("Loading items that are in progress")
     items = []
@@ -52,9 +49,6 @@ def load_in_flight(
         mr = collection.proj.mergerequests.get(mr_num)
 
         rci = ReleaseChecklistIssue.create(issue_obj, mr, collection.vendor_names)
-        if rci.vendor_name != vendor_name:
-            log.info("Skipping %s - %s", rci.title, rci.vendor_name)
-            continue
 
         items.append(rci)
         if ColumnName.NEEDS_REVIEW.value in labels:
@@ -63,7 +57,11 @@ def load_in_flight(
             needs_revision.append(rci)
         elif ColumnName.NEEDS_CHAMPION_APPROVAL_OR_RATIFICATION.value in labels:
             needs_approval.append(rci)
-    return items, needs_review, needs_revision, needs_approval
+    return items, {
+        "needs_review": needs_review,
+        "needs_revision": needs_revision,
+        "needs_approval": needs_approval,
+    }
 
 
 def make_html(
@@ -101,7 +99,6 @@ if __name__ == "__main__":
 
     parser = argparse.ArgumentParser()
 
-    parser.add_argument("vendor", type=str, help="The vendor **name** to filter by")
     parser.add_argument("--html", type=str, help="Output HTML to filename")
     parser.add_argument("--extra", type=str, help="Extra text to add to HTML footer")
     parser.add_argument(
@@ -133,58 +130,61 @@ if __name__ == "__main__":
 
     collection.load_initial_data()
 
-    items, needs_review, needs_revision, needs_approval = load_in_flight(
-        args.vendor, collection
-    )
+    items, categories = load_in_flight(collection)
 
-    categories = {
-        "needs_review": needs_review,
-        "needs_revision": needs_revision,
-        "needs_approval": needs_approval,
-    }
-
-    config: Optional[dict] = None
-    if args.config:
-        log.info("Opening config %s", args.config)
-        with open(args.config, "rb") as fp:
-            config = tomllib.load(fp)
-        if "offsets" in config:
-            log.info("Applying offsets from config")
-            apply_offsets(config["offsets"], items)
+    log.info("Opening config %s", args.config)
+    with open(args.config, "rb") as fp:
+        config: dict = tomllib.load(fp)
+    if "offsets" in config:
+        log.info("Applying offsets from config")
+        apply_offsets(config["offsets"], items)
 
     vendor_config: dict[str, dict[str, Union[str, List[str]]]] = dict()
     sorter: SorterBase = BasicSort(vendor_names, vendor_config)
 
-    if config:
-        vendor_config = config.get("vendor", dict())
+    vendor_config = config.get("vendor", dict())
 
-        sorter_name = config.get("sorter")
-        if sorter_name:
-            sorter_factory = SORTERS.get(sorter_name)
-            assert sorter_factory
+    sorter_name = config.get("sorter")
+    if sorter_name:
+        sorter_factory = SORTERS.get(sorter_name)
+        assert sorter_factory
 
-            log.info("Using specified sorter: %s", sorter_name)
-            sorter = sorter_factory(vendor_names, vendor_config)
+        log.info("Using specified sorter: %s", sorter_name)
+        sorter = sorter_factory(vendor_names, vendor_config)
 
-    sorted = sorter.get_sorted(needs_review)
+    sorted = sorter.get_sorted(categories["needs_review"])
 
-    results = PriorityResults.from_sorted_items(sorted)
+    for vendor_tag, vendor_data in vendor_config.items():
+        vendor_name = vendor_names.get_vendor_name(vendor_tag)
+        if not vendor_name:
+            log.warning("Could not look up vendor name for %s", vendor_tag)
+            continue
 
-    if args.html:
-        log.info("Outputting to HTML: %s", args.html)
+        log.info("Considering %s", vendor_name)
+        outfilename = cast(Optional[str], vendor_data.get("output_filename"))
+        if not outfilename:
+            log.info("No vendor output file requested for %s", vendor_name)
+            continue
+
+        def filter_items(
+            data: List[ReleaseChecklistIssue],
+        ) -> List[ReleaseChecklistIssue]:
+            return [x for x in data if x.vendor_name == vendor_name]
+
+        vendor_results = PriorityResults.from_sorted_items(filter_items(sorted))
+        vendor_categories = {
+            "needs_review": filter_items(categories["needs_review"]),
+            "needs_revision": filter_items(categories["needs_revision"]),
+            "needs_approval": filter_items(categories["needs_approval"]),
+        }
+
+        log.info("Outputting to HTML: %s", outfilename)
         make_html(
-            args.vendor,
-            categories,
-            results,
+            vendor_name,
+            vendor_categories,
+            vendor_results,
             sorter.get_sort_description(),
-            args.html,
+            outfilename,
             args.extra,
             args.extra_safe,
         )
-    else:
-        print(results.list_markdown)
-        print("\n")
-
-        for vendor, slots in results.vendor_name_to_slots.items():
-            print(f"* {vendor} - slots {slots}")
-        print(f"* Unknown: {results.unknown_slots}")
