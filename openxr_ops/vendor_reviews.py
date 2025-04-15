@@ -7,13 +7,12 @@
 # Author: Rylie Pavlik <rylie.pavlik@collabora.com>
 
 import logging
-import tomllib
-from typing import Iterable, List, Optional, Tuple, Union, cast
+from typing import Iterable, List, Optional, Tuple, cast
 
 from .checklists import ColumnName, ReleaseChecklistCollection
-from .custom_sort import SORTERS, BasicSort, SorterBase
+from .custom_sort import SorterBase
 from .gitlab import OpenXRGitlab
-from .priority_results import NOW, PriorityResults, ReleaseChecklistIssue, apply_offsets
+from .priority_results import NOW, PriorityResults, ReleaseChecklistIssue
 from .review_priority import ReviewPriorityConfig
 from .vendors import VendorNames
 

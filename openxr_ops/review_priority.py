@@ -20,35 +20,41 @@ from .vendors import VendorNames
 class ReviewPriorityConfig:
     def __init__(self, fn: Optional[str]):
         self.config: Optional[dict] = None
+        """The actual config initially loaded from TOML."""
+
+        self.vendor_config: dict[str, dict[str, Union[str, List[str]]]] = dict()
+        """Customization per vendor tag."""
+
+        self.log = logging.getLogger(__name__ + ".ReviewPriorityConfig")
+
         if fn:
             self.log.info("Opening config %s", fn)
             with open(fn, "rb") as fp:
                 self.config = tomllib.load(fp)
+            self.vendor_config = self.config.get("vendor", dict())
 
     def apply_offsets(self, items: Iterable[ReleaseChecklistIssue]):
+        """Offset the latency as directed by the config."""
         offsets = None
         if self.config:
             offsets = self.config.get("offsets")
         if offsets:
             apply_offsets(offsets, items)
 
-    def get_vendor_config(self) -> dict[str, dict[str, Union[str, List[str]]]]:
-        if not self.config:
-            return dict()
-        return self.config.get("vendor", dict())
-
     def get_sorter(self, vendor_names: VendorNames) -> SorterBase:
-        basic_sorter = BasicSort(vendor_names, self.get_vendor_config())
+        """Create either a basic sorter or desired customized sorter."""
         if not self.config:
-            return basic_sorter
+            return BasicSort(vendor_names, self.vendor_config)
+
         sorter_name = self.config.get("sorter")
         if not sorter_name:
-            return basic_sorter
+            return BasicSort(vendor_names, self.vendor_config)
+
         sorter_factory = SORTERS.get(sorter_name)
         assert sorter_factory
 
-        log.info("Using specified sorter: %s", sorter_name)
-        return sorter_factory(vendor_names, self.get_vendor_config())
+        self.log.info("Using specified sorter: %s", sorter_name)
+        return sorter_factory(vendor_names, self.vendor_config)
 
 
 def load_needs_review(
