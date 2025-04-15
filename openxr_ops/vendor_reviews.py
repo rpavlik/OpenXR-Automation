@@ -8,7 +8,7 @@
 
 import logging
 import tomllib
-from typing import Iterable, List, Optional, Tuple
+from typing import Iterable, List, Optional, Tuple, Union
 
 from .checklists import ColumnName, ReleaseChecklistCollection
 from .custom_sort import SORTERS, BasicSort, SorterBase
@@ -152,7 +152,7 @@ if __name__ == "__main__":
             log.info("Applying offsets from config")
             apply_offsets(config["offsets"], items)
 
-    vendor_config = dict()
+    vendor_config: dict[str, dict[str, Union[str, List[str]]]] = dict()
     sorter: SorterBase = BasicSort(vendor_names, vendor_config)
 
     if config:
