@@ -18,7 +18,7 @@ from .vendors import VendorNames
 
 
 def load_in_flight(
-    vendor_tag: str,
+    vendor_name: str,
     collection: ReleaseChecklistCollection,
 ) -> Tuple[
     List[ReleaseChecklistIssue],
@@ -52,7 +52,7 @@ def load_in_flight(
         mr = collection.proj.mergerequests.get(mr_num)
 
         rci = ReleaseChecklistIssue.create(issue_obj, mr, collection.vendor_names)
-        if rci.vendor_name != vendor_tag:
+        if rci.vendor_name != vendor_name:
             log.info("Skipping %s - %s", rci.title, rci.vendor_name)
             continue
 
@@ -101,18 +101,13 @@ if __name__ == "__main__":
 
     parser = argparse.ArgumentParser()
 
-    parser.add_argument("vendor", type=str, help="Vendor tag")
+    parser.add_argument("vendor", type=str, help="The vendor **name** to filter by")
     parser.add_argument("--html", type=str, help="Output HTML to filename")
     parser.add_argument("--extra", type=str, help="Extra text to add to HTML footer")
     parser.add_argument(
         "--config",
         type=str,
         help="TOML file to read config from, including latency offsets and custom sorts",
-    )
-    parser.add_argument(
-        "--offsets",
-        type=str,
-        help="TOML file to read latency offsets from",
     )
     parser.add_argument(
         "--extra-safe",
@@ -148,11 +143,6 @@ if __name__ == "__main__":
         "needs_approval": needs_approval,
     }
 
-    if args.offsets:
-        with open(args.offsets, "rb") as fp:
-            offsets = tomllib.load(fp)
-        apply_offsets(offsets, needs_review)
-
     config: Optional[dict] = None
     if args.config:
         log.info("Opening config %s", args.config)
@@ -160,7 +150,7 @@ if __name__ == "__main__":
             config = tomllib.load(fp)
         if "offsets" in config:
             log.info("Applying offsets from config")
-            apply_offsets(config["offsets"], needs_review)
+            apply_offsets(config["offsets"], items)
 
     vendor_config = dict()
     sorter: SorterBase = BasicSort(vendor_names, vendor_config)
