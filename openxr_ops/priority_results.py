@@ -12,7 +12,7 @@ import re
 from collections import defaultdict
 from dataclasses import dataclass
 from functools import cached_property
-from typing import List, Optional, cast
+from typing import Iterable, Optional, cast
 
 import gitlab
 import gitlab.v4.objects
@@ -334,7 +334,7 @@ class PriorityResults:
         )
 
 
-def apply_offsets(offsets: dict[str, int], items: List[ReleaseChecklistIssue]):
+def apply_offsets(offsets: dict[str, int], items: Iterable[ReleaseChecklistIssue]):
     for item in items:
         offset = offsets.get(item.title)
         if offset:
