@@ -8,11 +8,11 @@
 import itertools
 import logging
 import re
+import tomllib
 from dataclasses import dataclass
 from enum import Enum
 from functools import cached_property
 from typing import Dict, Iterable, List, Optional, Set, cast
-import tomllib
 
 import gitlab
 import gitlab.v4.objects

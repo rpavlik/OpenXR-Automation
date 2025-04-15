@@ -14,10 +14,9 @@ from typing import cast
 
 from gitlab.v4.objects import ProjectIssue, ProjectIssueResourceLabelEvent
 
-from .checklists import ReleaseChecklistCollection, ColumnName
+from .checklists import ColumnName, ReleaseChecklistCollection
 from .gitlab import OpenXRGitlab
 from .vendors import VendorNames
-
 
 # 📓 📑 📝🔬
 
