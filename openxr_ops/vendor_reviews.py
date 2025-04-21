@@ -25,15 +25,14 @@ def load_in_flight(
 ]:
     log.info("Loading items that are in progress")
     items = []
-    needs_review = []
-    needs_revision = []
-    needs_approval = []
 
     columns = [
+        ColumnName.INITIAL_COMPOSITION.value,
         ColumnName.NEEDS_REVIEW.value,
         ColumnName.NEEDS_REVISION.value,
         ColumnName.NEEDS_CHAMPION_APPROVAL_OR_RATIFICATION.value,
     ]
+    col_data: dict[str, List[ReleaseChecklistIssue]] = {k: [] for k in columns}
     for issue in collection.issue_to_mr.keys():
         issue_obj = collection.issue_str_to_cached_issue_object(issue)
         if not issue_obj:
@@ -41,9 +40,8 @@ def load_in_flight(
 
         labels: Iterable[str] = issue_obj.labels
         if all(col not in labels for col in columns):
+            # not in one of the columns we care about
             continue
-
-        # print(issue_obj.attributes["title"])
 
         mr_num = collection.issue_to_mr[issue]
         mr = collection.proj.mergerequests.get(mr_num)
@@ -51,16 +49,22 @@ def load_in_flight(
         rci = ReleaseChecklistIssue.create(issue_obj, mr, collection.vendor_names)
 
         items.append(rci)
-        if ColumnName.NEEDS_REVIEW.value in labels:
-            needs_review.append(rci)
-        elif ColumnName.NEEDS_REVISION.value in labels:
-            needs_revision.append(rci)
-        elif ColumnName.NEEDS_CHAMPION_APPROVAL_OR_RATIFICATION.value in labels:
-            needs_approval.append(rci)
+        for col in columns:
+            if col in labels:
+                col_data[col].append(rci)
+                break
+
     return items, {
-        "needs_review": needs_review,
-        "needs_revision": needs_revision,
-        "needs_approval": needs_approval,
+        "initial_composition": col_data[ColumnName.INITIAL_COMPOSITION.value],
+        "needs_review": col_data[ColumnName.NEEDS_REVIEW.value],
+        "needs_revision": col_data[ColumnName.NEEDS_REVISION.value],
+        "needs_approval": [
+            item
+            for item in col_data[
+                ColumnName.NEEDS_CHAMPION_APPROVAL_OR_RATIFICATION.value
+            ]
+            if "champion-approved" not in rci.issue_obj.labels
+        ],
     }
 
 

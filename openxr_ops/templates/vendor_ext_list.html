@@ -46,8 +46,40 @@ SPDX-License-Identifier: CC-BY-4.0
 <p>
     Generated {{ now }}
 </p>
+
+{% if categories.initial_composition %}
+<section>
+    <h2>Extensions by {{ vendor }} in initial-composition</h2>
+    <p>
+        These {{ categories.initial_composition | length }} extensions will not receive review until the
+        appropriate checklist items are complete and the issue is moved to needs-review.
+    </p>
+    <ul class="extension_slots">
+        {% for item in categories.initial_composition %}
+        <li>
+            {{ make_emoji_api_frozen(item) }}
+            {{ make_emoji_discussions(item) }}
+            <a href="{{ item.url }}">{{ item.title }}</a>
+            - MR <a href="{{ item.mr_url }}">{{ item.mr_ref }}</a>
+
+            <ul>
+                <li>Branch: <code>{{ item.mr.attributes['source_branch'] }}</code></li>
+                <li>Checklist: {{ item.checklist_completed_count }} of {{ item.checklist_total_count }} checked</li>
+            </ul>
+
+        </li>
+        {% endfor %}
+    </ul>
+</section>
+{% endif %}
+
 <section>
     <h2>Extensions by {{ vendor }} in needs-review by review priority order</h2>
+    <p>
+        {{ categories.needs_review | length }} extensions to review.
+        Note that there are likely extensions by other vendors interspersed with these
+        in the overall priority order.
+    </p>
     <details>
         <summary>This initial priority order is based on sorting by the following:</summary>
         <ul>
@@ -97,9 +129,10 @@ SPDX-License-Identifier: CC-BY-4.0
 
 {% if categories.needs_revision %}
 <section>
-    <h2>Extensions in needs-revision</h2>
+    <h2>Extensions by {{ vendor }} in needs-revision</h2>
     <p>
-        These will not receive additional review until the current comments are addressed.
+        These {{ categories.needs_revision | length }} extensions will not receive additional review until the current
+        comments are addressed.
     </p>
     <ul class="extension_slots">
         {% for item in categories.needs_revision %}
@@ -125,9 +158,10 @@ SPDX-License-Identifier: CC-BY-4.0
 
 {% if categories.needs_approval %}
 <section>
-    <h2>Extensions in needs-approval</h2>
+    <h2>Extensions by {{ vendor }} in needs-approval</h2>
     <p>
-        The champion needs to review these and make sure they are ready to merge.
+        The champion needs to review these {{ categories.needs_revision | length }} extensions
+        and make sure they are ready to merge, assigning the "champion-approved" label when ready.
     </p>
     <ul class="extension_slots">
         {% for item in categories.needs_approval %}
@@ -154,8 +188,8 @@ SPDX-License-Identifier: CC-BY-4.0
 {% endblock contents %}
 
 {% block footer %}
-<p><b>NOTE</b>: The contents of this page are confidential {# once populated and not just a jinja template #} under at least
-    the NDA associated with Khronos Group participation.</p>
+<p><b>NOTE</b>: The contents of this page are confidential {# once populated and not just a jinja template #} under at
+    least the NDA associated with Khronos Group participation.</p>
 
 {{ super() }}
 
