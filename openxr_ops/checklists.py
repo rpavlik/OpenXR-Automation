@@ -22,7 +22,7 @@ from .gitlab import EXT_LABEL, KHR_EXT_LABEL, OUTSIDE_IP_ZONE_LABEL, VENDOR_EXT_
 from .vendors import VendorNames
 
 _MAIN_MR_RE = re.compile(
-    r"Main extension MR:\s*(openxr!|!|https://gitlab.khronos.org/openxr/openxr/-/merge_requests/)(?P<mrnum>[0-9]+)"
+    r"Main extension MR:\s*(openxr/openxr!|openxr!|!|https://gitlab.khronos.org/openxr/openxr/-/merge_requests/)(?P<mrnum>[0-9]+)"
 )
 
 _CHECKLIST_RE = re.compile(
