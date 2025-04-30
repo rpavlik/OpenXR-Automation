@@ -1,0 +1,35 @@
+{% extends "base.html" %}
+{#
+Copyright 2024-2025, The Khronos Group Inc.
+
+SPDX-License-Identifier: CC-BY-4.0
+#}
+{% block title %}Index of Per-Vendor Extension Status Details{% endblock %}
+
+
+
+{% block contents %}
+<p>
+    Generated {{ now }}
+</p>
+
+<section>
+    <h2>Vendors with pending extensions</h2>
+    <ul class="extension_slots">
+        {% for vendor_name in vendor_names_to_filenames.keys() | sort %}
+        <li>
+            <a href="{{ vendor_names_to_filenames[vendor_name] }}">{{ vendor_name }}</a>
+        </li>
+        {% endfor %}
+    </ul>
+</section>
+
+{% endblock contents %}
+
+{% block footer %}
+<p><b>NOTE</b>: The contents of this page are confidential {# once populated and not just a jinja template #} under at
+    least the NDA associated with Khronos Group participation.</p>
+
+{{ super() }}
+
+{% endblock %}

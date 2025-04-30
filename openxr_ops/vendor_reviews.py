@@ -152,6 +152,31 @@ def filter_and_generate_vendor_page(
     )
 
 
+def generate_vendor_index(
+    vendor_names_to_filenames: dict[str, str],
+    filename: str,
+    extra: Optional[str] = None,
+    extra_safe: Optional[str] = None,
+):
+
+    from jinja2 import Environment, PackageLoader, select_autoescape
+
+    env = Environment(
+        loader=PackageLoader("openxr_ops"),
+        autoescape=select_autoescape(),
+    )
+    template = env.get_template("vendor_list.html")
+    with open(filename, "w", encoding="utf-8") as fp:
+        fp.write(
+            template.render(
+                vendor_names_to_filenames=vendor_names_to_filenames,
+                now=NOW,
+                extra=extra,
+                extra_safe=extra_safe,
+            )
+        )
+
+
 if __name__ == "__main__":
     import argparse
 
@@ -201,6 +226,10 @@ if __name__ == "__main__":
         outdir = Path(args.html_dir)
 
     vendor_names_to_filenames = make_vendor_name_to_fn_map(items, vendor_names)
+
+    log.info("Generating vendor index")
+    generate_vendor_index(vendor_names_to_filenames, str(outdir / "vendors.html"))
+
     for vendor_name, filename in vendor_names_to_filenames.items():
         filter_and_generate_vendor_page(
             vendor_name,
