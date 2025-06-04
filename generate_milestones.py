@@ -6,6 +6,7 @@
 # Author: Rylie Pavlik <rylie.pavlik@collabora.com>
 
 import datetime
+import re
 from typing import Any, Iterable, Optional
 
 from openxr_ops.gitlab import OpenXRGitlab
@@ -13,32 +14,46 @@ from openxr_ops.gitlab import OpenXRGitlab
 
 def generate_milestone(
     oxr: OpenXRGitlab,
-    title_prefix: str,
+    title_base: str,
+    title_re: re.Pattern,
     description: str,
     milestones: Iterable[Any],
     freeze: Optional[datetime.date] = None,
     due_date: Optional[datetime.date] = None,
+    force_title: bool = False,
+    dry_run: bool = False,
 ):
     if not oxr.group:
         raise RuntimeError(
             "Access to the gitlab group is required for generating milestones"
         )
 
+    desired_title = title_base
     if freeze:
-        desired_title = f"{title_prefix} - freeze {freeze.strftime('%d-%b')}"
-    else:
-        desired_title = title_prefix
+        desired_title = f"{title_base} - freeze {freeze.strftime('%d-%b')}"
 
-    matching_milestone = [m for m in milestones if m.title.startswith(title_prefix)]
+    matching_milestone = [m for m in milestones if title_re.search(m.title)]
 
     if matching_milestone:
         milestone = matching_milestone[0]
-        print(f"Found milestone: {milestone.title}")
-        if freeze and due_date and milestone.title != desired_title:
+        current_title = milestone.title.strip()
+        print(f"Found milestone: {current_title}")
+        if freeze and due_date and current_title != desired_title:
             # We should add the freeze date and due date
             print(f"Adding freeze date to title: {desired_title}")
             new_data = {"due_date": due_date.isoformat(), "title": desired_title}
-            oxr.group.milestones.update(id=milestone.get_id(), new_data=new_data)
+            if dry_run:
+                print("Dry run: would apply this data:", new_data)
+            else:
+                oxr.group.milestones.update(id=milestone.get_id(), new_data=new_data)
+        elif force_title and current_title != desired_title:
+            print(f"Replacing outdated format of title: {desired_title}")
+            new_data = {"title": desired_title}
+            if dry_run:
+                print("Dry run: would apply this data:", new_data)
+            else:
+                oxr.group.milestones.update(id=milestone.get_id(), new_data=new_data)
+
     else:
         print("Creating milestone:", desired_title)
         data = {
@@ -47,7 +62,10 @@ def generate_milestone(
         }
         if due_date:
             data["due_date"] = due_date.isoformat()
-        oxr.group.milestones.create(data=data)
+        if dry_run:
+            print("Dry run: would use this data:", data)
+        else:
+            oxr.group.milestones.create(data=data)
 
 
 def generate_milestones(
@@ -56,6 +74,8 @@ def generate_milestones(
     minor: int,
     patch: int,
     freeze: Optional[datetime.date] = None,
+    force_title: bool = False,
+    dry_run: bool = False,
 ):
     if not oxr.group:
         raise RuntimeError(
@@ -64,8 +84,15 @@ def generate_milestones(
 
     ver = f"{major}.{minor}.{patch}"
     # Titles without freeze date
-    release_milestone_title = f"{ver} release"
-    cts_release_milestone_title = f"Conformance {ver}.0 release"
+    release_milestone_title = f"{ver} - Spec Release"
+    cts_release_milestone_title = f"{ver}.0 - CTS"
+
+    # Regexes to find existing milestones
+    ver_escaped = re.escape(ver)
+    release_re = re.compile(rf"({ver_escaped} release|{ver_escaped} - Spec)")
+    cts_re = re.compile(
+        rf"(Conformance {ver_escaped}.0 release|{ver_escaped}(.0)? - CTS)"
+    )
 
     due_date: Optional[datetime.date] = None
     cts_freeze: Optional[datetime.date] = None
@@ -74,24 +101,30 @@ def generate_milestones(
 
         cts_freeze = freeze + datetime.timedelta(days=14)
 
-    print(f"Looking for milestones mentioning '{release_milestone_title}'")
-    milestones = oxr.group.milestones.list(search=release_milestone_title, all=True)
+    print(f"Looking for milestones mentioning '{ver}'")
+    milestones = oxr.group.milestones.list(search=ver, all=True)
 
     generate_milestone(
         oxr,
         release_milestone_title,
+        release_re,
         f"Spec patch release {ver}",
         milestones,
         freeze,
         due_date,
+        force_title=force_title,
+        dry_run=dry_run,
     )
     generate_milestone(
         oxr,
         cts_release_milestone_title,
+        cts_re,
         f"Conformance test suite release {ver}.0",
         milestones,
         freeze=cts_freeze,
         due_date=cts_freeze,
+        force_title=force_title,
+        dry_run=dry_run,
     )
 
 
@@ -122,6 +155,18 @@ if __name__ == "__main__":
         type=int,
         help="Specify a day of the month (1-31) for the freeze, for the first patch",
     )
+    parser.add_argument(
+        "--force",
+        action="store_true",
+        help="Force replacing the title.",
+        default=False,
+    )
+    parser.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="Do not actually make changes.",
+        default=False,
+    )
 
     args = parser.parse_args()
 
@@ -130,12 +175,23 @@ if __name__ == "__main__":
     freeze = None
     if "month" in args and "day" in args:
         today = datetime.date.today()
-        freeze = datetime.date(today.year, args.month, args.day)
-        if freeze < today:
-            # Wrap the year!
-            freeze = datetime.date(today.year + 1, args.month, args.day)
+        m = args.month
+        d = args.day
+        if m and d:
+            freeze = datetime.date(today.year, args.month, args.day)
+            if freeze < today:
+                # Wrap the year!
+                freeze = datetime.date(today.year + 1, args.month, args.day)
     for patch in args.patch:
-        generate_milestones(oxr, args.major, args.minor, patch, freeze=freeze)
+        generate_milestones(
+            oxr,
+            args.major,
+            args.minor,
+            patch,
+            freeze=freeze,
+            force_title=args.force,
+            dry_run=args.dry_run,
+        )
 
         # reset so that only the first one gets a freeze
         freeze = None
