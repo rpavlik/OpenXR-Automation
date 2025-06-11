@@ -18,7 +18,7 @@ log = logging.getLogger(__name__)
 
 
 class SorterBase:
-    def get_sort_description(self) -> tuple:
+    def get_sort_description(self) -> list[str]:
         raise NotImplementedError
 
     def get_sorted(
@@ -34,11 +34,11 @@ class BasicSort(SorterBase):
         pass
 
     def get_sort_description(self):
-        return (
+        return [
             "whether initial review is complete (higher priority) or not complete (lower priority)",
             "author category (KHR highest priority, then EXT, then single vendor)",
             "latency (time since put in review), older is higher priority",
-        )
+        ]
 
     def get_sorted(self, items: list[ReleaseChecklistIssue]):
         """Sort review requests and return output."""
