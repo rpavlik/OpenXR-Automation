@@ -102,11 +102,14 @@ def make_html(
 def make_vendor_name_to_fn_map(
     items: Iterable[ReleaseChecklistIssue], vendor_names_obj: VendorNames
 ) -> dict[str, str]:
-    active_vendor_tags = set()
+    active_vendor_tags: set[str] = set()
     for item in items:
         tag = item.vendor_tag
-        if tag is not None:
-            active_vendor_tags.add(vendor_names_obj.canonicalize_vendor_tag(tag))
+        if tag is None:
+            continue
+        canonicalized = vendor_names_obj.canonicalize_vendor_tag(tag)
+        if canonicalized is not None:
+            active_vendor_tags.add(canonicalized)
     fn_to_vendorname = {
         f"vendor_{vendor_tag}.html": vendor_names_obj.get_vendor_name(vendor_tag)
         for vendor_tag in active_vendor_tags
