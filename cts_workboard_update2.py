@@ -126,108 +126,146 @@ def make_note_text(item: WorkUnit, item_formatter) -> str:
     )
 
 
-def main(in_filename, out_filename):
-    logging.basicConfig(level=logging.INFO)
+class WorkboardUpdate:
+    def __init__(self, oxr_gitlab: OpenXRGitlab):
+        self.work = WorkUnitCollection()
+        self.work.do_not_merge = DO_NOT_MERGE
+        self.oxr_gitlab = oxr_gitlab
+        self.proj = oxr_gitlab.main_proj
+        self._log = logging.getLogger("WorkboardUpdate")
+        self.board = dict()
 
-    log = logging.getLogger(__name__)
-    work = WorkUnitCollection()
-    work.do_not_merge = DO_NOT_MERGE
+    def load_board(self, in_filename):
 
-    oxr_gitlab = OpenXRGitlab.create()
+        self._log.info("Reading %s", in_filename)
+        with open(in_filename, "r", encoding="utf-8") as fp:
+            self.board = json.load(fp)
 
-    proj = oxr_gitlab.main_proj
+        self._log.info("Parsing board loaded from %s", in_filename)
+        parse_board(self.oxr_gitlab.main_proj, self.work, self.board)
 
-    log.info("Reading %s", in_filename)
-    with open(in_filename, "r", encoding="utf-8") as fp:
-        existing_board = json.load(fp)
+    def search_issues(self):
+        # Grab all "Contractor Approved Backlog" issues that are CTS related
 
-    log.info("Parsing board loaded from %s", in_filename)
-    parse_board(proj, work, existing_board)
+        self._log.info("Handling GitLab issues")
+        for issue in self.proj.issues.list(
+            labels=[MainProjectLabels.CONTRACTOR_APPROVED_BACKLOG],
+            state="opened",
+            iterator=True,
+        ):
+            self._handle_approved_issue(cast(gitlab.v4.objects.ProjectIssue, issue))
 
-    # Grab all "Contractor Approved Backlog" issues.
-    log.info("Handling GitLab issues")
-    for issue in proj.issues.list(
-        labels=[MainProjectLabels.CONTRACTOR_APPROVED_BACKLOG], state="opened", iterator=True
-    ):
-        proj_issue = cast(gitlab.v4.objects.ProjectIssue, issue)
+    def search_mrs(self):
+
+        # Grab all "contractor approved backlog" MRs as well as all
+        # CTS ones (whether or not written
+        # by contractor, as part of maintaining the cts)
+        for mr in itertools.chain(
+            *[
+                self.proj.mergerequests.list(
+                    labels=[label], state="opened", iterator=True
+                )
+                for label in (
+                    MainProjectLabels.CONTRACTOR_APPROVED_BACKLOG,
+                    MainProjectLabels.CONFORMANCE_IMPLEMENTATION,
+                )
+            ]
+        ):
+            proj_mr = cast(gitlab.v4.objects.ProjectMergeRequest, mr)
+            ref = get_short_ref(proj_mr)
+
+            labels = set(proj_mr.attributes["labels"])
+            if not labels.intersection(REQUIRED_LABEL_SET):
+                self._log.info(
+                    "Skipping contractor approved but non-CTS MR: %s: %s  %s",
+                    ref,
+                    proj_mr.title,
+                    proj_mr.attributes["web_url"],
+                )
+                continue
+
+            if "release candidate" in proj_mr.title.casefold():
+                self._log.info(
+                    "Skipping release candidate MR %s: %s", ref, proj_mr.title
+                )
+                continue
+
+            self._log.info("GitLab MR Search: %s: %s", ref, proj_mr.title)
+            self.work.add_refs(self.proj, [ref])
+
+    def _handle_approved_issue(self, proj_issue: gitlab.v4.objects.ProjectIssue):
         ref = get_short_ref(proj_issue)
 
         labels = set(proj_issue.attributes["labels"])
         if not labels.intersection(REQUIRED_LABEL_SET):
-            log.info(
+            self._log.info(
                 "Skipping contractor approved but non-CTS issue: %s: %s  %s",
                 ref,
                 proj_issue.title,
                 proj_issue.attributes["web_url"],
             )
-            continue
+            return
 
         if ref in SKIP_RELATED_MR_LOOKUP:
-            log.info(
-                "Skipping GitLab Issue Search for: %s: %s",
+            self._log.info(
+                "Skipping related MRs for: %s: %s",
                 ref,
                 proj_issue.title,
             )
-            continue
+            return
 
         refs = [ref]
         refs.extend(
             mr["references"]["short"]  # type: ignore
             for mr in proj_issue.related_merge_requests()
         )
-        log.info(
+        filtered_refs = [ref for ref in refs if ref not in self.work.do_not_merge]
+        if not filtered_refs:
+            self._log.info(
+                "No refs to consider left after filtering of: %s: %s",
+                ref,
+                proj_issue.title,
+            )
+            return
+
+        self._log.info(
             "GitLab Issue Search: %s: %s  (refs: %s)",
             ref,
             proj_issue.title,
-            ",".join(refs),
+            ",".join(filtered_refs),
         )
-        work.add_refs(proj, refs)
+        self.work.add_refs(self.proj, filtered_refs)
 
-    # Grab all "contractor approved backlog" MRs as well as all
-    # CTS ones (whether or not written
-    # by contractor, as part of maintaining the cts)
+    def update_board(self) -> bool:
+        self._log.info("Updating board with the latest data")
+        return update_board(
+            self.work,
+            self.board,
+            list_titles_to_skip_adding_to=[ListName.DONE],
+            note_text_maker=lambda x: make_note_text(x, _make_api_item_text),
+        )
 
-    log.info("Handling GitLab MRs")
-    for mr in itertools.chain(
-        *[
-            proj.mergerequests.list(labels=[label], state="opened", iterator=True)
-            for label in (
-                MainProjectLabels.CONTRACTOR_APPROVED_BACKLOG,
-                MainProjectLabels.CONFORMANCE_IMPLEMENTATION,
-            )
-        ]
-    ):
-        proj_mr = cast(gitlab.v4.objects.ProjectMergeRequest, mr)
-        ref = get_short_ref(proj_mr)
+    def write_board(self, out_filename):
+        self._log.info("Writing output file %s", out_filename)
+        with open(out_filename, "w", encoding="utf-8") as fp:
+            json.dump(self.board, fp, indent=4)
 
-        labels = set(proj_mr.attributes["labels"])
-        if not labels.intersection(REQUIRED_LABEL_SET):
-            log.info(
-                "Skipping contractor approved but non-CTS MR: %s: %s  %s",
-                ref,
-                proj_mr.title,
-                proj_mr.attributes["web_url"],
-            )
-            continue
 
-        if "release candidate" in proj_mr.title.casefold():
-            log.info("Skipping release candidate MR %s: %s", ref, proj_mr.title)
-            continue
+def main(in_filename, out_filename):
+    logging.basicConfig(level=logging.INFO)
 
-        log.info("GitLab MR Search: %s: %s", ref, proj_mr.title)
-        work.add_refs(proj, [ref])
+    log = logging.getLogger(__name__)
 
-    log.info("Updating board with the latest data")
-    updated = update_board(
-        work,
-        existing_board,
-        list_titles_to_skip_adding_to=[ListName.DONE],
-        note_text_maker=lambda x: make_note_text(x, _make_api_item_text),
-    )
+    oxr_gitlab = OpenXRGitlab.create()
 
-    log.info("Writing output file %s", out_filename)
-    with open(out_filename, "w", encoding="utf-8") as fp:
-        json.dump(existing_board, fp, indent=4)
+    wbu = WorkboardUpdate(oxr_gitlab)
+    wbu.load_board(in_filename)
+
+    wbu.search_issues()
+    wbu.search_mrs()
+
+    updated = wbu.update_board()
+    wbu.write_board(out_filename)
 
     if updated:
         log.info("Board contents have been changed.")
@@ -237,7 +275,6 @@ def main(in_filename, out_filename):
 
 if __name__ == "__main__":
     main(
-        # "/home/ryan/Downloads/Nullboard-1661530413298-OpenXR-CTS.nbx",
         "Nullboard-1661530413298-OpenXR-CTS.nbx",
         "Nullboard-1661530413298-OpenXR-CTS-updated.nbx",
     )
