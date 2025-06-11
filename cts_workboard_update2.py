@@ -24,19 +24,22 @@ from work_item_and_collection import WorkUnit, WorkUnitCollection, get_short_ref
 # List stuff that causes undesired merging here
 # Anything on this list will be excluded from the board
 DO_NOT_MERGE = {
-    "#1828",
-    "#1978",
-    "#1950",
-    "#1460",
-    "#2072",  # catch2 test number, etc mismatch
-    "#2350",  # xml stuff with 2 parts
-    "#2312",  # subimage y offset with 2 parts
-    "!3344",  # generate interaction profile spec from xml
+    "!2887",  # hand tracking permission
+    "!3194",  # usage flag errors - merged
     "!3224",  # more
+    "!3312",  # use .../click action - merged
+    "!3344",  # generate interaction profile spec from xml
+    "!3418",  # swapchain format list - merged
+    "!3466",  # validate action set names - merged
+    "#1460",
+    "#1828",
+    "#1950",
+    "#1978",
+    "#2072",  # catch2 test number, etc mismatch
     "#2162",  # unordered success
     "#2220",  # generic controller test
-    "!3466",  # validate action set names - merged
-    "!2887",  # hand tracking permission
+    "#2312",  # subimage y offset with 2 parts
+    "#2350",  # xml stuff with 2 parts
     # Release candidates
     "!3053",
     "!3692",
@@ -44,7 +47,7 @@ DO_NOT_MERGE = {
 
 # Anything on this list will skip looking for related MRs.
 # The contents of DO_NOT_MERGE are also included
-SKIP_RELATED_MR_LOOKUP = DO_NOT_MERGE.union(
+FILTER_OUT = DO_NOT_MERGE.union(
     {
         # stuff getting merged into 1.0 v 1.1 that we don't want like that
         "#2245",
@@ -184,7 +187,7 @@ class WorkboardUpdate:
         self._log.info("Parsing board loaded from %s", in_filename)
         parse_board(self.oxr_gitlab.main_proj, self.work, self.board)
 
-    def search_issues(self):
+    def search_issues(self, filter_out_refs: set[str]):
         # Grab all "Contractor Approved Backlog" issues that are CTS related
 
         self._log.info("Handling GitLab issues")
@@ -193,9 +196,11 @@ class WorkboardUpdate:
             state="opened",
             iterator=True,
         ):
-            self._handle_approved_issue(cast(gitlab.v4.objects.ProjectIssue, issue))
+            self._handle_approved_issue(
+                cast(gitlab.v4.objects.ProjectIssue, issue), filter_out_refs
+            )
 
-    def search_mrs(self):
+    def search_mrs(self, filter_out_refs: set[str]):
 
         # Grab all "contractor approved backlog" MRs as well as all
         # CTS ones (whether or not written
@@ -213,6 +218,13 @@ class WorkboardUpdate:
         ):
             proj_mr = cast(gitlab.v4.objects.ProjectMergeRequest, mr)
             ref = get_short_ref(proj_mr)
+            if ref in filter_out_refs:
+                self._log.info(
+                    "Skipping filtered out MR: %s: %s",
+                    ref,
+                    proj_mr.title,
+                )
+                continue
 
             labels = set(proj_mr.attributes["labels"])
             if not labels.intersection(REQUIRED_LABEL_SET):
@@ -233,8 +245,17 @@ class WorkboardUpdate:
             self._log.info("GitLab MR Search: %s: %s", ref, proj_mr.title)
             self.work.add_refs(self.proj, [ref])
 
-    def _handle_approved_issue(self, proj_issue: gitlab.v4.objects.ProjectIssue):
+    def _handle_approved_issue(
+        self, proj_issue: gitlab.v4.objects.ProjectIssue, filter_out_refs: set[str]
+    ):
         ref = get_short_ref(proj_issue)
+        if ref in filter_out_refs:
+            self._log.info(
+                "Skipping related MRs for: %s: %s",
+                ref,
+                proj_issue.title,
+            )
+            return
 
         labels = set(proj_issue.attributes["labels"])
         if not labels.intersection(REQUIRED_LABEL_SET):
@@ -246,7 +267,7 @@ class WorkboardUpdate:
             )
             return
 
-        if ref in SKIP_RELATED_MR_LOOKUP:
+        if ref in FILTER_OUT:
             self._log.info(
                 "Skipping related MRs for: %s: %s",
                 ref,
@@ -259,7 +280,7 @@ class WorkboardUpdate:
             mr["references"]["short"]  # type: ignore
             for mr in proj_issue.related_merge_requests()
         )
-        filtered_refs = [ref for ref in refs if ref not in self.work.do_not_merge]
+        filtered_refs = [ref for ref in refs if ref not in filter_out_refs]
         if not filtered_refs:
             self._log.info(
                 "No refs to consider left after filtering of: %s: %s",
@@ -301,8 +322,8 @@ def main(in_filename, out_filename):
     wbu = WorkboardUpdate(oxr_gitlab)
     wbu.load_board(in_filename)
 
-    wbu.search_issues()
-    wbu.search_mrs()
+    wbu.search_issues(FILTER_OUT)
+    wbu.search_mrs(FILTER_OUT)
 
     updated = wbu.update_board()
     wbu.write_board(out_filename)
