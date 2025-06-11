@@ -64,7 +64,7 @@ def load_in_flight(
             for item in col_data[
                 ColumnName.NEEDS_CHAMPION_APPROVAL_OR_RATIFICATION.value
             ]
-            if "champion-approved" not in rci.issue_obj.labels
+            if "champion-approved" not in item.issue_obj.labels
         ],
     }
 
