@@ -9,7 +9,8 @@
 import itertools
 import json
 import logging
-from typing import Union, cast
+import re
+from typing import Optional, Union, cast
 
 import gitlab
 import gitlab.v4.objects
@@ -62,11 +63,45 @@ REQUIRED_LABEL_SET = set(
     )
 )
 
+_THUMBSUP = "thumbsup"
+
+_REQUIRED_THUMB_COUNT = 3
+
+_COMPANY_RE = re.compile(r".*[(](.*)[)]")
+
+# Normalize and shorten company names
+_COMPANY_MAP = {
+    "Facebook, Inc.": "Meta",
+    "Meta Platforms": "Meta",
+    "Google, Inc.": "Google",
+}
+
+
+def _find_thumb_companies(
+    api_item: ProjectMergeRequest,
+) -> Optional[str]:
+    companies = []
+    awards = api_item.awardemojis.list(get_all=True)
+    for award in awards:
+        if award.attributes["name"] == _THUMBSUP:
+            name = award.attributes["user"]["name"]
+            m = _COMPANY_RE.match(name)
+            if m:
+                name = m.group(1)
+            # Map the company name if required.
+            companies.append(_COMPANY_MAP.get(name, name))
+    if companies:
+        if len(companies) == 1:
+            return f"(Thumb from {companies[0]})"
+
+        return f"(Thumbs from {', '.join(companies)})"
+
 
 def _make_api_item_text(
     api_item: Union[ProjectIssue, ProjectMergeRequest],
 ) -> str:
     state = []
+    suffix = ""
     if api_item.state == "closed":
         state.append("(CLOSED)")
     elif api_item.state == "merged":
@@ -76,6 +111,10 @@ def _make_api_item_text(
 
     if is_mr and hasattr(api_item, "upvotes") and api_item.upvotes > 0:
         state.append("👍" * api_item.upvotes)
+        if api_item.upvotes < _REQUIRED_THUMB_COUNT:
+            companies = _find_thumb_companies(cast(ProjectMergeRequest, api_item))
+            if companies:
+                suffix += f"   {companies}"
 
     if is_mr and hasattr(api_item, "downvotes") and api_item.downvotes > 0:
         state.append("👎" * api_item.downvotes)
@@ -102,11 +141,12 @@ def _make_api_item_text(
 
     state_str = " ".join(state)
 
-    return "[{ref}]({url}): {state}{title}".format(
+    return "[{ref}]({url}): {state}{title}{suffix}".format(
         ref=api_item.references["short"],
         state=state_str,
         title=api_item.title,
         url=api_item.web_url,
+        suffix=suffix,
     )
 
 
