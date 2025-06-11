@@ -57,7 +57,7 @@ FILTER_OUT = DO_NOT_MERGE.union(
 )
 
 # Must have at least one of these labels to show up on this board
-# since there are now two projects using "contractor approved"
+# since there are now two projects using "Contractor:Approved"
 REQUIRED_LABEL_SET = set(
     (
         MainProjectLabels.CONFORMANCE_IMPLEMENTATION,
@@ -188,11 +188,11 @@ class WorkboardUpdate:
         parse_board(self.oxr_gitlab.main_proj, self.work, self.board)
 
     def search_issues(self, filter_out_refs: set[str]):
-        # Grab all "Contractor Approved Backlog" issues that are CTS related
+        # Grab all "Contractor:Approved" issues that are CTS related
 
         self._log.info("Handling GitLab issues")
         for issue in self.proj.issues.list(
-            labels=[MainProjectLabels.CONTRACTOR_APPROVED_BACKLOG],
+            labels=[MainProjectLabels.CONTRACTOR_APPROVED],
             state="opened",
             iterator=True,
         ):
@@ -202,7 +202,7 @@ class WorkboardUpdate:
 
     def search_mrs(self, filter_out_refs: set[str]):
 
-        # Grab all "contractor approved backlog" MRs as well as all
+        # Grab all "Contractor:Approved" MRs as well as all
         # CTS ones (whether or not written
         # by contractor, as part of maintaining the cts)
         for mr in itertools.chain(
@@ -211,7 +211,7 @@ class WorkboardUpdate:
                     labels=[label], state="opened", iterator=True
                 )
                 for label in (
-                    MainProjectLabels.CONTRACTOR_APPROVED_BACKLOG,
+                    MainProjectLabels.CONTRACTOR_APPROVED,
                     MainProjectLabels.CONFORMANCE_IMPLEMENTATION,
                 )
             ]

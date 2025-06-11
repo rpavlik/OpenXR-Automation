@@ -27,7 +27,7 @@ class MainProjectLabels:
     CONFORMANCE_IN_THE_WILD = "CTS:in-the-wild"
     CONFORMANCE_QUESTION = "CTS:question"
     NEEDS_AUTHOR_ACTION = "Needs Author Action"
-    CONTRACTOR_APPROVED_BACKLOG = "Contractor Approved Backlog"
+    CONTRACTOR_APPROVED = "Contractor:Approved"
 
 
 class OpsProjectLabels:
