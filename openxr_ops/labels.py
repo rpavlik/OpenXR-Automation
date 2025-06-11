@@ -23,10 +23,11 @@ class MainProjectLabels:
     """Labels defined in the openxr/openxr GitLab project"""
 
     EXTENSION = "Extension"
-    CONFORMANCE_IMPLEMENTATION = "Conformance Implementation"
-    CONFORMANCE_IN_THE_WILD = "Conformance IN THE WILD"
-    CONFORMANCE_QUESTION = "Conformance Question"
+    CONFORMANCE_IMPLEMENTATION = "CTS:conformance"
+    CONFORMANCE_IN_THE_WILD = "CTS:in-the-wild"
+    CONFORMANCE_QUESTION = "CTS:question"
     NEEDS_AUTHOR_ACTION = "Needs Author Action"
+    CONTRACTOR_APPROVED_BACKLOG = "Contractor Approved Backlog"
 
 
 class OpsProjectLabels:

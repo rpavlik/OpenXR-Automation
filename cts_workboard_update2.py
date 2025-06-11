@@ -147,7 +147,7 @@ def main(in_filename, out_filename):
     # Grab all "Contractor Approved Backlog" issues.
     log.info("Handling GitLab issues")
     for issue in proj.issues.list(
-        labels=["Contractor Approved Backlog"], state="opened", iterator=True
+        labels=[MainProjectLabels.CONTRACTOR_APPROVED_BACKLOG], state="opened", iterator=True
     ):
         proj_issue = cast(gitlab.v4.objects.ProjectIssue, issue)
         ref = get_short_ref(proj_issue)
@@ -184,14 +184,17 @@ def main(in_filename, out_filename):
         work.add_refs(proj, refs)
 
     # Grab all "contractor approved backlog" MRs as well as all
-    # "Conformance Implementation" ones (whether or not written
-    #  by contractor, as part of maintaining the cts)
+    # CTS ones (whether or not written
+    # by contractor, as part of maintaining the cts)
 
     log.info("Handling GitLab MRs")
     for mr in itertools.chain(
         *[
             proj.mergerequests.list(labels=[label], state="opened", iterator=True)
-            for label in ("Contractor Approved Backlog", "Conformance Implementation")
+            for label in (
+                MainProjectLabels.CONTRACTOR_APPROVED_BACKLOG,
+                MainProjectLabels.CONFORMANCE_IMPLEMENTATION,
+            )
         ]
     ):
         proj_mr = cast(gitlab.v4.objects.ProjectMergeRequest, mr)
