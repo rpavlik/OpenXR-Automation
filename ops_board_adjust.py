@@ -22,8 +22,8 @@ from typing import Optional, cast
 import gitlab
 import gitlab.v4.objects
 
-from openxr_ops.checklists import ColumnName
 from openxr_ops.gitlab import OpenXRGitlab
+from openxr_ops.labels import ColumnName
 
 _FIND_MR_RE = re.compile(
     r"Main extension MR:\s*((?P<proj>openxr|openxr/openxr)!|https://gitlab.khronos.org/openxr/openxr/-/merge_requests/)(?P<num>[0-9]+)"

@@ -17,6 +17,7 @@ from gitlab.v4.objects import ProjectIssue, ProjectMergeRequest
 
 from nullboard_gitlab import ListName, parse_board, update_board
 from openxr_ops.gitlab import OpenXRGitlab
+from openxr_ops.labels import MainProjectLabels
 from work_item_and_collection import WorkUnit, WorkUnitCollection, get_short_ref
 
 # List stuff that causes undesired merging here
@@ -55,9 +56,9 @@ SKIP_RELATED_MR_LOOKUP = DO_NOT_MERGE.union(
 # since there are now two projects using "contractor approved"
 REQUIRED_LABEL_SET = set(
     (
-        "Conformance Implementation",
-        "Conformance IN THE WILD",
-        "Conformance Question",
+        MainProjectLabels.CONFORMANCE_IMPLEMENTATION,
+        MainProjectLabels.CONFORMANCE_IN_THE_WILD,
+        MainProjectLabels.CONFORMANCE_QUESTION,
     )
 )
 

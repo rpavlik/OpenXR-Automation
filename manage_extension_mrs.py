@@ -7,13 +7,9 @@
 
 import logging
 
-from openxr_ops.checklists import (
-    CHAMPION_APPROVED,
-    INITIAL_REVIEW_COMPLETE,
-    ColumnName,
-    ReleaseChecklistCollection,
-)
+from openxr_ops.checklists import ReleaseChecklistCollection
 from openxr_ops.gitlab import OpenXRGitlab
+from openxr_ops.labels import ColumnName, OpsProjectLabels
 from openxr_ops.vendors import VendorNames
 
 if __name__ == "__main__":
@@ -89,8 +85,8 @@ if __name__ == "__main__":
             collection.mr_set_column(
                 mr,
                 ColumnName.NEEDS_REVISION,
-                add_labels=[INITIAL_REVIEW_COMPLETE],
-                remove_labels=[CHAMPION_APPROVED],
+                add_labels=[OpsProjectLabels.INITIAL_REVIEW_COMPLETE],
+                remove_labels=[OpsProjectLabels.CHAMPION_APPROVED],
             )
     if args.mr_needs_champion:
         for mr in args.mr_needs_champion:

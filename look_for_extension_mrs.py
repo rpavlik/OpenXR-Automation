@@ -17,7 +17,8 @@ from openxr_ops.checklists import (
     ReleaseChecklistFactory,
     get_extension_names_for_mr,
 )
-from openxr_ops.gitlab import EXT_LABEL, KHR_EXT_LABEL, VENDOR_EXT_LABEL, OpenXRGitlab
+from openxr_ops.gitlab import OpenXRGitlab
+from openxr_ops.labels import GroupLabels, MainProjectLabels
 from openxr_ops.vendors import VendorNames
 from work_item_and_collection import get_short_ref
 
@@ -44,7 +45,11 @@ def main():
             oxr_gitlab.main_proj.mergerequests.list(
                 labels=[label], state="opened", iterator=True
             )
-            for label in (KHR_EXT_LABEL, VENDOR_EXT_LABEL, EXT_LABEL)
+            for label in (
+                GroupLabels.KHR_EXT,
+                GroupLabels.VENDOR_EXT,
+                MainProjectLabels.EXTENSION,
+            )
         )
     ):
         proj_mr = cast(gitlab.v4.objects.ProjectMergeRequest, mr)

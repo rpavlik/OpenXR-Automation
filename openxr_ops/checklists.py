@@ -8,17 +8,16 @@
 import itertools
 import logging
 import re
-import tomllib
 from dataclasses import dataclass
-from enum import Enum
 from functools import cached_property
 from typing import Dict, Iterable, List, Optional, Set, cast
 
 import gitlab
 import gitlab.v4.objects
+import tomllib
 
 from .extensions import ExtensionNameGuesser
-from .gitlab import EXT_LABEL, KHR_EXT_LABEL, OUTSIDE_IP_ZONE_LABEL, VENDOR_EXT_LABEL
+from .labels import ColumnName, GroupLabels, MainProjectLabels
 from .vendors import VendorNames
 
 _MAIN_MR_RE = re.compile(
@@ -30,53 +29,6 @@ _CHECKLIST_RE = re.compile(
 )
 
 _log = logging.getLogger(__name__)
-
-INITIAL_REVIEW_COMPLETE = "initial-review-complete"
-CHAMPION_APPROVED = "champion-approved"
-
-
-class ColumnName(Enum):
-    """Board columns and their associated labels."""
-
-    INACTIVE = "status:Inactive"
-    INITIAL_COMPOSITION = "status:InitialComposition"
-    NEEDS_REVIEW = "status:NeedsReview"
-    NEEDS_REVISION = "status:NeedsRevision"
-    FROZEN_NEEDS_IMPL_OR_CTS = "status:FrozenNeedsImplOrCTS"
-    NEEDS_CHAMPION_APPROVAL_OR_RATIFICATION = (
-        "status:NeedsChampionApprovalOrRatification"
-    )
-    NEEDS_OTHER = "status:NeedsOther"
-    AWAITING_MERGE = "status:AwaitingMerge"
-    RELEASE_PENDING = "status:ReleasePending"
-
-    @classmethod
-    def from_labels(cls, labels: Iterable[str]) -> Optional["ColumnName"]:
-        result = None
-        label_set = set(labels)
-        for column in cls:
-            if column.value in label_set:
-                # only keep the "highest"
-                result = column
-        return result
-
-    def compute_new_labels(self, labels: Iterable[str]) -> set[str]:
-        column_labels = {x.value for x in ColumnName}
-
-        # Remove all column labels except the one we want.
-        new_labels = set(x for x in labels if x == self.value or x not in column_labels)
-
-        # Add the one we want if it wasn't already there
-        new_labels.update([self.value])
-
-        if (
-            self == ColumnName.NEEDS_REVISION
-            and INITIAL_REVIEW_COMPLETE not in new_labels
-        ):
-            # If it's in needs-revision, that means it got reviewed.
-            new_labels.update([INITIAL_REVIEW_COMPLETE])
-
-        return new_labels
 
 
 @dataclass
@@ -183,11 +135,18 @@ def get_extension_names_for_mr(mr: gitlab.v4.objects.ProjectMergeRequest):
 
 def get_labels(vendor_id):
     if is_KHR_KHX(vendor_id):
-        return [EXT_LABEL, KHR_EXT_LABEL]
+        return [
+            MainProjectLabels.EXTENSION,
+            GroupLabels.KHR_EXT,
+        ]
     if is_EXT_EXTX(vendor_id):
         # multi-vendor
-        return [EXT_LABEL]
-    return [EXT_LABEL, VENDOR_EXT_LABEL, OUTSIDE_IP_ZONE_LABEL]
+        return [MainProjectLabels.EXTENSION]
+    return [
+        MainProjectLabels.EXTENSION,
+        GroupLabels.VENDOR_EXT,
+        GroupLabels.OUTSIDE_IPR_FRAMEWORK,
+    ]
 
 
 @dataclass
@@ -455,7 +414,7 @@ class ReleaseChecklistCollection:
                 continue
 
             made_change = False
-            for label in (KHR_EXT_LABEL, VENDOR_EXT_LABEL):
+            for label in (GroupLabels.KHR_EXT, GroupLabels.VENDOR_EXT):
                 if label in issue.labels and label not in merge_request.labels:
                     merge_request.labels.append(label)
                     made_change = True

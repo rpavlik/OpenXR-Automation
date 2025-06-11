@@ -17,12 +17,8 @@ from typing import Iterable, Optional, cast
 import gitlab
 import gitlab.v4.objects
 
-from .gitlab import KHR_EXT_LABEL, VENDOR_EXT_LABEL
+from .labels import GroupLabels, MainProjectLabels, OpsProjectLabels
 from .vendors import VendorNames
-
-_INITIAL_COMPLETE = "initial-review-complete"
-_NEEDS_AUTHOR_ACTION = "Needs Author Action"
-_UNCHANGEABLE = "API Shipped publicly (unchangable)"
 
 NOW = datetime.datetime.now(datetime.UTC)
 log = logging.getLogger(__name__)
@@ -79,15 +75,18 @@ class ReleaseChecklistIssue:
 
     @property
     def initial_review_complete(self) -> bool:
-        return _INITIAL_COMPLETE in self.issue_obj.attributes["labels"]
+        return (
+            OpsProjectLabels.INITIAL_REVIEW_COMPLETE
+            in self.issue_obj.attributes["labels"]
+        )
 
     @property
     def is_khr(self) -> bool:
-        return KHR_EXT_LABEL in self.issue_obj.attributes["labels"]
+        return GroupLabels.KHR_EXT in self.issue_obj.attributes["labels"]
 
     @property
     def is_vendor(self) -> bool:
-        return VENDOR_EXT_LABEL in self.issue_obj.attributes["labels"]
+        return GroupLabels.VENDOR_EXT in self.issue_obj.attributes["labels"]
 
     @property
     def is_multivendor(self) -> bool:
@@ -127,13 +126,14 @@ class ReleaseChecklistIssue:
 
     @property
     def needs_author_action(self):
-        return _NEEDS_AUTHOR_ACTION in self.mr.attributes["labels"]
+        return MainProjectLabels.NEEDS_AUTHOR_ACTION in self.mr.attributes["labels"]
 
     @property
     def unchangeable(self):
+        # TODO should not see this on the MR but...
         return (
-            _UNCHANGEABLE in self.mr.attributes["labels"]
-            or _UNCHANGEABLE in self.issue_obj.attributes["labels"]
+            OpsProjectLabels.UNCHANGEABLE in self.mr.attributes["labels"]
+            or OpsProjectLabels.UNCHANGEABLE in self.issue_obj.attributes["labels"]
         )
 
     @cached_property
