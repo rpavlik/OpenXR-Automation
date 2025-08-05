@@ -38,8 +38,10 @@ DO_NOT_MERGE = {
     "#2072",  # catch2 test number, etc mismatch
     "#2162",  # unordered success
     "#2220",  # generic controller test
+    "#2275",  # vulkan layer
     "#2312",  # subimage y offset with 2 parts
     "#2350",  # xml stuff with 2 parts
+    "#2553",  # Check format returned
     # Release candidates
     "!3053",
     "!3692",
