@@ -236,7 +236,7 @@ class WorkboardUpdate:
                 )
                 continue
 
-            if "release candidate" in proj_mr.title.casefold():
+            if "candidate" in proj_mr.title.casefold():
                 self._log.info(
                     "Skipping release candidate MR %s: %s", ref, proj_mr.title
                 )
@@ -279,6 +279,7 @@ class WorkboardUpdate:
         refs.extend(
             mr["references"]["short"]  # type: ignore
             for mr in proj_issue.related_merge_requests()
+            if "candidate" not in mr['title'].casefold()
         )
         filtered_refs = [ref for ref in refs if ref not in filter_out_refs]
         if not filtered_refs:
