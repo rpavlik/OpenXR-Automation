@@ -1,6 +1,7 @@
 import csv
 import logging
 from datetime import datetime
+from typing import Optional
 import zoneinfo
 from pprint import pprint
 
@@ -19,7 +20,13 @@ def _get_timestamp(item):
     raise RuntimeError("help")
 
 
-def dump_huge_csv(fn, oxr_gitlab, exclude: list[str], not_before: datetime):
+def dump_huge_csv(
+    fn,
+    oxr_gitlab,
+    exclude: list[str],
+    not_before: datetime,
+    not_after: Optional[datetime] = None,
+):
     pass
     log.info("Performing startup queries")
     vendor_names = VendorNames.from_git(oxr_gitlab.main_proj)
@@ -66,6 +73,7 @@ def dump_huge_csv(fn, oxr_gitlab, exclude: list[str], not_before: datetime):
                 mr,
                 include_users=users,
                 not_before=not_before,
+                not_after=not_after,
                 deep_discussions=True,
             )
             for item in activity.inline_comments:
@@ -100,13 +108,17 @@ if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO)
 
     log = logging.getLogger(__name__)
+    exclude = []
+    if args.exclude:
+        log.info("Excluding %s", ", ".join(args.exclude))
+        exclude = list(args.exclude)
 
-    log.info("Excluding %s", ", ".join(args.exclude))
     oxr_gitlab = OpenXRGitlab.create()
 
     dump_huge_csv(
         "mr_review_events.csv",
         oxr_gitlab,
-        list(args.exclude),
-        not_before=datetime(2024, 11, 1, tzinfo=zoneinfo.ZoneInfo("UTC")),
+        exclude,
+        not_before=datetime(2025, 7, 1, tzinfo=zoneinfo.ZoneInfo("UTC")),
+        not_after=datetime(2025, 7, 31, tzinfo=zoneinfo.ZoneInfo("UTC")),
     )
