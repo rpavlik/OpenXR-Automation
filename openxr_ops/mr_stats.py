@@ -66,7 +66,7 @@ def _yield_merge_request_notes(
     ):
         note = cast(gitlab.v4.objects.ProjectMergeRequestNote, n)
         user = note.attributes["author"]["username"]
-        if note.attributes["author"]["username"] not in include_users:
+        if note.attributes["author"]["username"].casefold() not in include_users:
             log.debug("Skipping note from user %s", user)
             continue
         yield note
@@ -181,14 +181,14 @@ class MRActivity:
             for note in disc.attributes["notes"]:
                 if note["id"] in self.known_note_ids:
                     continue
-                if note["author"]["username"] not in users:
+                if note["author"]["username"].casefold() not in users:
                     continue
                 full_disc_note = disc.notes.get(note["id"])
                 if self._process_note(full_disc_note):
                     log.warning(
                         "Hey we found one via discussion we didn't know before!"
                     )
-                    full_disc_note.pprint()
+                    # full_disc_note.pprint()
                     # if "position" in note:
                     #     log.warning(
                     #         "Found a discussion note with position we didn't see before, id %d",
@@ -270,11 +270,21 @@ def process_all(oxr_gitlab):
     except IOError:
         print("Could not load config")
 
-    collection.load_initial_data()
+    # collection.load_initial_data(all_closed=True)
+    collection.load_initial_data(deep=True)
 
-    with open("stats2.csv", "w", newline="") as fp:
+    with open("stats4.csv", "w", newline="") as fp:
         writer = csv.writer(fp)
-        writer.writerow(["URL", "Title", "inline_comments", "pushes", "other_comments"])
+        writer.writerow(
+            [
+                "URL",
+                "Issue Title",
+                "Title",
+                "inline_comments",
+                "pushes",
+                "other_comments",
+            ]
+        )
         for issue in collection.issue_to_mr.keys():
             issue_obj = collection.issue_str_to_cached_issue_object(issue)
 
@@ -286,9 +296,11 @@ def process_all(oxr_gitlab):
                 mr,
                 include_users=users,
                 not_before=not_before,
+                deep_discussions=True,
             )
             row = [
                 issue_obj.attributes["web_url"],
+                issue_obj.attributes["title"],
                 mr.attributes["title"],
                 str(len(activity.inline_comments)),
                 str(len(activity.pushes)),
@@ -305,7 +317,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
 
     args = parser.parse_args()
-    logging.basicConfig(level=logging.DEBUG)
+    logging.basicConfig(level=logging.INFO)
 
     log = logging.getLogger(__name__)
 
