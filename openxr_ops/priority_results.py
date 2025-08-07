@@ -33,7 +33,7 @@ _IGNORE_PUSH_USERS = ("rpavlik", "safarimonkey", "haagch", "khrbot")
 _PUSH_NOTE_RE = re.compile(r"added \d+ commit(s?)\n\n.*")
 
 
-def _is_note_a_push(note: gitlab.v4.objects.ProjectMergeRequestNote):
+def is_note_a_push(note: gitlab.v4.objects.ProjectMergeRequestNote):
     if not note.system:
         return False
 
@@ -50,7 +50,7 @@ def _is_note_a_push(note: gitlab.v4.objects.ProjectMergeRequestNote):
 
 
 def _is_note_an_author_push(note: gitlab.v4.objects.ProjectMergeRequestNote):
-    return _is_note_a_push(note) and note.author["username"] not in _IGNORE_PUSH_USERS
+    return is_note_a_push(note) and note.author["username"] not in _IGNORE_PUSH_USERS
 
 
 def _created_date(n):
@@ -169,7 +169,7 @@ class ReleaseChecklistIssue:
         pushes = [
             cast(gitlab.v4.objects.ProjectMergeRequestNote, n)
             for n in self.mr_notes
-            if _is_note_a_push(cast(gitlab.v4.objects.ProjectMergeRequestNote, n))
+            if is_note_a_push(cast(gitlab.v4.objects.ProjectMergeRequestNote, n))
         ]
         if not pushes:
             return None
