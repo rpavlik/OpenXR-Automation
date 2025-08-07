@@ -39,7 +39,7 @@ def _date_range_filter(
                 )
                 continue
         if stamp < not_before:
-            log.info(
+            log.debug(
                 "Ending iteration, reached %s which is earlier than our not_before date of %s",
                 stamp.isoformat(),
                 not_before.isoformat(),
@@ -137,7 +137,6 @@ class MRActivity:
                 not_after.isoformat(),
                 ", ".join(include_users),
             )
-            pass
 
         self.known_note_ids = set()
         self.pushes = []

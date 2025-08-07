@@ -90,6 +90,7 @@ def dump_huge_csv(
                 timestamp = _get_timestamp(item.attributes)
                 user = item.attributes["author"]["username"]
                 writer.writerow([title, str(mr_num), timestamp, user, "OtherComment"])
+            fp.flush()
 
 
 if __name__ == "__main__":
@@ -116,9 +117,9 @@ if __name__ == "__main__":
     oxr_gitlab = OpenXRGitlab.create()
 
     dump_huge_csv(
-        "mr_review_events.csv",
+        "mr_review_events_since_nov1.csv",
         oxr_gitlab,
         exclude,
-        not_before=datetime(2025, 7, 1, tzinfo=zoneinfo.ZoneInfo("UTC")),
-        not_after=datetime(2025, 7, 31, tzinfo=zoneinfo.ZoneInfo("UTC")),
+        not_before=datetime(2024, 11, 1, tzinfo=zoneinfo.ZoneInfo("UTC")),
+        # not_after=datetime(2025, 7, 31, tzinfo=zoneinfo.ZoneInfo("UTC")),
     )
