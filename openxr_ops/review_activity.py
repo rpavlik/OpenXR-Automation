@@ -27,7 +27,6 @@ def dump_huge_csv(
     not_before: datetime,
     not_after: Optional[datetime] = None,
 ):
-    pass
     log.info("Performing startup queries")
     vendor_names = VendorNames.from_git(oxr_gitlab.main_proj)
     collection = ReleaseChecklistCollection(
