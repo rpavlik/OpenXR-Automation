@@ -65,6 +65,7 @@ def dump_huge_csv(
             for exclusion in exclude:
                 if exclusion in title:
                     log.info("Skipping %s due to exclusion rule", title)
+                    continue
 
             log.info("Processing actions for %s", title)
             mr_num = collection.issue_to_mr[issue]
