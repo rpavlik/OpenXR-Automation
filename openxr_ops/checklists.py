@@ -362,9 +362,7 @@ class ReleaseChecklistCollection:
             )
         if all_closed:
             queries.append(
-                self.ops_proj.issues.list(
-                    state="closed", iterator=True
-                ),
+                self.ops_proj.issues.list(state="closed", iterator=True),
             )
 
         for issue in itertools.chain(*queries):

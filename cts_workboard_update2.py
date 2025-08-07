@@ -281,7 +281,7 @@ class WorkboardUpdate:
         refs.extend(
             mr["references"]["short"]  # type: ignore
             for mr in proj_issue.related_merge_requests()
-            if "candidate" not in mr['title'].casefold()
+            if "candidate" not in mr["title"].casefold()
         )
         filtered_refs = [ref for ref in refs if ref not in filter_out_refs]
         if not filtered_refs:
