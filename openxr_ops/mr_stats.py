@@ -22,7 +22,7 @@ def _date_range_filter(
     gl_iter: gitlab.base.RESTObjectList,
     not_before: datetime,
     not_after: Optional[datetime] = None,
-    attribute_name: str = "updated_at",
+    attribute_name: str = "created_at",
 ) -> Generator[gitlab.base.RESTObject]:
     log = logging.getLogger("_date_range_filter")
     for item in gl_iter:
@@ -59,7 +59,7 @@ def _yield_merge_request_notes(
     for n in _date_range_filter(
         cast(
             gitlab.base.RESTObjectList,
-            mr.notes.list(order_by="updated_at", iterator=True),
+            mr.notes.list(order_by="created_at", iterator=True),
         ),
         not_before=not_before,
         not_after=not_after,
@@ -143,68 +143,44 @@ class MRActivity:
         self.pushes = []
         self.inline_comments = []
         self.other_comments = []
-        self.other_discussion_notes = []
+
         for note in _yield_merge_request_notes(
             mr=self.mr,
             include_users=include_users,
             not_before=not_before,
             not_after=not_after,
         ):
-            self.known_note_ids.add(note.get_id())
-            if "position" in note.attributes:
-                # This is an in-line comment/discussion
-                self.inline_comments.append(note)
-            elif note.system:
-                # this might be a pushid': 502136, or a notification of change.
-                if is_note_a_push(note):
-                    self.pushes.append(note)
-                # otherwise it's a "user changed this in version xyz" in an inline comment
-            else:
-                # this is just a comment
-                self.other_comments.append(note)
+            self._process_note(note)
 
         if not deep_discussions:
             return
         for root_disc in self.mr.discussions.list(iterator=True):
-            # _date_range_filter(
-
-            #     not_before=not_before,
-            #     attribute_name="created_at",
-            # ):
             disc = cast(gitlab.v4.objects.ProjectMergeRequestDiscussion, root_disc)
-            if disc.attributes["individual_note"]:
-                # Skip, we already got it earlier
-                continue
-            # disc.pprint()
-            # fp.write(disc.pformat())
-            # fp.write("\n")
+            # if disc.attributes["individual_note"]:
+            #     # Skip, we already got it earlier, probably.
+            #     continue
+
             for note in disc.attributes["notes"]:
                 if note["id"] in self.known_note_ids:
                     continue
                 if note["author"]["username"].casefold() not in users:
                     continue
+                timestamp = datetime.fromisoformat(note["created_at"]).replace(
+                    tzinfo=zoneinfo.ZoneInfo("UTC")
+                )
+
+                if timestamp < not_before:
+                    continue
+                if not_after is not None and timestamp > not_after:
+                    continue
+
                 full_disc_note = disc.notes.get(note["id"])
-                if self._process_note(full_disc_note):
-                    log.warning(
-                        "Hey we found one via discussion we didn't know before!"
+                new_note = self._process_note(full_disc_note)
+
+                if new_note and disc.attributes["individual_note"]:
+                    self._log.warning(
+                        "Hey, we found an individual note via discussion that we didn't find earlier."
                     )
-                    # full_disc_note.pprint()
-                    # if "position" in note:
-                    #     log.warning(
-                    #         "Found a discussion note with position we didn't see before, id %d",
-                    #         note["id"],
-                    #     )
-                    # elif note["system"]:
-                    #     pass
-                    # else:
-                    #     self.other_discussion_notes.append(disc.notes.get(note["id"]))
-
-
-# pushes = [
-#     cast(gitlab.v4.objects.ProjectMergeRequestNote, n)
-#     for n in self.mr_notes
-#     if is_note_a_push(cast(gitlab.v4.objects.ProjectMergeRequestNote, n))
-# ]
 
 
 users = ["rpavlik", "haagch", "safarimonkey"]
@@ -233,18 +209,12 @@ def do_one(mr_num, oxr_gitlab: OpenXRGitlab):
 
     with open(f"discussions.{mr_num}.txt", "w", encoding="utf-8") as fp:
         for root_disc in mr.discussions.list(iterator=True):
-            # _date_range_filter(
 
-            #     not_before=not_before,
-            #     attribute_name="created_at",
-            # ):
             disc = cast(gitlab.v4.objects.ProjectMergeRequestDiscussion, root_disc)
             if disc.attributes["individual_note"]:
                 # Skip, we already got it earlier
                 continue
             disc.pprint()
-            # fp.write(disc.pformat())
-            # fp.write("\n")
             for note in disc.attributes["notes"]:
                 if note["id"] in activity.known_note_ids:
                     continue
@@ -273,7 +243,7 @@ def process_all(oxr_gitlab):
     # collection.load_initial_data(all_closed=True)
     collection.load_initial_data(deep=True)
 
-    with open("stats4.csv", "w", newline="") as fp:
+    with open("stats5.csv", "w", newline="") as fp:
         writer = csv.writer(fp)
         writer.writerow(
             [
