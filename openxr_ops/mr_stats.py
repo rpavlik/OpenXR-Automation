@@ -1,3 +1,4 @@
+import csv
 import logging
 import pprint
 from typing import Generator, Optional, cast, Union
@@ -7,7 +8,10 @@ from gitlab.v4.objects import ProjectMergeRequest
 from datetime import datetime
 import zoneinfo
 
-from openxr_ops.priority_results import is_note_a_push
+from .checklists import ReleaseChecklistCollection
+from .priority_results import is_note_a_push
+from .vendors import VendorNames
+from .gitlab import OpenXRGitlab
 
 # from .checklists import ReleaseChecklistCollection
 
@@ -159,32 +163,32 @@ class MRActivity:
                 # this is just a comment
                 self.other_comments.append(note)
 
-            if not deep_discussions:
-                return
-            for root_disc in self.mr.discussions.list(iterator=True):
-                # _date_range_filter(
+        if not deep_discussions:
+            return
+        for root_disc in self.mr.discussions.list(iterator=True):
+            # _date_range_filter(
 
-                #     not_before=not_before,
-                #     attribute_name="created_at",
-                # ):
-                disc = cast(gitlab.v4.objects.ProjectMergeRequestDiscussion, root_disc)
-                if disc.attributes["individual_note"]:
-                    # Skip, we already got it earlier
+            #     not_before=not_before,
+            #     attribute_name="created_at",
+            # ):
+            disc = cast(gitlab.v4.objects.ProjectMergeRequestDiscussion, root_disc)
+            if disc.attributes["individual_note"]:
+                # Skip, we already got it earlier
+                continue
+            # disc.pprint()
+            # fp.write(disc.pformat())
+            # fp.write("\n")
+            for note in disc.attributes["notes"]:
+                if note["id"] in self.known_note_ids:
                     continue
-                # disc.pprint()
-                # fp.write(disc.pformat())
-                # fp.write("\n")
-                for note in disc.attributes["notes"]:
-                    if note["id"] in self.known_note_ids:
-                        continue
-                    if note["author"]["username"] not in users:
-                        continue
-                    full_disc_note = disc.notes.get(note["id"])
-                    if self._process_note(full_disc_note):
-                        log.warning(
-                            "Hey we found one via discussion we didn't know before!"
-                        )
-                        full_disc_note.pprint()
+                if note["author"]["username"] not in users:
+                    continue
+                full_disc_note = disc.notes.get(note["id"])
+                if self._process_note(full_disc_note):
+                    log.warning(
+                        "Hey we found one via discussion we didn't know before!"
+                    )
+                    full_disc_note.pprint()
                     # if "position" in note:
                     #     log.warning(
                     #         "Found a discussion note with position we didn't see before, id %d",
@@ -203,8 +207,98 @@ class MRActivity:
 # ]
 
 
+users = ["rpavlik", "haagch", "safarimonkey"]
+not_before = datetime(2024, 11, 1, tzinfo=zoneinfo.ZoneInfo("UTC"))
+
+
+def do_one(mr_num, oxr_gitlab: OpenXRGitlab):
+    mr: ProjectMergeRequest = oxr_gitlab.main_proj.mergerequests.get(mr_num)
+
+    activity = MRActivity(mr, include_users=users, not_before=not_before)
+    gitlab.v4.objects.ProjectMergeRequestDiscussionNoteManager
+    mr.discussions.list(iterator=True)
+    print(len(activity.inline_comments), "inline comments")
+    print(len(activity.pushes), "pushes")
+    print(len(activity.other_comments), "other comments")
+
+    with open(f"other_comments.{mr_num}.txt", "w", encoding="utf-8") as fp:
+        for comment in activity.other_comments:
+            fp.write(comment.pformat())
+            fp.write("\n")
+
+    with open(f"inline_comments.{mr_num}.txt", "w", encoding="utf-8") as fp:
+        for comment in activity.inline_comments:
+            fp.write(comment.pformat())
+            fp.write("\n")
+
+    with open(f"discussions.{mr_num}.txt", "w", encoding="utf-8") as fp:
+        for root_disc in mr.discussions.list(iterator=True):
+            # _date_range_filter(
+
+            #     not_before=not_before,
+            #     attribute_name="created_at",
+            # ):
+            disc = cast(gitlab.v4.objects.ProjectMergeRequestDiscussion, root_disc)
+            if disc.attributes["individual_note"]:
+                # Skip, we already got it earlier
+                continue
+            disc.pprint()
+            # fp.write(disc.pformat())
+            # fp.write("\n")
+            for note in disc.attributes["notes"]:
+                if note["id"] in activity.known_note_ids:
+                    continue
+                if note["author"]["username"] not in users:
+                    continue
+                fp.write(pprint.pformat(note))
+                fp.write("\n")
+
+
+def process_all(oxr_gitlab):
+
+    log.info("Performing startup queries")
+    vendor_names = VendorNames.from_git(oxr_gitlab.main_proj)
+    collection = ReleaseChecklistCollection(
+        oxr_gitlab.main_proj,
+        oxr_gitlab.operations_proj,
+        checklist_factory=None,
+        vendor_names=vendor_names,
+    )
+
+    try:
+        collection.load_config("ops_issues.toml")
+    except IOError:
+        print("Could not load config")
+
+    collection.load_initial_data()
+
+    with open("stats2.csv", "w", newline="") as fp:
+        writer = csv.writer(fp)
+        writer.writerow(["URL", "Title", "inline_comments", "pushes", "other_comments"])
+        for issue in collection.issue_to_mr.keys():
+            issue_obj = collection.issue_str_to_cached_issue_object(issue)
+
+            if not issue_obj:
+                continue
+
+            mr = oxr_gitlab.main_proj.mergerequests.get(collection.issue_to_mr[issue])
+            activity = MRActivity(
+                mr,
+                include_users=users,
+                not_before=not_before,
+            )
+            row = [
+                issue_obj.attributes["web_url"],
+                mr.attributes["title"],
+                str(len(activity.inline_comments)),
+                str(len(activity.pushes)),
+                str(len(activity.other_comments)),
+            ]
+            writer.writerow(row)
+            print(row)
+
+
 if __name__ == "__main__":
-    from .gitlab import OpenXRGitlab
 
     import argparse
 
@@ -218,61 +312,7 @@ if __name__ == "__main__":
     oxr_gitlab = OpenXRGitlab.create()
 
     mr_num = 2963  # XR_META_body_tracking_calibration
-    mr: ProjectMergeRequest = oxr_gitlab.main_proj.mergerequests.get(mr_num)
-    users = ["rpavlik", "haagch", "safarimonkey"]
-    # not_before = datetime(2024, 11, 1, tzinfo=zoneinfo.ZoneInfo("UTC"))
-    not_before = datetime(2025, 7, 1, tzinfo=zoneinfo.ZoneInfo("UTC"))
+    # not_before = datetime(2025, 7, 1, tzinfo=zoneinfo.ZoneInfo("UTC"))
 
-    activity = MRActivity(mr, include_users=users, not_before=not_before)
-    gitlab.v4.objects.ProjectMergeRequestDiscussionNoteManager
-    mr.discussions.list(iterator=True)
-    print(len(activity.inline_comments), "inline comments")
-    print(len(activity.pushes), "pushes")
-    print(len(activity.other_comments), "other comments")
-
-    with open("other_comments.txt", "w", encoding="utf-8") as fp:
-        for comment in activity.other_comments:
-            fp.write(comment.pformat())
-            fp.write("\n")
-
-    with open("inline_comments.txt", "w", encoding="utf-8") as fp:
-        for comment in activity.inline_comments:
-            fp.write(comment.pformat())
-            fp.write("\n")
-
-    # with open("discussions.txt", "w", encoding="utf-8") as fp:
-    #     for root_disc in mr.discussions.list(iterator=True):
-    #         # _date_range_filter(
-
-    #         #     not_before=not_before,
-    #         #     attribute_name="created_at",
-    #         # ):
-    #         disc = cast(gitlab.v4.objects.ProjectMergeRequestDiscussion, root_disc)
-    #         if disc.attributes["individual_note"]:
-    #             # Skip, we already got it earlier
-    #             continue
-    #         disc.pprint()
-    #         # fp.write(disc.pformat())
-    #         # fp.write("\n")
-    #         for note in disc.attributes["notes"]:
-    #             if note["id"] in activity.known_note_ids:
-    #                 continue
-    #             if note["author"]["username"] not in users:
-    #                 continue
-    #             fp.write(pprint.pformat(note))
-    #             fp.write("\n")
-    # log.info("Performing startup queries")
-    # vendor_names = VendorNames.from_git(oxr_gitlab.main_proj)
-    # collection = ReleaseChecklistCollection(
-    #     oxr_gitlab.main_proj,
-    #     oxr_gitlab.operations_proj,
-    #     checklist_factory=None,
-    #     vendor_names=vendor_names,
-    # )
-
-    # try:
-    #     collection.load_config("ops_issues.toml")
-    # except IOError:
-    #     print("Could not load config")
-
-    # collection.load_initial_data()
+    # do_one(mr_num, oxr_gitlab)
+    process_all(oxr_gitlab)

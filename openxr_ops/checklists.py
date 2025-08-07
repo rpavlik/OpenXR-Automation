@@ -343,7 +343,7 @@ class ReleaseChecklistCollection:
         self.mr_to_issue_object[mr_num] = issue
         self.mr_to_issue[mr_num] = issue_ref
 
-    def load_initial_data(self, deep: bool = False):
+    def load_initial_data(self, deep: bool = False, all_closed: bool = False):
 
         _log.info("Parsing all opened release checklists...")
 
@@ -358,6 +358,12 @@ class ReleaseChecklistCollection:
             queries.append(
                 self.ops_proj.issues.list(
                     state="closed", label="status:ReleasePending", iterator=True
+                ),
+            )
+        if all_closed:
+            queries.append(
+                self.ops_proj.issues.list(
+                    state="closed", iterator=True
                 ),
             )
 
