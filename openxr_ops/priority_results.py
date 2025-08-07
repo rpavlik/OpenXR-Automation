@@ -12,7 +12,7 @@ import re
 from collections import defaultdict
 from dataclasses import dataclass
 from functools import cached_property
-from typing import Iterable, Optional, cast
+from typing import Iterable, Optional, Union, cast
 
 import gitlab
 import gitlab.v4.objects
@@ -33,7 +33,10 @@ _IGNORE_PUSH_USERS = ("rpavlik", "safarimonkey", "haagch", "khrbot")
 _PUSH_NOTE_RE = re.compile(r"added \d+ commit(s?)\n\n.*")
 
 
-def is_note_a_push(note: gitlab.v4.objects.ProjectMergeRequestNote):
+def is_note_a_push(note: Union[
+            gitlab.v4.objects.ProjectMergeRequestNote,
+            gitlab.v4.objects.ProjectMergeRequestDiscussionNote,
+        ]):
     if not note.system:
         return False
 
