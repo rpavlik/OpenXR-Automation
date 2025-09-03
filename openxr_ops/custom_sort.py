@@ -60,6 +60,39 @@ class BasicSpecReviewSort(SorterBase):
         return sorted_items
 
 
+class BasicDesignReviewSort(SorterBase):
+    """A basic sort for the design review queue."""
+
+    def __init__(self, _: VendorNames, vendor_config: dict[str, Any]) -> None:
+        pass
+
+    def get_sort_description(self):
+        return [
+            "whether initial design review is complete (higher priority) or not complete (lower priority)",
+            "author category (KHR highest priority, then EXT, then single vendor)",
+            "latency (time since put in review), older is higher priority",
+        ]
+
+    def get_sorted(self, items: list[ReleaseChecklistIssue]):
+        """Sort review requests and return output."""
+        log.info("Sorting %d items that need review, using basic sorter", len(items))
+
+        def get_sort_key(issue: ReleaseChecklistIssue):
+            return (
+                not issue.initial_design_review_complete,  # negate so "review complete" comes first
+                issue.author_category_priority,
+                -issue.latency,  # negate so largest comes first
+            )
+
+        sorted_items = list(
+            sorted(
+                items,
+                key=get_sort_key,
+            )
+        )
+        return sorted_items
+
+
 @dataclass
 class VendorSortPolicy:
     newest_first: bool = False
@@ -160,4 +193,5 @@ class CustomizedSort(SorterBase):
 SORTERS = {
     "custom": CustomizedSort,
     "basic": BasicSpecReviewSort,
+    "basic_design": BasicDesignReviewSort,
 }
