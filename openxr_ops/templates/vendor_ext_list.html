@@ -27,15 +27,115 @@ SPDX-License-Identifier: CC-BY-4.0
     Generated {{ now }}
 </p>
 
-{% if categories.initial_composition %}
+
+{% if categories.initial_design %}
 <section>
-    <h2>Extensions by {{ vendor }} in initial-composition</h2>
+    <h2>Extensions by {{ vendor }} in InitialDesign</h2>
     <p>
-        These {{ categories.initial_composition | length }} extensions will not receive review until the
-        appropriate checklist items are complete and the issue is moved to needs-review.
+        These {{ categories.initial_design | length }} extensions will not receive review until the
+        appropriate checklist items are complete and the issue is moved to AwaitingDesignReview.
     </p>
     <ul class="extension_slots">
-        {% for item in categories.initial_composition %}
+        {% for item in categories.initial_design %}
+        <li>
+            {{ make_emoji_discussions(item) }}
+            <a href="{{ item.url }}">{{ item.title }}</a>
+            - MR <a href="{{ item.mr_url }}">{{ item.mr_ref }}</a>
+
+            <ul>
+                <li>Branch: <code>{{ item.mr.attributes['source_branch'] }}</code></li>
+                <li>Checklist: {{ item.checklist_completed_count }} of {{ item.checklist_total_count }} checked</li>
+            </ul>
+
+        </li>
+        {% endfor %}
+    </ul>
+</section>
+{% endif %}
+
+{% if categories.awaiting_design_review %}
+<section>
+    <h2>Extensions by {{ vendor }} in AwaitingDesignReview by review priority order</h2>
+    <p>
+        {{ categories.awaiting_design_review | length }} extensions to review.
+        Note that there are likely extensions by other vendors interspersed with these
+        in the overall priority order.
+    </p>
+
+    <ul class="extension_slots">
+        {% for item in categories.awaiting_design_review %}
+        <li>
+            {{ make_emoji_initial_design_review_complete(item) }}
+            {{ make_emoji_need_action(item) }}
+            {{ make_emoji_discussions(item) }}
+            <a href="{{ item.url }}">{{ item.title }}</a>
+            - MR <a href="{{ item.mr_url }}">{{ item.mr_ref }}</a>
+
+            <ul>
+                <li>Branch: <code>{{ item.mr.attributes['source_branch'] }}</code></li>
+                <li>Reviewer(s):
+                    {% for reviewer in item.mr.reviewers %}
+                    {{ reviewer.name }}{% if not loop.last %},{% endif %}
+                    {% endfor %}
+                </li>
+                <li>Latency: {{ item.latency }} days since last status change
+                    {% if item.offset != 0 %}(Corrective offset of {{ item.offset }} applied){% endif %}
+                </li>
+                <li>Age of last non-editor push: {{ item.last_author_revision_push_age }} days</li>
+                {% if item.last_push %}
+                <li> Last push: {{ item.last_push.author["name"] }}
+                    (@{{ item.last_push.author["username"] }}) - {{ item.last_push.created_at }}
+                </li>
+                {%- endif %}
+                <li>Ops issue age: {{ item.ops_issue_age }} days</li>
+                <li>MR age: {{ item.mr_age }} days</li>
+                <li>Checklist: {{ item.checklist_completed_count }} of {{ item.checklist_total_count }} checked</li>
+                <li>Labels: {{ item.issue_obj.labels | join(", ") }}</li>
+            </ul>
+
+        </li>
+        {% endfor %}
+    </ul>
+</section>
+{% endif %}
+
+{% if categories.needs_design_revision %}
+<section>
+    <h2>Extensions by {{ vendor }} in NeedsDesignRevision</h2>
+    <p>
+        These {{ categories.needs_design_revision | length }} extensions will not receive additional review until the current
+        comments are addressed and the issue is moved back to AwaitingDesignReview.
+    </p>
+    <ul class="extension_slots">
+        {% for item in categories.needs_design_revision %}
+        <li>
+            {{ make_emoji_discussions(item) }}
+            <a href="{{ item.url }}">{{ item.title }}</a>
+            - MR <a href="{{ item.mr_url }}">{{ item.mr_ref }}</a>
+
+            <ul>
+                <li>Branch: <code>{{ item.mr.attributes['source_branch'] }}</code></li>
+                <li>Latency: {{ item.latency }} days since last status change
+                    {% if item.offset != 0 %}(Corrective offset of {{ item.offset }} applied){% endif %}
+                </li>
+                <li>Checklist: {{ item.checklist_completed_count }} of {{ item.checklist_total_count }} checked</li>
+            </ul>
+
+        </li>
+        {% endfor %}
+    </ul>
+</section>
+{% endif %}
+
+{% if categories.composition_or_elaboration %}
+<section>
+    <h2>Extensions by {{ vendor }} in CompositionOrElaboration</h2>
+    <p>
+        These {{ categories.composition_or_elaboration | length }} extensions will not receive review until the
+        appropriate checklist items are complete and the issue is moved to AwaitingSpecReview.
+    </p>
+    <ul class="extension_slots">
+        {% for item in categories.composition_or_elaboration %}
         <li>
             {{ make_emoji_api_frozen(item) }}
             {{ make_emoji_discussions(item) }}
@@ -53,10 +153,11 @@ SPDX-License-Identifier: CC-BY-4.0
 </section>
 {% endif %}
 
+{% if categories.awaiting_spec_review %}
 <section>
     <h2>Extensions by {{ vendor }} in AwaitingSpecReview by review priority order</h2>
     <p>
-        {{ categories.needs_review | length }} extensions to review.
+        {{ categories.awaiting_spec_review | length }} extensions to review.
         Note that there are likely extensions by other vendors interspersed with these
         in the overall priority order.
     </p>
@@ -106,16 +207,17 @@ SPDX-License-Identifier: CC-BY-4.0
         {% endfor %}
     </ul>
 </section>
+{% endif %}
 
-{% if categories.needs_revision %}
+{% if categories.needs_spec_revision %}
 <section>
-    <h2>Extensions by {{ vendor }} in NeedsDesignRevision</h2>
+    <h2>Extensions by {{ vendor }} in NeedsSpecRevision</h2>
     <p>
-        These {{ categories.needs_revision | length }} extensions will not receive additional review until the current
-        comments are addressed.
+        These {{ categories.needs_spec_revision | length }} extensions will not receive additional review until the current
+        comments are addressed and the issue is moved back to AwaitingSpecReview.
     </p>
     <ul class="extension_slots">
-        {% for item in categories.needs_revision %}
+        {% for item in categories.needs_spec_revision %}
         <li>
             {{ make_emoji_api_frozen(item) }}
             {{ make_emoji_discussions(item) }}
@@ -140,7 +242,7 @@ SPDX-License-Identifier: CC-BY-4.0
 <section>
     <h2>Extensions by {{ vendor }} in needs-approval</h2>
     <p>
-        The champion needs to review these {{ categories.needs_revision | length }} extensions
+        The champion needs to review these {{ categories.needs_approval | length }} extensions
         and make sure they are ready to merge, assigning the "champion-approved" label when ready.
     </p>
     <ul class="extension_slots">

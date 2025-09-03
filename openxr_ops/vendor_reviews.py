@@ -61,10 +61,12 @@ def load_in_flight(
     return items, {
         "initial_design": col_data[ColumnName.INITIAL_DESIGN.value],
         "awaiting_design_review": col_data[ColumnName.AWAITING_DESIGN_REVIEW.value],
-        "needs_design_revisions": col_data[ColumnName.NEEDS_DESIGN_REVISION.value],
-        "initial_composition": col_data[ColumnName.COMPOSITION_OR_ELABORATION.value],
-        "needs_review": col_data[ColumnName.AWAITING_SPEC_REVIEW.value],
-        "needs_revision": col_data[ColumnName.NEEDS_SPEC_REVISION.value],
+        "needs_design_revision": col_data[ColumnName.NEEDS_DESIGN_REVISION.value],
+        "composition_or_elaboration": col_data[
+            ColumnName.COMPOSITION_OR_ELABORATION.value
+        ],
+        "awaiting_spec_review": col_data[ColumnName.AWAITING_SPEC_REVIEW.value],
+        "needs_spec_revision": col_data[ColumnName.NEEDS_SPEC_REVISION.value],
         "needs_approval": [
             item
             for item in col_data[
@@ -144,8 +146,8 @@ def filter_and_generate_vendor_page(
 
     vendor_results = PriorityResults.from_sorted_items(filter_items(sorted))
     vendor_categories = {
-        "needs_review": filter_items(categories["needs_review"]),
-        "needs_revision": filter_items(categories["needs_revision"]),
+        "awaiting_spec_review": filter_items(categories["awaiting_spec_review"]),
+        "needs_spec_revision": filter_items(categories["needs_spec_revision"]),
         "needs_approval": filter_items(categories["needs_approval"]),
     }
 
@@ -228,7 +230,7 @@ if __name__ == "__main__":
     config.apply_offsets(items)
     sorter: SorterBase = config.get_sorter(vendor_names)
 
-    sorted = sorter.get_sorted(categories["needs_review"])
+    sorted = sorter.get_sorted(categories["awaiting_spec_review"])
 
     outdir = Path(".")
     if args.html_dir:

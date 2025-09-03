@@ -155,13 +155,15 @@ if __name__ == "__main__":
     spec_review_sorter: SorterBase = config.get_sorter(vendor_names)
     sorted_spec_review = spec_review_sorter.get_sorted(spec_review_items)
 
-    design_review_items = load_needs_review(collection, ColumnName.AWAITING_DESIGN_REVIEW)
-    sorted_design_review = BasicDesignReviewSort(vendor_names, {}).get_sorted(design_review_items)
+    design_review_items = load_needs_review(
+        collection, ColumnName.AWAITING_DESIGN_REVIEW
+    )
+    sorted_design_review = BasicDesignReviewSort(vendor_names, {}).get_sorted(
+        design_review_items
+    )
 
     spec_review_results = PriorityResults.from_sorted_items(sorted_spec_review)
     design_review_results = PriorityResults.from_sorted_items(sorted_design_review)
-
-
 
     if args.html:
         log.info("Outputting to HTML: %s", args.html)
