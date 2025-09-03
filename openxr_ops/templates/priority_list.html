@@ -52,16 +52,10 @@ SPDX-License-Identifier: CC-BY-4.0
             <a id="slot-{{ loop.index }}"></a>
             Slot {{ loop.index }}
             -
-            {% if item.unchangeable %}<span class="emoji-symbol" title="Shipped, API frozen">🧊</span>{% endif %}
-            {# or 🚫 ? #}
-            {% if item.initial_review_complete -%}
-            <span class="emoji-symbol" title="Initial review complete">🔄</span>
-            {%- endif %}
-            {% if item.needs_author_action %}<span class="emoji-symbol" title="Needs Author Action">🚧</span>{% endif %}
-            {% if not item.mr.blocking_discussions_resolved -%}
-            <span class="emoji-symbol" title="Blocking discussions not resolved">💬</span>
-            {%- endif %}
-
+            {{ make_emoji_api_frozen(item) }}
+            {{ make_emoji_initial_spec_review_complete(item) }}
+            {{ make_emoji_need_action(item) }}
+            {{ make_emoji_discussions(item) }}
             <a href="{{ item.url }}">{{ item.title }}</a>
             - MR <a href="{{ item.mr_url }}">{{ item.mr_ref }}</a>
 
