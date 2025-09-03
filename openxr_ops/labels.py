@@ -34,6 +34,7 @@ class OpsProjectLabels:
     """Labels defined in the openxr/openxr-operations GitLab project"""
 
     INITIAL_REVIEW_COMPLETE = "initial-review-complete"
+    INITIAL_DESIGN_REVIEW_COMPLETE = "initial-design-review-complete"
     CHAMPION_APPROVED = "champion-approved"
 
     UNCHANGEABLE = "API Shipped publicly (unchangable)"
@@ -43,9 +44,13 @@ class ColumnName(Enum):
     """Board columns and their associated labels, from the Operations project."""
 
     INACTIVE = "status:Inactive"
-    INITIAL_COMPOSITION = "status:InitialComposition"
-    NEEDS_REVIEW = "status:NeedsReview"
-    NEEDS_REVISION = "status:NeedsRevision"
+    INITIAL_DESIGN = "status:InitialDesign"
+    AWAITING_DESIGN_REVIEW = "status:AwaitingDesignReview"
+    NEEDS_DESIGN_REVISIONS = "status:NeedsDesignRevisions"
+
+    INITIAL_COMPOSITION = "status:CompositionOrElaboration"
+    NEEDS_REVIEW = "status:AwaitingSpecReview"
+    NEEDS_REVISION = "status:NeedsSpecRevision"
     FROZEN_NEEDS_IMPL_OR_CTS = "status:FrozenNeedsImplOrCTS"
     NEEDS_CHAMPION_APPROVAL_OR_RATIFICATION = (
         "status:NeedsChampionApprovalOrRatification"
@@ -79,5 +84,12 @@ class ColumnName(Enum):
         ):
             # If it's in needs-revision, that means it got reviewed.
             new_labels.update([OpsProjectLabels.INITIAL_REVIEW_COMPLETE])
+
+        if (
+            self == ColumnName.NEEDS_DESIGN_REVISIONS
+            and OpsProjectLabels.INITIAL_DESIGN_REVIEW_COMPLETE not in new_labels
+        ):
+            # If it's in needs-design-revision, that means it got reviewed.
+            new_labels.update([OpsProjectLabels.INITIAL_DESIGN_REVIEW_COMPLETE])
 
         return new_labels
