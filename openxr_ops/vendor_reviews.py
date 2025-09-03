@@ -145,11 +145,7 @@ def filter_and_generate_vendor_page(
         return [x for x in data if x.vendor_name == vendor_name]
 
     vendor_results = PriorityResults.from_sorted_items(filter_items(sorted))
-    vendor_categories = {
-        "awaiting_spec_review": filter_items(categories["awaiting_spec_review"]),
-        "needs_spec_revision": filter_items(categories["needs_spec_revision"]),
-        "needs_approval": filter_items(categories["needs_approval"]),
-    }
+    vendor_categories = {cat: filter_items(items) for cat, items in categories.items()}
 
     log.info("Outputting to HTML: %s", filename)
     make_html(
