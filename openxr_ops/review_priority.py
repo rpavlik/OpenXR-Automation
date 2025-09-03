@@ -60,6 +60,7 @@ class ReviewPriorityConfig:
 
 def load_needs_review(
     collection: ReleaseChecklistCollection,
+    column: ColumnName = ColumnName.AWAITING_SPEC_REVIEW,
 ) -> List[ReleaseChecklistIssue]:
     log.info("Loading items that need review")
     items = []
@@ -68,7 +69,7 @@ def load_needs_review(
         if not issue_obj:
             continue
 
-        if ColumnName.NEEDS_REVIEW.value not in issue_obj.labels:
+        if column.value not in issue_obj.labels:
             continue
 
         # print(issue_obj.attributes["title"])

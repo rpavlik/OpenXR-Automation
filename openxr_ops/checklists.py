@@ -476,7 +476,7 @@ class ReleaseChecklistCollection:
         labels = set(issue.attributes["labels"])
         orig_column = ColumnName.from_labels(labels)
         if orig_column is None:
-            orig_column = ColumnName.INITIAL_COMPOSITION
+            orig_column = ColumnName.INITIAL_DESIGN
 
         if orig_column == new_column:
             _log.warning("Issue %s is already in '%s'", issue.web_url, str(orig_column))

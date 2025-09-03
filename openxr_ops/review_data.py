@@ -28,13 +28,16 @@ STATES = {
     _SHIPPED: "🚢",
     # These are status labels
     ColumnName.INACTIVE: "💤",
-    ColumnName.INITIAL_COMPOSITION: "📓",
-    ColumnName.NEEDS_REVIEW.value: "🔬",
-    ColumnName.NEEDS_REVISION.value: "📑",
+    ColumnName.INITIAL_DESIGN.value: "📓",
+    ColumnName.AWAITING_DESIGN_REVIEW.value: "🥼",
+    ColumnName.NEEDS_DESIGN_REVISION.value: "💬",
+    ColumnName.COMPOSITION_OR_ELABORATION: "📝",
+    ColumnName.AWAITING_SPEC_REVIEW.value: "🔍",
+    ColumnName.NEEDS_SPEC_REVISION.value: "📑",
     ColumnName.NEEDS_CHAMPION_APPROVAL_OR_RATIFICATION.value: "☑️",
     ColumnName.NEEDS_OTHER.value: "🗳️",
     ColumnName.FROZEN_NEEDS_IMPL_OR_CTS.value: "💻",
-    ColumnName.RELEASE_PENDING.value: "⏰",
+    ColumnName.RELEASE_PENDING.value: "💯",
 }
 
 

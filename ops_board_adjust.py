@@ -133,7 +133,7 @@ class OpsBoardProcessing:
         labels = issue.attributes["labels"]
         column = ColumnName.from_labels(labels)
         if column is None:
-            column = ColumnName.INITIAL_COMPOSITION
+            column = ColumnName.INITIAL_DESIGN
 
         if mr is not None:
             column = self.process_issue_with_mr(issue, mr, column)

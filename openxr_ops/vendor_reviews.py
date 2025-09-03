@@ -28,9 +28,12 @@ def load_in_flight(
     items = []
 
     columns = [
-        ColumnName.INITIAL_COMPOSITION.value,
-        ColumnName.NEEDS_REVIEW.value,
-        ColumnName.NEEDS_REVISION.value,
+        ColumnName.INITIAL_DESIGN.value,
+        ColumnName.AWAITING_DESIGN_REVIEW.value,
+        ColumnName.NEEDS_DESIGN_REVISION.value,
+        ColumnName.COMPOSITION_OR_ELABORATION.value,
+        ColumnName.AWAITING_SPEC_REVIEW.value,
+        ColumnName.NEEDS_SPEC_REVISION.value,
         ColumnName.NEEDS_CHAMPION_APPROVAL_OR_RATIFICATION.value,
     ]
     col_data: dict[str, List[ReleaseChecklistIssue]] = {k: [] for k in columns}
@@ -56,9 +59,12 @@ def load_in_flight(
                 break
 
     return items, {
-        "initial_composition": col_data[ColumnName.INITIAL_COMPOSITION.value],
-        "needs_review": col_data[ColumnName.NEEDS_REVIEW.value],
-        "needs_revision": col_data[ColumnName.NEEDS_REVISION.value],
+        "initial_design": col_data[ColumnName.INITIAL_DESIGN.value],
+        "awaiting_design_review": col_data[ColumnName.AWAITING_DESIGN_REVIEW.value],
+        "needs_design_revisions": col_data[ColumnName.NEEDS_DESIGN_REVISION.value],
+        "initial_composition": col_data[ColumnName.COMPOSITION_OR_ELABORATION.value],
+        "needs_review": col_data[ColumnName.AWAITING_SPEC_REVIEW.value],
+        "needs_revision": col_data[ColumnName.NEEDS_SPEC_REVISION.value],
         "needs_approval": [
             item
             for item in col_data[

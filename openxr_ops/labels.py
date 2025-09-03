@@ -46,11 +46,11 @@ class ColumnName(Enum):
     INACTIVE = "status:Inactive"
     INITIAL_DESIGN = "status:InitialDesign"
     AWAITING_DESIGN_REVIEW = "status:AwaitingDesignReview"
-    NEEDS_DESIGN_REVISIONS = "status:NeedsDesignRevisions"
+    NEEDS_DESIGN_REVISION = "status:NeedsDesignRevision"
 
-    INITIAL_COMPOSITION = "status:CompositionOrElaboration"
-    NEEDS_REVIEW = "status:AwaitingSpecReview"
-    NEEDS_REVISION = "status:NeedsSpecRevision"
+    COMPOSITION_OR_ELABORATION = "status:CompositionOrElaboration"
+    AWAITING_SPEC_REVIEW = "status:AwaitingSpecReview"
+    NEEDS_SPEC_REVISION = "status:NeedsSpecRevision"
     FROZEN_NEEDS_IMPL_OR_CTS = "status:FrozenNeedsImplOrCTS"
     NEEDS_CHAMPION_APPROVAL_OR_RATIFICATION = (
         "status:NeedsChampionApprovalOrRatification"
@@ -79,14 +79,14 @@ class ColumnName(Enum):
         new_labels.update([self.value])
 
         if (
-            self == ColumnName.NEEDS_REVISION
+            self == ColumnName.NEEDS_SPEC_REVISION
             and OpsProjectLabels.INITIAL_REVIEW_COMPLETE not in new_labels
         ):
             # If it's in needs-revision, that means it got reviewed.
             new_labels.update([OpsProjectLabels.INITIAL_REVIEW_COMPLETE])
 
         if (
-            self == ColumnName.NEEDS_DESIGN_REVISIONS
+            self == ColumnName.NEEDS_DESIGN_REVISION
             and OpsProjectLabels.INITIAL_DESIGN_REVIEW_COMPLETE not in new_labels
         ):
             # If it's in needs-design-revision, that means it got reviewed.

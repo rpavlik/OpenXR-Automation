@@ -79,12 +79,12 @@ if __name__ == "__main__":
         collection.update_mr_descriptions()
     if args.mr_needs_review:
         for mr in args.mr_needs_review:
-            collection.mr_set_column(mr, ColumnName.NEEDS_REVIEW)
+            collection.mr_set_column(mr, ColumnName.AWAITING_SPEC_REVIEW)
     if args.mr_needs_revision:
         for mr in args.mr_needs_revision:
             collection.mr_set_column(
                 mr,
-                ColumnName.NEEDS_REVISION,
+                ColumnName.NEEDS_SPEC_REVISION,
                 add_labels=[OpsProjectLabels.INITIAL_REVIEW_COMPLETE],
                 remove_labels=[OpsProjectLabels.CHAMPION_APPROVED],
             )
