@@ -27,15 +27,15 @@ class SorterBase:
         raise NotImplementedError
 
 
-class BasicSort(SorterBase):
-    """A standard basic sort."""
+class BasicSpecReviewSort(SorterBase):
+    """A standard basic sort, primarily for spec review queue."""
 
     def __init__(self, _: VendorNames, vendor_config: dict[str, Any]) -> None:
         pass
 
     def get_sort_description(self):
         return [
-            "whether initial review is complete (higher priority) or not complete (lower priority)",
+            "whether initial spec review is complete (higher priority) or not complete (lower priority)",
             "author category (KHR highest priority, then EXT, then single vendor)",
             "latency (time since put in review), older is higher priority",
         ]
@@ -46,7 +46,7 @@ class BasicSort(SorterBase):
 
         def get_sort_key(issue: ReleaseChecklistIssue):
             return (
-                not issue.initial_review_complete,  # negate so "review complete" comes first
+                not issue.initial_spec_review_complete,  # negate so "review complete" comes first
                 issue.author_category_priority,
                 -issue.latency,  # negate so largest comes first
             )
@@ -74,7 +74,7 @@ class VendorSortPolicy:
 
     def get_sort_key(self, issue: ReleaseChecklistIssue):
         return (
-            not issue.initial_review_complete,  # negate so "review complete" comes first
+            not issue.initial_spec_review_complete,  # negate so "review complete" comes first
             self.get_custom_priority(issue.title),
             issue.latency if self.newest_first else -issue.latency,
         )
@@ -102,7 +102,7 @@ class CustomizedSort(SorterBase):
     def __init__(self, vendors: VendorNames, vendor_config: dict[str, Any]) -> None:
         self.vendors: VendorNames = vendors
         self.vendor_config: dict[str, Any] = vendor_config
-        self.initial_sort = BasicSort(vendors, vendor_config)
+        self.initial_sort = BasicSpecReviewSort(vendors, vendor_config)
 
         self.vendor_policies: dict[str, VendorSortPolicy] = defaultdict(
             VendorSortPolicy
@@ -159,5 +159,5 @@ class CustomizedSort(SorterBase):
 
 SORTERS = {
     "custom": CustomizedSort,
-    "basic": BasicSort,
+    "basic": BasicSpecReviewSort,
 }

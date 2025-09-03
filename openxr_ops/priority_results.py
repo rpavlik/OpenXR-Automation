@@ -74,9 +74,16 @@ class ReleaseChecklistIssue:
     """Corrective latency offset"""
 
     @property
-    def initial_review_complete(self) -> bool:
+    def initial_design_review_complete(self) -> bool:
         return (
-            OpsProjectLabels.INITIAL_REVIEW_COMPLETE
+            OpsProjectLabels.INITIAL_DESIGN_REVIEW_COMPLETE
+            in self.issue_obj.attributes["labels"]
+        )
+
+    @property
+    def initial_spec_review_complete(self) -> bool:
+        return (
+            OpsProjectLabels.INITIAL_SPEC_REVIEW_COMPLETE
             in self.issue_obj.attributes["labels"]
         )
 

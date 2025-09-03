@@ -12,7 +12,7 @@ from typing import Iterable, List, Optional, Union
 import tomllib
 
 from .checklists import ColumnName, ReleaseChecklistCollection
-from .custom_sort import SORTERS, BasicSort, SorterBase
+from .custom_sort import SORTERS, BasicSpecReviewSort, SorterBase
 from .gitlab import OpenXRGitlab
 from .priority_results import NOW, PriorityResults, ReleaseChecklistIssue, apply_offsets
 from .vendors import VendorNames
@@ -45,11 +45,11 @@ class ReviewPriorityConfig:
     def get_sorter(self, vendor_names: VendorNames) -> SorterBase:
         """Create either a basic sorter or desired customized sorter."""
         if not self.config:
-            return BasicSort(vendor_names, self.vendor_config)
+            return BasicSpecReviewSort(vendor_names, self.vendor_config)
 
         sorter_name = self.config.get("sorter")
         if not sorter_name:
-            return BasicSort(vendor_names, self.vendor_config)
+            return BasicSpecReviewSort(vendor_names, self.vendor_config)
 
         sorter_factory = SORTERS.get(sorter_name)
         assert sorter_factory

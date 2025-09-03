@@ -85,7 +85,7 @@ if __name__ == "__main__":
             collection.mr_set_column(
                 mr,
                 ColumnName.NEEDS_SPEC_REVISION,
-                add_labels=[OpsProjectLabels.INITIAL_REVIEW_COMPLETE],
+                add_labels=[OpsProjectLabels.INITIAL_SPEC_REVIEW_COMPLETE],
                 remove_labels=[OpsProjectLabels.CHAMPION_APPROVED],
             )
     if args.mr_needs_champion:

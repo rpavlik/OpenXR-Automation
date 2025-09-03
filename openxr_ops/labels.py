@@ -33,7 +33,7 @@ class MainProjectLabels:
 class OpsProjectLabels:
     """Labels defined in the openxr/openxr-operations GitLab project"""
 
-    INITIAL_REVIEW_COMPLETE = "initial-review-complete"
+    INITIAL_SPEC_REVIEW_COMPLETE = "initial-review-complete"
     INITIAL_DESIGN_REVIEW_COMPLETE = "initial-design-review-complete"
     CHAMPION_APPROVED = "champion-approved"
 
@@ -80,10 +80,10 @@ class ColumnName(Enum):
 
         if (
             self == ColumnName.NEEDS_SPEC_REVISION
-            and OpsProjectLabels.INITIAL_REVIEW_COMPLETE not in new_labels
+            and OpsProjectLabels.INITIAL_SPEC_REVIEW_COMPLETE not in new_labels
         ):
             # If it's in needs-revision, that means it got reviewed.
-            new_labels.update([OpsProjectLabels.INITIAL_REVIEW_COMPLETE])
+            new_labels.update([OpsProjectLabels.INITIAL_SPEC_REVIEW_COMPLETE])
 
         if (
             self == ColumnName.NEEDS_DESIGN_REVISION
