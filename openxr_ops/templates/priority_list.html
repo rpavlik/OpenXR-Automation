@@ -34,6 +34,51 @@ SPDX-License-Identifier: CC-BY-4.0
 <p>
     Generated {{ now }}
 </p>
+
+<section>
+    <h2>Extensions in AwaitingDesignReview by review priority order</h2>
+
+    <ul class="extension_slots">
+        {% for item in design_results.sorted_items %}
+        <li>
+            Design Review Slot {{ loop.index }}
+            -
+            {{ make_emoji_api_frozen(item) }}
+            {{ make_emoji_initial_design_review_complete(item) }}
+            {{ make_emoji_need_action(item) }}
+            {{ make_emoji_discussions(item) }}
+
+            <a href="{{ item.url }}">{{ item.title }}</a>
+            - MR <a href="{{ item.mr_url }}">{{ item.mr_ref }}</a>
+
+            <ul>
+                <li>Branch: <code>{{ item.mr.attributes['source_branch'] }}</code></li>
+                <li>Reviewer(s):
+                    {% for reviewer in item.mr.reviewers %}
+                    {{ reviewer.name }}{% if not loop.last %},{% endif %}
+                    {% endfor %}
+                </li>
+                <li>Latency: {{ item.latency }} days since last status change
+                    {% if item.offset != 0 %}(Corrective offset of {{ item.offset }} applied){% endif %}
+                </li>
+                <li>Age of last non-editor push: {{ item.last_author_revision_push_age }} days</li>
+                {% if item.last_push %}
+                <li> Last push: {{ item.last_push.author["name"] }}
+                    (@{{ item.last_push.author["username"] }}) - {{ item.last_push.created_at }}
+                </li>
+                {%- endif %}
+                <li>Ops issue age: {{ item.ops_issue_age }} days</li>
+                <li>MR age: {{ item.mr_age }} days</li>
+                <li>Checklist: {{ item.checklist_completed_count }} of {{ item.checklist_total_count }} checked</li>
+                <li>Labels: {{ item.issue_obj.labels | join(", ") }}</li>
+            </ul>
+
+        </li>
+        {% endfor %}
+    </ul>
+
+</section>
+
 <section>
     <h2>Extensions in AwaitingSpecReview by review priority order</h2>
     <details>
