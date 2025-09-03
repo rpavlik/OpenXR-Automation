@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 {#
-Copyright 2024, The Khronos Group Inc.
+Copyright 2024-2025, The Khronos Group Inc.
 
 SPDX-License-Identifier: CC-BY-4.0
 #}
@@ -20,9 +20,11 @@ SPDX-License-Identifier: CC-BY-4.0
 </style>
 {% endblock style %}
 
+{% from 'macros.j2' import make_emoji_api_frozen, make_emoji_initial_spec_review_complete, make_emoji_initial_design_review_complete, make_emoji_need_action, make_emoji_discussions %}
+
 {% macro output_slot_links(slots) -%}
 {% for slotindex in slots -%}
-<a href="#slot-{{ slotindex }}" title="{{ results.sorted_items[slotindex - 1].title }}">
+<a href="#slot-{{ slotindex }}" title="{{ spec_results.sorted_items[slotindex - 1].title }}">
     {{ slotindex }}
 </a> {%- if not loop.last %}, {% endif %}
 {%- endfor %}
@@ -33,7 +35,7 @@ SPDX-License-Identifier: CC-BY-4.0
     Generated {{ now }}
 </p>
 <section>
-    <h2>Extensions in needs-review by review priority order</h2>
+    <h2>Extensions in AwaitingSpecReview by review priority order</h2>
     <details>
         <summary>This initial priority order is based on sorting by the following:</summary>
         <ul>
@@ -45,7 +47,7 @@ SPDX-License-Identifier: CC-BY-4.0
     </details>
 
     <ul class="extension_slots">
-        {% for item in results.sorted_items %}
+        {% for item in spec_results.sorted_items %}
         <li>
             <a id="slot-{{ loop.index }}"></a>
             Slot {{ loop.index }}
@@ -91,19 +93,19 @@ SPDX-License-Identifier: CC-BY-4.0
 
 </section>
 <section>
-    <h2>Extension review slots by vendor</h2>
+    <h2>Extension spec review slots by vendor</h2>
 
     <p>
-        If a vendor needs a different priority order among their own extensions, they may request swapping of extensions
-        between their slots
+        If a vendor needs a different priority order among their own extensions, they may request
+        swapping of extensions between their slots
     </p>
     <ul>
-        {% for vendor, slots in results.vendor_name_to_slots.items() %}
+        {% for vendor, slots in spec_results.vendor_name_to_slots.items() %}
         <li>{{ vendor }} - {{ output_slot_links(slots) }}</li>
         {% endfor %}
 
-        {% if results.unknown_slots %}
-        <li>Unknown - {{ output_slot_links(results.unknown_slots) }}</li>
+        {% if spec_results.unknown_slots %}
+        <li>Unknown - {{ output_slot_links(spec_results.unknown_slots) }}</li>
         {% endif %}
     </ul>
 

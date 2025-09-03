@@ -1,0 +1,27 @@
+
+{% macro make_emoji_api_frozen(item) -%}
+    {% if item.unchangeable %}<span class="emoji-symbol" title="Shipped, API frozen">🧊</span>{% endif %}
+    {# or 🚫 ? #}
+{%- endmacro %}
+
+{% macro make_emoji_initial_design_review_complete(item) -%}
+    {% if item.initial_design_review_complete -%}
+    <span class="emoji-symbol" title="Initial design review complete">🔄</span>
+    {%- endif %}
+{%- endmacro %}
+
+{% macro make_emoji_initial_spec_review_complete(item) -%}
+    {% if item.initial_spec_review_complete -%}
+    <span class="emoji-symbol" title="Initial review complete">🔄</span>
+    {%- endif %}
+{%- endmacro %}
+
+{% macro make_emoji_need_action(item) -%}
+    {% if item.needs_author_action %}<span class="emoji-symbol" title="Needs Author Action">🚧</span>{% endif %}
+{%- endmacro %}
+
+{% macro make_emoji_discussions(item) -%}
+    {% if not item.mr.blocking_discussions_resolved -%}
+    <span class="emoji-symbol" title="Blocking discussions not resolved">💬</span>
+    {%- endif %}
+{%- endmacro %}

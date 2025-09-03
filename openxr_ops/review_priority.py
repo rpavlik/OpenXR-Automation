@@ -12,7 +12,7 @@ from typing import Iterable, List, Optional, Union
 import tomllib
 
 from .checklists import ColumnName, ReleaseChecklistCollection
-from .custom_sort import SORTERS, BasicSpecReviewSort, SorterBase
+from .custom_sort import SORTERS, BasicDesignReviewSort, BasicSpecReviewSort, SorterBase
 from .gitlab import OpenXRGitlab
 from .priority_results import NOW, PriorityResults, ReleaseChecklistIssue, apply_offsets
 from .vendors import VendorNames
@@ -84,7 +84,8 @@ def load_needs_review(
 
 
 def make_html(
-    results: PriorityResults,
+    design_results: PriorityResults,
+    spec_results: PriorityResults,
     sort_desc: Iterable[str],
     fn: str,
     extra: Optional[str],
@@ -100,7 +101,8 @@ def make_html(
     with open(fn, "w", encoding="utf-8") as fp:
         fp.write(
             template.render(
-                results=results,
+                design_results=design_results,
+                spec_results=spec_results,
                 now=NOW,
                 sort_description=sort_desc,
                 extra=extra,
@@ -121,11 +123,7 @@ if __name__ == "__main__":
         type=str,
         help="TOML file to read config from, including latency offsets and custom sorts",
     )
-    parser.add_argument(
-        "--offsets",
-        type=str,
-        help="TOML file to read latency offsets from",
-    )
+
     parser.add_argument(
         "--extra-safe",
         type=str,
@@ -139,6 +137,7 @@ if __name__ == "__main__":
 
     oxr_gitlab = OpenXRGitlab.create()
 
+    config = ReviewPriorityConfig(args.config)
     log.info("Performing startup queries")
     vendor_names = VendorNames.from_git(oxr_gitlab.main_proj)
     collection = ReleaseChecklistCollection(
@@ -150,35 +149,34 @@ if __name__ == "__main__":
 
     collection.load_initial_data()
 
-    items = load_needs_review(collection)
+    spec_review_items = load_needs_review(collection)
 
-    if args.offsets:
-        with open(args.offsets, "rb") as fp:
-            offsets = tomllib.load(fp)
-        apply_offsets(offsets, items)
+    config.apply_offsets(spec_review_items)
+    spec_review_sorter: SorterBase = config.get_sorter(vendor_names)
+    sorted_spec_review = spec_review_sorter.get_sorted(spec_review_items)
 
-    config = ReviewPriorityConfig(args.config)
-    config.apply_offsets(items)
+    design_review_items = load_needs_review(collection, ColumnName.AWAITING_DESIGN_REVIEW)
+    sorted_design_review = BasicDesignReviewSort(vendor_names, {}).get_sorted(design_review_items)
 
-    sorter: SorterBase = config.get_sorter(vendor_names)
+    spec_review_results = PriorityResults.from_sorted_items(sorted_spec_review)
+    design_review_results = PriorityResults.from_sorted_items(sorted_design_review)
 
-    sorted = sorter.get_sorted(items)
 
-    results = PriorityResults.from_sorted_items(sorted)
 
     if args.html:
         log.info("Outputting to HTML: %s", args.html)
         make_html(
-            results,
-            sorter.get_sort_description(),
+            design_review_results,
+            spec_review_results,
+            spec_review_sorter.get_sort_description(),
             args.html,
             args.extra,
             args.extra_safe,
         )
     else:
-        print(results.list_markdown)
+        print(spec_review_results.list_markdown)
         print("\n")
 
-        for vendor, slots in results.vendor_name_to_slots.items():
+        for vendor, slots in spec_review_results.vendor_name_to_slots.items():
             print(f"* {vendor} - slots {slots}")
-        print(f"* Unknown: {results.unknown_slots}")
+        print(f"* Unknown: {spec_review_results.unknown_slots}")

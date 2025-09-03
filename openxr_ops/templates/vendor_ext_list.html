@@ -20,27 +20,7 @@ SPDX-License-Identifier: CC-BY-4.0
 </style>
 {% endblock style %}
 
-{% macro make_emoji_api_frozen(item) -%}
-    {% if item.unchangeable %}<span class="emoji-symbol" title="Shipped, API frozen">🧊</span>{% endif %}
-    {# or 🚫 ? #}
-{%- endmacro %}
-
-{% macro make_emoji_initial_review_complete(item) -%}
-    {% if item.initial_review_complete -%}
-    <span class="emoji-symbol" title="Initial review complete">🔄</span>
-    {%- endif %}
-{%- endmacro %}
-
-{% macro make_emoji_need_action(item) -%}
-    {% if item.needs_author_action %}<span class="emoji-symbol" title="Needs Author Action">🚧</span>{% endif %}
-{%- endmacro %}
-
-{% macro make_emoji_discussions(item) -%}
-    {% if not item.mr.blocking_discussions_resolved -%}
-    <span class="emoji-symbol" title="Blocking discussions not resolved">💬</span>
-    {%- endif %}
-{%- endmacro %}
-
+{% from 'macros.j2' import make_emoji_api_frozen, make_emoji_initial_spec_review_complete, make_emoji_need_action, make_emoji_discussions %}
 
 {% block contents %}
 <p>
@@ -74,7 +54,7 @@ SPDX-License-Identifier: CC-BY-4.0
 {% endif %}
 
 <section>
-    <h2>Extensions by {{ vendor }} in needs-review by review priority order</h2>
+    <h2>Extensions by {{ vendor }} in AwaitingSpecReview by review priority order</h2>
     <p>
         {{ categories.needs_review | length }} extensions to review.
         Note that there are likely extensions by other vendors interspersed with these
@@ -94,7 +74,7 @@ SPDX-License-Identifier: CC-BY-4.0
         {% for item in results.sorted_items %}
         <li>
             {{ make_emoji_api_frozen(item) }}
-            {{ make_emoji_initial_review_complete(item) }}
+            {{ make_emoji_initial_spec_review_complete(item) }}
             {{ make_emoji_need_action(item) }}
             {{ make_emoji_discussions(item) }}
             <a href="{{ item.url }}">{{ item.title }}</a>
@@ -129,7 +109,7 @@ SPDX-License-Identifier: CC-BY-4.0
 
 {% if categories.needs_revision %}
 <section>
-    <h2>Extensions by {{ vendor }} in needs-revision</h2>
+    <h2>Extensions by {{ vendor }} in NeedsDesignRevision</h2>
     <p>
         These {{ categories.needs_revision | length }} extensions will not receive additional review until the current
         comments are addressed.

@@ -182,7 +182,7 @@ class ChecklistData:
             "title": f"{self.ext_names}",
             "description": str(template),
             "assignee_ids": [self.merge_request.author["id"]],
-            "labels": ["status:InitialComposition"] + get_labels(self.vendor_id),
+            "labels": [ColumnName.INITIAL_DESIGN.value] + get_labels(self.vendor_id),
         }
 
     @classmethod
@@ -357,7 +357,9 @@ class ReleaseChecklistCollection:
         if deep:
             queries.append(
                 self.ops_proj.issues.list(
-                    state="closed", label="status:ReleasePending", iterator=True
+                    state="closed",
+                    label=ColumnName.RELEASE_PENDING.value,
+                    iterator=True,
                 ),
             )
 
