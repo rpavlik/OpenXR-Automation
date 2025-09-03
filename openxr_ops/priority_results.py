@@ -316,9 +316,9 @@ class PriorityResults:
 
     @classmethod
     def from_sorted_items(
-        cls, sorted_items: list[ReleaseChecklistIssue]
+        cls, design_sorted_items: list[ReleaseChecklistIssue], sorted_items: list[ReleaseChecklistIssue]
     ) -> "PriorityResults":
-        """Populate the object from an already-sorted list."""
+        """Populate the object from already-sorted lists."""
 
         vendor_name_to_slots: dict[str, list[int]] = defaultdict(list)
         unknown_slots: list[int] = []
