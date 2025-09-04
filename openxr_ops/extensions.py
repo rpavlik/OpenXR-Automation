@@ -12,22 +12,45 @@ from typing import Optional
 
 EXT_ADOC_DECOMP = re.compile(
     r"""specification/sources/chapters/extensions/
-    (?P<vendor>[a-z]+)/ # vendor directory
+    (?P<vendor>[a-z0-9]+)/ # vendor directory
     (?P=vendor)_(?P<undecorated>[^.]+)[.]adoc""",  # filename in two parts
+    re.VERBOSE,
+)
+
+_EXPERIMENTAL_SUFFIX = re.compile(
+    r"""
+    (?P<id>[A-Z]+) # actual vendor tag
+    (?P<suffix>X[0-9]+) # "x1" suffix or similar
+    """,
     re.VERBOSE,
 )
 
 
 @dataclass
 class ExtensionData:
-    """The decomposed parts of an OpenXR extension name"""
+    """The decomposed parts of an OpenXR extension name."""
 
     vendor: str
+    """Vendor ID, including experimental suffix if any, all uppercase."""
+
+    vendor_without_suffix: str
+    """Vendor ID, without experimental suffix, all uppercase."""
+
+    experimental_suffix: str
+    """The experimental suffix or empty string."""
+
     undecorated: str
+    """The final part of the extension name, after the vendor."""
 
     @property
     def full_name(self):
+        """Get the full extension name."""
         return f"XR_{self.vendor}_{self.undecorated}"
+
+    @property
+    def non_experimental_name(self):
+        """Get anticipated full name without the experimental suffix."""
+        return f"XR_{self.vendor_without_suffix}_{self.undecorated}"
 
     @classmethod
     def try_from_adoc_path(cls, path: str) -> "Optional[ExtensionData]":
@@ -37,7 +60,19 @@ class ExtensionData:
 
         vendor = path_match.group("vendor").upper()
         undecorated = path_match.group("undecorated")
-        return ExtensionData(vendor, undecorated)
+        vendor_without_suffix = vendor
+        experimental_suffix = ""
+        experiment = _EXPERIMENTAL_SUFFIX.match(vendor)
+        if experiment:
+            vendor_without_suffix = experiment.group("id")
+            experimental_suffix = experiment.group("suffix")
+
+        return ExtensionData(
+            vendor=vendor,
+            vendor_without_suffix=vendor_without_suffix,
+            experimental_suffix=experimental_suffix,
+            undecorated=undecorated,
+        )
 
 
 class ExtensionNameGuesser:

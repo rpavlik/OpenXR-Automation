@@ -196,14 +196,16 @@ class ChecklistData:
 
         mr = proj.mergerequests.get(mr_num)
 
-        ext_names = kwargs.get("ext_names")
-        vendor_ids = kwargs.get("vendor_ids")
+        ext_names: Optional[list[str]] = kwargs.get("ext_names")
+        vendor_ids: Optional[list[str]] = kwargs.get("vendor_ids")
         if not ext_names or not vendor_ids:
             ext_name_data = list(get_extension_names_for_mr(mr))
             if not ext_names:
-                ext_names = ", ".join(x.full_name for x in ext_name_data)
+                ext_names = [x.non_experimental_name for x in ext_name_data]
             if not vendor_ids:
-                vendor_ids = {x.vendor for x in ext_name_data}
+                vendor_ids = list({x.vendor_without_suffix for x in ext_name_data})
+
+        ext_names_string = ", ".join(ext_names)
 
         if len(vendor_ids) != 1:
             _log.error(
@@ -215,7 +217,10 @@ class ChecklistData:
             raise RuntimeError(f"wrong number of vendors for {ext_names} : {mr_num}")
         vendor_id = list(vendor_ids)[0]
         return ChecklistData(
-            ext_names=ext_names, vendor_id=vendor_id, mr_num=mr_num, merge_request=mr
+            ext_names=ext_names_string,
+            vendor_id=vendor_id,
+            mr_num=mr_num,
+            merge_request=mr,
         )
 
     def add_mr_labels(self):
@@ -344,7 +349,6 @@ class ReleaseChecklistCollection:
         self.mr_to_issue[mr_num] = issue_ref
 
     def load_initial_data(self, deep: bool = False):
-
         _log.info("Parsing all opened release checklists...")
 
         queries = [
