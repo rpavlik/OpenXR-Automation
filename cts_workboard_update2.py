@@ -181,7 +181,6 @@ class WorkboardUpdate:
         self.board = dict()
 
     def load_board(self, in_filename):
-
         self._log.info("Reading %s", in_filename)
         with open(in_filename, "r", encoding="utf-8") as fp:
             self.board = json.load(fp)
@@ -203,7 +202,6 @@ class WorkboardUpdate:
             )
 
     def search_mrs(self, filter_out_refs: set[str]):
-
         # Grab all "Contractor:Approved" MRs as well as all
         # CTS ones (whether or not written
         # by contractor, as part of maintaining the cts)

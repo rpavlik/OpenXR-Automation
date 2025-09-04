@@ -165,7 +165,6 @@ def generate_vendor_index(
     extra: Optional[str] = None,
     extra_safe: Optional[str] = None,
 ):
-
     from jinja2 import Environment, PackageLoader, select_autoescape
 
     env = Environment(
