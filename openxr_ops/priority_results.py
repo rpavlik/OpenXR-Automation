@@ -23,7 +23,7 @@ from .vendors import VendorNames
 NOW = datetime.datetime.now(datetime.UTC)
 log = logging.getLogger(__name__)
 
-_EXT_DECOMP_RE = re.compile(r"XR_(?P<tag>[A-Z]+)_.*")
+_EXT_DECOMP_RE = re.compile(r"XR_(?P<tag>[A-Z]+)(?P<experiment>X[0-9]*)?_.*")
 
 
 _IGNORE_PUSH_USERS = ("rpavlik", "safarimonkey", "haagch", "khrbot")
