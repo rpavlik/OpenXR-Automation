@@ -8,13 +8,13 @@
 import itertools
 import logging
 import re
+import tomllib
 from dataclasses import dataclass
 from functools import cached_property
 from typing import Dict, Iterable, List, Optional, Set, cast
 
 import gitlab
 import gitlab.v4.objects
-import tomllib
 
 from .extensions import ExtensionNameGuesser
 from .labels import ColumnName, GroupLabels, MainProjectLabels
