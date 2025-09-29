@@ -1,0 +1,86 @@
+# Copyright 2022-2025, Collabora, Ltd.
+# Copyright 2024-2025, The Khronos Group Inc.
+#
+# SPDX-License-Identifier: BSL-1.0
+#
+# Author: Rylie Pavlik <rylie.pavlik@collabora.com>
+
+
+from enum import Enum
+from typing import Iterable, Optional
+
+from .kanboard_helpers import KanboardBoard
+
+# class QueueStage(Enum):
+#     PREPARATION = "In Preparation"
+#     AWAITING_REVIEW = "Awaiting Review"
+#     REVIEW_IN_PROGRESS = "Review In Progress"
+#     NEEDS_REVISIONS = "Needs Revisions"
+#     REVISIONS_IN_PROGRESS = "Revisions In Progress"
+
+
+class CardColumn(Enum):
+    """Columns in the KanBoard operations project"""
+
+    INACTIVE = "Inactive"
+    INITIAL_DESIGN = "Initial Design"
+    AWAITING_DESIGN_REVIEW = "Awaiting Design Review"
+    IN_DESIGN_REVIEW = "In Design Review"
+    NEEDS_DESIGN_REVISIONS = "Needs Design Revisions"
+    SPEC_ELABORATION = "Spec Elaboration"
+    AWAITING_SPEC_REVIEW = "Awaiting Spec Review"
+    IN_SPEC_REVIEW = "In Spec Review"
+    NEEDS_SPEC_REVISIONS = "Needs Spec Revisions"
+    PENDING_APPROVALS_AND_MERGE = "Pending Approvals And Merge"
+
+    def to_column_id(self, kb_board) -> Optional[int]:
+        # depends on data cached by kb_board
+        return kb_board.col_titles.get(self.value)
+
+    @classmethod
+    def from_column_id(cls, kb_board: KanboardBoard, col_id: int) -> "CardColumn":
+        # depends on data cached by kb_board
+        return cls(kb_board.col_ids_to_titles[col_id])
+
+
+class CardTags(Enum):
+    """Tags in the KanBoard operations project."""
+
+    INITIAL_DESIGN_REVIEW_COMPLETE = "InitialDesignReviewComplete"
+    INITIAL_SPEC_REVIEW_COMPLETE = "InitialSpecReviewComplete"
+    SPEC_SUPPORT_REVIEW_COMMENTS_PENDING = "SpecSupportReviewCommentsPending"
+    API_FROZEN = "ApiFrozen"
+
+
+class CardSwimlane(Enum):
+    """Swimlane titles for the relationship to the Khronos IPR policy."""
+
+    SUBJECT_TO_IPR_POLICY = "Subject to IPR Policy"
+    OUTSIDE_IPR_POLICY = "Outside IPR Policy"
+
+    def to_swimlane_id(self, kb_board: KanboardBoard) -> Optional[int]:
+        # depends on data cached by kb_board
+        return kb_board.swimlane_titles.get(self.value)
+
+    @classmethod
+    def from_swimlane_id(
+        cls, kb_board: KanboardBoard, swimlane_id: int
+    ) -> "CardSwimlane":
+        # depends on data cached by kb_board
+        return cls(kb_board.swimlane_ids_to_titles[swimlane_id])
+
+
+class CardDefnOfDoneKeys(Enum):
+    """
+    Titles for 'Definition of Done' entries.
+
+    Not sure we can add these programmatically, may need to be subtasks instead.
+    """
+
+    # These two get cleared on pushes.
+    SPEC_EDITOR_APPROVAL = "Spec Editor Approval"
+    CHAMPION_APPROVAL = "Champion Approval"
+
+    # These two only for "in IPR policy"
+    WG_VOTE = "Working Group Vote to Submit for Ratification"
+    BOARD_RATIFICATION = "Board Ratification"

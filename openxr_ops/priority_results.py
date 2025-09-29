@@ -103,6 +103,13 @@ class ReleaseChecklistIssue:
         return GroupLabels.VENDOR_EXT in self.issue_obj.attributes["labels"]
 
     @property
+    def is_outside_ipr_framework(self) -> bool:
+        return (
+            GroupLabels.OUTSIDE_IPR_FRAMEWORK in self.issue_obj.attributes["labels"]
+            or GroupLabels.OUTSIDE_IPR_FRAMEWORK in self.mr.attributes["labels"]
+        )
+
+    @property
     def is_multivendor(self) -> bool:
         return "_EXT_" in self.issue_obj.title
 
