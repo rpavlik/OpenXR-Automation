@@ -41,7 +41,7 @@ DO_NOT_MERGE = {
     "#2275",  # vulkan layer
     "#2312",  # subimage y offset with 2 parts
     "#2350",  # xml stuff with 2 parts
-    "#2553",  # Check format returned
+    # "#2553",  # Check format returned
     # Release candidates
     "!3053",
     "!3692",
