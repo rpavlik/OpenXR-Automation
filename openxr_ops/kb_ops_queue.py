@@ -4,22 +4,22 @@
 # SPDX-License-Identifier: BSL-1.0
 #
 # Author: Rylie Pavlik <rylie.pavlik@collabora.com>
-from typing import Optional
-import kanboard
 import logging
-
 from dataclasses import dataclass
+from typing import Optional
+
 import gitlab
 import gitlab.v4.objects
+import kanboard
 
 from .checklists import get_extension_names_for_mr
 
 _log = logging.getLogger(__name__)
 
 from .extensions import ExtensionNameGuesser
+from .kb_ops_stages import CardColumn, CardTags
 from .labels import ColumnName, GroupLabels, MainProjectLabels
 from .vendors import VendorNames
-from .kb_ops_stages import CardColumn, CardTags
 
 COLUMN_CONVERSION = {
     ColumnName.INACTIVE: CardColumn.INACTIVE,
@@ -102,7 +102,6 @@ class InitialCardData:
                 ext_names = [x.non_experimental_name for x in ext_name_data]
             if not vendor_ids:
                 vendor_ids = list({x.vendor_without_suffix for x in ext_name_data})
-
 
         if len(vendor_ids) != 1:
             _log.error(

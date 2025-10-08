@@ -9,7 +9,6 @@
 from enum import Enum
 from typing import Iterable, Optional
 
-
 # class QueueStage(Enum):
 #     PREPARATION = "In Preparation"
 #     AWAITING_REVIEW = "Awaiting Review"
@@ -19,7 +18,7 @@ from typing import Iterable, Optional
 
 
 class CardColumn(Enum):
-    """Columns in the KanBoard project"""
+    """Columns in the KanBoard operations project"""
 
     INACTIVE = "Inactive"
     INITIAL_DESIGN = "Initial Design"
@@ -51,14 +50,32 @@ class CardColumn(Enum):
 
 
 class CardTags(Enum):
-    """Tags in the KanBoard project."""
+    """Tags in the KanBoard operations project."""
 
     INITIAL_DESIGN_REVIEW_COMPLETE = "InitialDesignReviewComplete"
     INITIAL_SPEC_REVIEW_COMPLETE = "InitialSpecReviewComplete"
     SPEC_SUPPORT_REVIEW_COMMENTS_PENDING = "SpecSupportReviewCommentsPending"
     API_FROZEN = "ApiFrozen"
 
+
 class CardSwimlane(Enum):
     """Swimlane IDs for the relationship to the Khronos IPR policy."""
+
     SUBJECT_TO_IPR_POLICY = 0
     OUTSIDE_IPR_POLICY = 1
+
+
+class CardDefnOfDoneKeys(Enum):
+    """
+    Titles for 'Definition of Done' entries.
+
+    Not sure we can add these programmatically, may need to be subtasks instead.
+    """
+
+    # These two get cleared on pushes.
+    SPEC_EDITOR_APPROVAL = "Spec Editor Approval"
+    CHAMPION_APPROVAL = "Champion Approval"
+
+    # These two only for "in IPR policy"
+    WG_VOTE = "Working Group Vote to Submit for Ratification"
+    BOARD_RATIFICATION = "Board Ratification"
