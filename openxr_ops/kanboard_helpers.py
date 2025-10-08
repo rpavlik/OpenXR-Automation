@@ -4,6 +4,7 @@
 # SPDX-License-Identifier: BSL-1.0
 #
 # Author: Rylie Pavlik <rylie.pavlik@collabora.com>
+from typing import Optional
 import kanboard
 
 
@@ -29,3 +30,19 @@ class KanboardBoard:
         col_id = await self.kb.add_column_async(project_id=self.project_id, title=title)
         self.col_titles[title] = col_id
         return col_id
+
+    async def get_task_by_ref(self, ref):
+        return await self.kb.get_task_by_reference_async(
+            project_id=self.project_id, reference=ref
+        )
+
+    async def create_task(
+        self,
+        col_id,
+        reference,
+        title,
+        description,
+        gl_url,
+        swimland_id: Optional[int] = None,
+    ):
+        pass
