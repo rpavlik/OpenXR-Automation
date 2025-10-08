@@ -9,10 +9,12 @@
 import asyncio
 import logging
 import os
+from typing import Any
 
 import kanboard
 
 from cts_workboard_update2 import WorkboardUpdate
+from nullboard_gitlab import extract_refs
 from openxr_ops.gitlab import OpenXRGitlab
 from openxr_ops.kanboard_helpers import KanboardBoard
 from openxr_ops.labels import MainProjectLabels
@@ -69,6 +71,33 @@ REQUIRED_LABEL_SET = set(
 )
 
 
+async def _handle_item(wbu: WorkboardUpdate, kb_board: KanboardBoard, list_title: str):
+    pass
+
+
+async def _handle_note(
+    wbu: WorkboardUpdate,
+    kb_board: KanboardBoard,
+    list_title: str,
+    note_dict: dict[str, Any],
+):
+    log = logging.getLogger(__name__ + "._handle_note")
+
+    refs = extract_refs(note_dict)
+    log.debug("Extracted refs: %s", str(refs))
+    if not refs:
+        # Can't find a reference to an item in the text
+        return
+
+    items = wbu.work.get_items_for_refs(refs)
+    if not items:
+        # Can't find a match for any references
+        log.debug("Could not find an entry for '%s'", ",".join(refs))
+        return
+
+    top_item = items[0]
+
+
 async def main(in_filename):
     logging.basicConfig(level=logging.INFO)
 
@@ -97,6 +126,13 @@ async def main(in_filename):
     kb_board = KanboardBoard(kb, kb_proj_id)
     await kb_board.fetch_col_titles()
 
+    # Create all the columns
+    await asyncio.gather(
+        *[
+            kb_board.get_or_create_column(nb_list_obj["title"])
+            for nb_list_obj in wbu.board["lists"]
+        ]
+    )
     # updated = wbu.update_board()
 
     # if updated:
