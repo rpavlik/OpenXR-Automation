@@ -167,14 +167,15 @@ class OperationsCardCreationData:
     description: str
 
     flags: Optional[OperationsCardFlags]
+    issue_url: Optional[str] = None
 
-    async def create_card(self, kb_board: KanboardBoard) -> int:
-        # swimlane_id = kb_board.swimlane_titles[self.swimlane.value]
+    async def create_card(self, kb_board: KanboardBoard) -> Optional[int]:
         swimlane_id = self.swimlane.to_swimlane_id(kb_board)
-        assert swimlane_id
-        # column_id = kb_board.col_titles[self.column.value]
+        if swimlane_id is None:
+            return None
         column_id = self.column.to_column_id(kb_board)
-        assert column_id
+        if column_id is None:
+            return None
         mr_url = f"{_MR_URL_BASE}{self.main_mr}"
 
         task_id = await kb_board.create_task(
@@ -190,7 +191,16 @@ class OperationsCardCreationData:
             url=mr_url,
             type="weblink",
             dependency="related",
-            title=mr_url,
+            title=f"Merge Request !{self.main_mr}",
         )
+
+        if self.issue_url is not None:
+            await kb_board.kb.create_external_task_link_async(
+                task_id=task_id,
+                url=self.issue_url,
+                type="weblink",
+                dependency="related",
+                title=f"Original Operations Issue",
+            )
 
         return task_id
