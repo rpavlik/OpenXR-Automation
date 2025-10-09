@@ -63,10 +63,26 @@ class KanboardBoard:
     async def create_task(
         self,
         col_id,
-        reference,
         title,
         description,
-        gl_url,
-        swimland_id: Optional[int] = None,
-    ):
-        pass
+        reference: Optional[str] = None,
+        swimlane_id: Optional[int] = None,
+    ) -> int:
+        args = {
+            "title": title,
+            "project_id": self.project_id,
+            "column_id": col_id,
+            # "owner_id": None,
+            # "creator_id": None,
+            # "date_due": None,
+            "description": description,
+            # "category_id": None,
+            # "score": None,
+            # "swimlane_id": None,
+        }
+        if swimlane_id is not None:
+            args["swimlane_id"] = swimlane_id
+        if reference is not None:
+            args["reference"] = reference
+
+        return await self.kb.create_task_async(**args)

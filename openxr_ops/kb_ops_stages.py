@@ -9,6 +9,8 @@
 from enum import Enum
 from typing import Iterable, Optional
 
+from .kanboard_helpers import KanboardBoard
+
 # class QueueStage(Enum):
 #     PREPARATION = "In Preparation"
 #     AWAITING_REVIEW = "Awaiting Review"
@@ -31,22 +33,14 @@ class CardColumn(Enum):
     NEEDS_SPEC_REVISIONS = "Needs Spec Revisions"
     PENDING_APPROVALS_AND_MERGE = "Pending Approvals And Merge"
 
-    # @classmethod
-    # def all_from_labels(cls, labels: Iterable[str]) -> Iterable["CardColumn"]:
-    #     """Get all columns"""
-    #     label_set = set(labels)
-    #     column_set = {column for column in cls if column.value in label_set}
-    #     return column_set
+    def to_column_id(self, kb_board) -> Optional[int]:
+        # depends on data cached by kb_board
+        return kb_board.col_titles.get(self.value)
 
-    # @classmethod
-    # def from_labels(cls, labels: Iterable[str]) -> Optional["CardColumn"]:
-    #     result = None
-    #     label_set = set(labels)
-    #     for column in cls:
-    #         if column.value in label_set:
-    #             # only keep the "highest"
-    #             result = column
-    #     return result
+    @classmethod
+    def from_column_id(cls, kb_board: KanboardBoard, col_id: int) -> "CardColumn":
+        # depends on data cached by kb_board
+        return cls(kb_board.col_ids_to_titles[col_id])
 
 
 class CardTags(Enum):
@@ -63,6 +57,17 @@ class CardSwimlane(Enum):
 
     SUBJECT_TO_IPR_POLICY = "Subject to IPR Policy"
     OUTSIDE_IPR_POLICY = "Outside IPR Policy"
+
+    def to_swimlane_id(self, kb_board: KanboardBoard) -> Optional[int]:
+        # depends on data cached by kb_board
+        return kb_board.swimlane_titles.get(self.value)
+
+    @classmethod
+    def from_swimlane_id(
+        cls, kb_board: KanboardBoard, swimlane_id: int
+    ) -> "CardSwimlane":
+        # depends on data cached by kb_board
+        return cls(kb_board.swimlane_ids_to_titles[swimlane_id])
 
 
 class CardDefnOfDoneKeys(Enum):

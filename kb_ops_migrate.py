@@ -15,8 +15,11 @@ import kanboard
 from openxr_ops.checklists import ReleaseChecklistCollection
 from openxr_ops.gitlab import OpenXRGitlab
 from openxr_ops.kanboard_helpers import KanboardBoard
+from openxr_ops.kb_ops_card import OperationsCardCreationData, OperationsCardFlags
 from openxr_ops.kb_ops_collection import CardCollection
-from openxr_ops.labels import ColumnName, OpsProjectLabels
+from openxr_ops.kb_ops_queue import COLUMN_CONVERSION
+from openxr_ops.kb_ops_stages import CardSwimlane
+from openxr_ops.labels import ColumnName, GroupLabels, OpsProjectLabels
 from openxr_ops.priority_results import ReleaseChecklistIssue
 from openxr_ops.vendors import VendorNames
 
@@ -31,7 +34,7 @@ async def async_main(
     log = logging.getLogger(__name__)
     from pprint import pprint
 
-    card_collection = await load_kb_ops()
+    kb_board, card_collection = await load_kb_ops()
 
     pprint(card_collection.cards)
 
@@ -44,11 +47,48 @@ async def async_main(
             log.info(
                 "MR !%d: Card already exists - %s", mr_num, kb_card.task_dict["url"]
             )
+            # TODO verify it's fully populated here
             continue
-        mr_obj = oxr_gitlab.main_proj.merge_requests.get(mr_num)
-        checklist_issue = ReleaseChecklistIssue.create(
-            issue_obj, mr_obj, gl_collection.vendor_names
+
+        new_card_id = await create_equiv_card(
+            oxr_gitlab, gl_collection, kb_board, mr_num, issue_obj
         )
+        log.info("Created new card ID %d", new_card_id)
+
+
+async def create_equiv_card(oxr_gitlab, gl_collection, kb_board, mr_num, issue_obj):
+    mr_obj = oxr_gitlab.main_proj.mergerequests.get(mr_num)
+    checklist_issue = ReleaseChecklistIssue.create(
+        issue_obj, mr_obj, gl_collection.vendor_names
+    )
+    old_col = ColumnName.from_labels([checklist_issue.status])
+    assert old_col
+    converted_column = COLUMN_CONVERSION[old_col]
+
+    swimlane = CardSwimlane.SUBJECT_TO_IPR_POLICY
+    # if GroupLabels.OUTSIDE_IPR_FRAMEWORK in issue_obj.attributes["labels"]:
+    if checklist_issue.is_outside_ipr_framework:
+        swimlane = CardSwimlane.OUTSIDE_IPR_POLICY
+
+    flags = OperationsCardFlags(
+        api_frozen=checklist_issue.unchangeable,
+        initial_design_review_complete=checklist_issue.initial_design_review_complete,
+        initial_spec_review_complete=checklist_issue.initial_spec_review_complete,
+        spec_support_review_comments_pending=False,
+    )
+
+    description = issue_obj.attributes["description"].replace("- [ ]", "- [_]")
+
+    data = OperationsCardCreationData(
+        main_mr=mr_num,
+        column=converted_column,
+        swimlane=swimlane,
+        title=checklist_issue.title,
+        description=description,
+        flags=flags,
+    )
+    card_id = await data.create_card(kb_board=kb_board)
+    return card_id
 
 
 async def load_kb_ops():
@@ -78,7 +118,7 @@ async def load_kb_ops():
     log.info("Loading all active cards")
     card_collection = CardCollection(kb_board)
     await card_collection.load_board()
-    return card_collection
+    return kb_board, card_collection
 
 
 def load_gitlab_ops(for_real: bool = True):
@@ -152,7 +192,8 @@ if __name__ == "__main__":
     # args = parser.parse_args()
     # logging.basicConfig(level=logging.INFO)
 
-    oxr_gitlab, collection = load_gitlab_ops(for_real=False)
+    oxr_gitlab, collection = load_gitlab_ops()
+    assert collection
 
     loop = asyncio.get_event_loop()
     # loop.
