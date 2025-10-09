@@ -15,6 +15,17 @@ class KanboardBoard:
         self.kb = kb
         self.project_id = project_id
         self.col_titles: dict[str, int] = dict()
+        self.col_ids_to_titles: dict[int, str] = dict()
+
+        self.swimlane_titles: dict[str, int] = dict()
+        self.swimlane_ids_to_titles: dict[int, str] = dict()
+
+    async def fetch_swimlanes(self):
+        """Retrieve column titles and IDs."""
+
+        swimlanes = await self.kb.get_active_swimlanes_async(project_id=self.project_id)
+        self.swimlane_titles.update({sl["name"]: sl["id"] for sl in swimlanes})
+        self.swimlane_ids_to_titles = {v: k for k, v in self.swimlane_titles.items()}
 
     async def fetch_col_titles(self):
         """Retrieve column titles and IDs."""

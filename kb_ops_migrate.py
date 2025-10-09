@@ -6,6 +6,7 @@
 #
 # Author: Rylie Pavlik <rylie.pavlik@collabora.com>
 
+import asyncio
 import logging
 import os
 
@@ -23,7 +24,7 @@ _USERNAME = "khronos-bot"
 _PROJ_NAME = "Operations - More Columns"
 
 
-async def async_main(in_filename):
+async def async_main():
     log = logging.getLogger(__name__)
     token = os.environ.get("KANBOARD_API_TOKEN", "")
     kb = kanboard.Client(
@@ -34,23 +35,35 @@ async def async_main(in_filename):
         ignore_hostname_verification=True,
         insecure=True,
     )
+    log.info("Getting project by name")
+    from pprint import pprint, pformat
+
     proj = await kb.get_project_by_name_async(name=_PROJ_NAME)
 
-    kb_board = KanboardBoard(kb, int(proj["project_id"]))
+    log.debug("Project data: %s", pformat(proj))
+
+    kb_board = KanboardBoard(kb, int(proj["id"]))
+    log.info("Getting column titles and ID")
+    await asyncio.gather(kb_board.fetch_col_titles(), kb_board.fetch_swimlanes())
 
     # oxr_gitlab = OpenXRGitlab.create()
 
+    log.info("Loading all active cards")
     card_collection = CardCollection(kb_board)
     await card_collection.load_board()
-    from pprint import pprint
 
     pprint(card_collection.cards)
 
 
 if __name__ == "__main__":
-    import argparse
 
-    parser = argparse.ArgumentParser()
+    logging.basicConfig(level=logging.DEBUG)
+    from dotenv import load_dotenv
+
+    load_dotenv()
+    # import argparse
+
+    # parser = argparse.ArgumentParser()
 
     # parser.add_argument("--dump", action="store_true", help="Dump out info")
     # parser.add_argument(
@@ -87,26 +100,30 @@ if __name__ == "__main__":
     #     help="Update the ticket corresponding to the MR to NeedsChampionApprovalOrRatification",
     # )
 
-    args = parser.parse_args()
-    logging.basicConfig(level=logging.INFO)
+    # args = parser.parse_args()
+    # logging.basicConfig(level=logging.INFO)
 
     log = logging.getLogger(__name__)
 
-    oxr_gitlab = OpenXRGitlab.create()
-    log.info("Performing startup queries")
-    collection = ReleaseChecklistCollection(
-        oxr_gitlab.main_proj,
-        oxr_gitlab.operations_proj,
-        checklist_factory=None,
-        vendor_names=VendorNames.from_git(oxr_gitlab.main_proj),
-    )
+    loop = asyncio.get_event_loop()
+    # loop.
+    project_id = loop.run_until_complete(async_main())
 
-    try:
-        collection.load_config("ops_issues.toml")
-    except IOError:
-        print("Could not load config")
+    # oxr_gitlab = OpenXRGitlab.create()
+    # log.info("Performing startup queries")
+    # collection = ReleaseChecklistCollection(
+    #     oxr_gitlab.main_proj,
+    #     oxr_gitlab.operations_proj,
+    #     checklist_factory=None,
+    #     vendor_names=VendorNames.from_git(oxr_gitlab.main_proj),
+    # )
 
-    collection.load_initial_data(deep=False)
+    # try:
+    #     collection.load_config("ops_issues.toml")
+    # except IOError:
+    #     print("Could not load config")
+
+    # collection.load_initial_data(deep=False)
 
     # if args.update_labels:
     #     collection.update_mr_labels()

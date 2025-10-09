@@ -57,10 +57,10 @@ class OperationsCard:
 
         # card_id = int(task['id'])
         column_id = int(task["column_id"])
-        column: CardColumn = CardColumn[kb_board.col_ids_to_titles[column_id]]
+        column_title = kb_board.col_ids_to_titles[column_id]
+        column: CardColumn = CardColumn(column_title)
         title: str = task["title"]
-        description: str = task["column_id"]
-        swimlane_id = task["swimlane_id"]
+        description: str = task["description"]
         external_uri = task.get("external_uri")
         main_mr: Optional[int] = None
         # TODO how to handle multiple? Docs don't help
@@ -68,7 +68,9 @@ class OperationsCard:
             m = _MR_URL_RE.match(external_uri)
             if m:
                 main_mr = int(m.group("mrnum"))
-        swimlane: CardSwimlane = CardSwimlane[swimlane_id]
+        swimlane_id = task["swimlane_id"]
+        swimlane_title = kb_board.swimlane_ids_to_titles[swimlane_id]
+        swimlane: CardSwimlane = CardSwimlane(swimlane_title)
         return cls(
             main_mr=main_mr,
             column=column,

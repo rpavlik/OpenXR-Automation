@@ -59,10 +59,10 @@ class CardTags(Enum):
 
 
 class CardSwimlane(Enum):
-    """Swimlane IDs for the relationship to the Khronos IPR policy."""
+    """Swimlane titles for the relationship to the Khronos IPR policy."""
 
-    SUBJECT_TO_IPR_POLICY = 0
-    OUTSIDE_IPR_POLICY = 1
+    SUBJECT_TO_IPR_POLICY = "Subject to IPR Policy"
+    OUTSIDE_IPR_POLICY = "Outside IPR Policy"
 
 
 class CardDefnOfDoneKeys(Enum):
