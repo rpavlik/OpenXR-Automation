@@ -17,6 +17,7 @@ from openxr_ops.gitlab import OpenXRGitlab
 from openxr_ops.kanboard_helpers import KanboardBoard
 from openxr_ops.kb_ops_collection import CardCollection
 from openxr_ops.labels import ColumnName, OpsProjectLabels
+from openxr_ops.priority_results import ReleaseChecklistIssue
 from openxr_ops.vendors import VendorNames
 
 _SERVER = "openxr-boards.khronos.org"
@@ -24,11 +25,28 @@ _USERNAME = "khronos-bot"
 _PROJ_NAME = "Operations - More Columns"
 
 
-async def async_main(gl_collection: ReleaseChecklistCollection):
+async def async_main(
+    oxr_gitlab: OpenXRGitlab, gl_collection: ReleaseChecklistCollection
+):
     log = logging.getLogger(__name__)
     from pprint import pprint
 
     card_collection = await load_kb_ops()
+
+    for issue_ref, mr_num in gl_collection.issue_to_mr.items():
+        issue_obj = gl_collection.mr_to_issue_object[mr_num]
+        kb_card = card_collection.get_card_by_mr(mr_num)
+        if kb_card is not None:
+            # already created
+            assert kb_card.task_dict is not None
+            log.info(
+                "MR !%d: Card already exists - %s", mr_num, kb_card.task_dict["url"]
+            )
+            continue
+        mr_obj = oxr_gitlab.main_proj.merge_requests.get(mr_num)
+        checklist_issue = ReleaseChecklistIssue.create(
+            issue_obj, mr_obj, gl_collection.vendor_names
+        )
 
     pprint(card_collection.cards)
 
@@ -136,7 +154,7 @@ if __name__ == "__main__":
 
     loop = asyncio.get_event_loop()
     # loop.
-    project_id = loop.run_until_complete(async_main(collection))
+    project_id = loop.run_until_complete(async_main(oxr_gitlab, collection))
 
     # oxr_gitlab = OpenXRGitlab.create()
     # log.info("Performing startup queries")
