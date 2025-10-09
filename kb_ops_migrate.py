@@ -33,6 +33,8 @@ async def async_main(
 
     card_collection = await load_kb_ops()
 
+    pprint(card_collection.cards)
+
     for issue_ref, mr_num in gl_collection.issue_to_mr.items():
         issue_obj = gl_collection.mr_to_issue_object[mr_num]
         kb_card = card_collection.get_card_by_mr(mr_num)
@@ -47,8 +49,6 @@ async def async_main(
         checklist_issue = ReleaseChecklistIssue.create(
             issue_obj, mr_obj, gl_collection.vendor_names
         )
-
-    pprint(card_collection.cards)
 
 
 async def load_kb_ops():
@@ -81,10 +81,12 @@ async def load_kb_ops():
     return card_collection
 
 
-def load_gitlab_ops():
+def load_gitlab_ops(for_real: bool = True):
     log = logging.getLogger(__name__)
 
     oxr_gitlab = OpenXRGitlab.create()
+    if not for_real:
+        return oxr_gitlab, None
     log.info("Performing startup GitLab queries")
     collection = ReleaseChecklistCollection(
         oxr_gitlab.main_proj,
@@ -150,7 +152,7 @@ if __name__ == "__main__":
     # args = parser.parse_args()
     # logging.basicConfig(level=logging.INFO)
 
-    oxr_gitlab, collection = load_gitlab_ops()
+    oxr_gitlab, collection = load_gitlab_ops(for_real=False)
 
     loop = asyncio.get_event_loop()
     # loop.

@@ -25,6 +25,7 @@ from .kanboard_helpers import KanboardBoard
 from .labels import MainProjectLabels
 from .vendors import VendorNames
 
+
 class CardCollection:
     """The object containing the loaded data of the KanBoard ops project."""
 
