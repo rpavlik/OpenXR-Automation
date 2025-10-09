@@ -13,29 +13,49 @@ import gitlab.v4.objects
 import kanboard
 
 from .checklists import ReleaseChecklistFactory, get_extension_names_for_mr
-
-_log = logging.getLogger(__name__)
-
 from .extensions import ExtensionNameGuesser
-from .kb_ops_stages import CardColumn, CardTags
+from .kb_ops_stages import CardColumn, CardTags, CardSwimlane
 from .labels import ColumnName, GroupLabels, MainProjectLabels
 from .vendors import VendorNames
 
+_log = logging.getLogger(__name__)
 COLUMN_CONVERSION = {
     ColumnName.INACTIVE: CardColumn.INACTIVE,
-    ColumnName.INITIAL_DESIGN: CardColumn.INITIAL_DESIGN,
-    ColumnName.AWAITING_DESIGN_REVIEW: CardColumn.AWAITING_DESIGN_REVIEW,
-    # ColumnName.IN_DESIGN_REVIEW: CardColumn.IN_DESIGN_REVIEW,
-    ColumnName.NEEDS_DESIGN_REVISION: CardColumn.NEEDS_DESIGN_REVISIONS,
-    ColumnName.COMPOSITION_OR_ELABORATION: CardColumn.SPEC_ELABORATION,
-    ColumnName.AWAITING_SPEC_REVIEW: CardColumn.AWAITING_SPEC_REVIEW,
-    # ColumnName.IN_SPEC_REVIEW: CardColumn.IN_SPEC_REVIEW,
-    ColumnName.NEEDS_SPEC_REVISION: CardColumn.NEEDS_SPEC_REVISIONS,
+    #
+    # Design review stages
+    ColumnName.INITIAL_DESIGN: CardColumn.IN_PREPARATION,
+    ColumnName.AWAITING_DESIGN_REVIEW: CardColumn.AWAITING_REVIEW,
+    ColumnName.NEEDS_DESIGN_REVISION: CardColumn.NEEDS_REVISIONS,
+    #
+    # Spec review steps
+    ColumnName.COMPOSITION_OR_ELABORATION: CardColumn.IN_PREPARATION,
+    ColumnName.AWAITING_SPEC_REVIEW: CardColumn.AWAITING_REVIEW,
+    ColumnName.NEEDS_SPEC_REVISION: CardColumn.NEEDS_REVISIONS,
     ColumnName.FROZEN_NEEDS_IMPL_OR_CTS: CardColumn.PENDING_APPROVALS_AND_MERGE,
     ColumnName.NEEDS_CHAMPION_APPROVAL_OR_RATIFICATION: CardColumn.PENDING_APPROVALS_AND_MERGE,
     ColumnName.NEEDS_OTHER: CardColumn.PENDING_APPROVALS_AND_MERGE,
     ColumnName.AWAITING_MERGE: CardColumn.PENDING_APPROVALS_AND_MERGE,
     ColumnName.RELEASE_PENDING: CardColumn.PENDING_APPROVALS_AND_MERGE,
+}
+COLUMN_TO_SWIMLANE = {
+    #
+    # Assume these all have some design done or skipped.
+    ColumnName.INACTIVE: CardSwimlane.SPEC_REVIEW_PHASE,
+    #
+    # Design review stages
+    ColumnName.INITIAL_DESIGN: CardSwimlane.DESIGN_REVIEW_PHASE,
+    ColumnName.AWAITING_DESIGN_REVIEW: CardSwimlane.DESIGN_REVIEW_PHASE,
+    ColumnName.NEEDS_DESIGN_REVISION: CardSwimlane.DESIGN_REVIEW_PHASE,
+    #
+    # Spec review steps
+    ColumnName.COMPOSITION_OR_ELABORATION: CardSwimlane.SPEC_REVIEW_PHASE,
+    ColumnName.AWAITING_SPEC_REVIEW: CardSwimlane.SPEC_REVIEW_PHASE,
+    ColumnName.NEEDS_SPEC_REVISION: CardSwimlane.SPEC_REVIEW_PHASE,
+    ColumnName.FROZEN_NEEDS_IMPL_OR_CTS: CardSwimlane.SPEC_REVIEW_PHASE,
+    ColumnName.NEEDS_CHAMPION_APPROVAL_OR_RATIFICATION: CardSwimlane.SPEC_REVIEW_PHASE,
+    ColumnName.NEEDS_OTHER: CardSwimlane.SPEC_REVIEW_PHASE,
+    ColumnName.AWAITING_MERGE: CardSwimlane.SPEC_REVIEW_PHASE,
+    ColumnName.RELEASE_PENDING: CardSwimlane.SPEC_REVIEW_PHASE,
 }
 
 

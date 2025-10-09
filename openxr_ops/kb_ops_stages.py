@@ -22,15 +22,12 @@ from .kanboard_helpers import KanboardBoard
 class CardColumn(Enum):
     """Columns in the KanBoard operations project"""
 
-    INACTIVE = "Inactive"
-    INITIAL_DESIGN = "Initial Design"
-    AWAITING_DESIGN_REVIEW = "Awaiting Design Review"
-    IN_DESIGN_REVIEW = "In Design Review"
-    NEEDS_DESIGN_REVISIONS = "Needs Design Revisions"
-    SPEC_ELABORATION = "Spec Elaboration"
-    AWAITING_SPEC_REVIEW = "Awaiting Spec Review"
-    IN_SPEC_REVIEW = "In Spec Review"
-    NEEDS_SPEC_REVISIONS = "Needs Spec Revisions"
+    INACTIVE = "Inactive"  # not visible on dashboard
+    IN_PREPARATION = "In Preparation"
+    AWAITING_REVIEW = "Awaiting Review"
+    IN_REVIEW = "In Review"
+    NEEDS_REVISIONS = "Needs Revisions"
+    REVISIONS_IN_PROGRESS = "Revisions in Progress"
     PENDING_APPROVALS_AND_MERGE = "Pending Approvals And Merge"
 
     def to_column_id(self, kb_board) -> Optional[int]:
@@ -43,20 +40,52 @@ class CardColumn(Enum):
         return cls(kb_board.col_ids_to_titles[col_id])
 
 
+COLUMN_DESCRIPTIONS = {
+    CardColumn.INACTIVE: "Not currently being moved toward release.",
+    CardColumn.IN_PREPARATION: "Champion moves item to the next step, 'Awaiting Review'",
+    CardColumn.AWAITING_REVIEW: "Spec support team or spec editor will move to 'In Review' when applicable.",
+    CardColumn.IN_REVIEW: "Next step is either 'Needs Revisions' or 'Review Cycle Complete', moved by spec support or spec editor.",
+    CardColumn.NEEDS_REVISIONS: "Champion moves items from here to 'Revisions in Progress' when they start.",
+    CardColumn.REVISIONS_IN_PROGRESS: "When complete, next step is return to 'Awaiting Review'",
+    CardColumn.PENDING_APPROVALS_AND_MERGE: "This column can be skipped during the Design Review phase, extensions can move directly on to 'In Preparation' for the Spec Review phase. In the Spec Review phase, this column is for waiting on approvals, CTS, ratification, or other details.",
+}
+
+
 class CardTags(Enum):
     """Tags in the KanBoard operations project."""
 
-    INITIAL_DESIGN_REVIEW_COMPLETE = "InitialDesignReviewComplete"
-    INITIAL_SPEC_REVIEW_COMPLETE = "InitialSpecReviewComplete"
-    SPEC_SUPPORT_REVIEW_COMMENTS_PENDING = "SpecSupportReviewCommentsPending"
-    API_FROZEN = "ApiFrozen"
+    INITIAL_DESIGN_REVIEW_COMPLETE = "Initial Design Review Complete"
+    INITIAL_SPEC_REVIEW_COMPLETE = "Initial Spec Review Complete"
+    SPEC_SUPPORT_REVIEW_COMMENTS_PENDING = "Spec Support Review Comments Pending"
+    API_FROZEN = "API Frozen"
+
+
+TAG_COLORS = {
+    CardTags.INITIAL_DESIGN_REVIEW_COMPLETE: "Purple",
+    CardTags.INITIAL_SPEC_REVIEW_COMPLETE: "Purple",
+    CardTags.SPEC_SUPPORT_REVIEW_COMMENTS_PENDING: "Cyan",
+    CardTags.API_FROZEN: "Blue",
+}
+
+
+class CardCategory(Enum):
+    OUTSIDE_IPR_POLICY = "Not Subject to IPR Policy"
+
+
+CATEGORY_COLORS = {CardCategory.OUTSIDE_IPR_POLICY: "Red"}
+
+CATEGORY_DESCRIPTIONS = {
+    CardCategory.OUTSIDE_IPR_POLICY: "Vendor and multi-vendor extensions, developed outside the Khronos IPR Policy. Not ratified before release, subject only to the approval of the contributors/champion and the spec editor."
+    # In IPR Policy:
+    # KHR and EXT extensions that will be ratified before release. Contributions made under the Khronos IPR policy.
+}
 
 
 class CardSwimlane(Enum):
-    """Swimlane titles for the relationship to the Khronos IPR policy."""
+    """Swimlane titles for the review queue/phase."""
 
-    SUBJECT_TO_IPR_POLICY = "Subject to IPR Policy"
-    OUTSIDE_IPR_POLICY = "Outside IPR Policy"
+    DESIGN_REVIEW_PHASE = "Design Review phase"
+    SPEC_REVIEW_PHASE = "Spec Review phase"
 
     def to_swimlane_id(self, kb_board: KanboardBoard) -> Optional[int]:
         # depends on data cached by kb_board
@@ -68,6 +97,17 @@ class CardSwimlane(Enum):
     ) -> "CardSwimlane":
         # depends on data cached by kb_board
         return cls(kb_board.swimlane_ids_to_titles[swimlane_id])
+
+
+SWIMLANE_DESCRIPTIONS = {
+    CardSwimlane.DESIGN_REVIEW_PHASE: """An optional low-latency, high-level design review cycle, before ADOC completion.
+
+Prerequisites to enter "Awaiting Review" with the intent of moving onward:
+
+- XML changes must be complete (defining the API shape)
+- ADOC must contain at least the boilerplate for all XML-defined entities, as well as member/parameter descriptions where it is not self explanatory.""",
+    CardSwimlane.SPEC_REVIEW_PHASE: """The main, final review cycle. Ideally all major issues were fixed in the design review phase, and only fine details of the spec language remain to find and resolve. Typically the API is considered frozen or nearly so.""",
+}
 
 
 class CardDefnOfDoneKeys(Enum):

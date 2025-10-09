@@ -169,6 +169,8 @@ class OperationsCardCreationData:
     flags: Optional[OperationsCardFlags]
     issue_url: Optional[str] = None
 
+    category: Optional[str] = None
+
     async def create_card(self, kb_board: KanboardBoard) -> Optional[int]:
         swimlane_id = self.swimlane.to_swimlane_id(kb_board)
         if swimlane_id is None:

@@ -21,14 +21,13 @@ from openxr_ops.gitlab import OpenXRGitlab
 from openxr_ops.kanboard_helpers import KanboardBoard
 from openxr_ops.kb_ops_card import OperationsCardCreationData, OperationsCardFlags
 from openxr_ops.kb_ops_collection import CardCollection
-from openxr_ops.kb_ops_queue import COLUMN_CONVERSION
-from openxr_ops.kb_ops_stages import CardSwimlane
+from openxr_ops.kb_ops_queue import COLUMN_CONVERSION, COLUMN_TO_SWIMLANE
+from openxr_ops.kb_ops_stages import CardCategory, CardSwimlane
 from openxr_ops.labels import ColumnName
 from openxr_ops.priority_results import ReleaseChecklistIssue
 from openxr_ops.vendors import VendorNames
+from openxr_ops.kb_defaults import SERVER, USERNAME
 
-_SERVER = "openxr-boards.khronos.org"
-_USERNAME = "khronos-bot"
 _PROJ_NAME = "Operations Test2"
 
 _UNWRAP_RE = re.compile(r"\['(?P<ext>.*)'\]")
@@ -90,9 +89,11 @@ async def create_equiv_card(
     assert old_col
     converted_column = COLUMN_CONVERSION[old_col]
 
-    swimlane = CardSwimlane.SUBJECT_TO_IPR_POLICY
+    swimlane = COLUMN_TO_SWIMLANE[old_col]
+
+    category = None
     if checklist_issue.is_outside_ipr_framework:
-        swimlane = CardSwimlane.OUTSIDE_IPR_POLICY
+        category = CardCategory.OUTSIDE_IPR_POLICY
 
     flags = OperationsCardFlags(
         api_frozen=checklist_issue.unchangeable,
@@ -127,8 +128,8 @@ async def load_kb_ops():
     log = logging.getLogger(__name__)
     token = os.environ.get("KANBOARD_API_TOKEN", "")
     kb = kanboard.Client(
-        url=f"https://{_SERVER}/jsonrpc.php",
-        username=_USERNAME,
+        url=f"https://{SERVER}/jsonrpc.php",
+        username=USERNAME,
         password=token,
         # cafile="/path/to/my/cert.pem",
         ignore_hostname_verification=True,
@@ -142,8 +143,12 @@ async def load_kb_ops():
     log.debug("Project data: %s", pformat(proj))
 
     kb_board = KanboardBoard(kb, int(proj["id"]))
-    log.info("Getting column titles and ID")
-    await asyncio.gather(kb_board.fetch_col_titles(), kb_board.fetch_swimlanes())
+    log.info("Getting columns, swimlanes, and categories")
+    await asyncio.gather(
+        kb_board.fetch_col_titles(),
+        kb_board.fetch_swimlanes(),
+        kb_board.fetch_categories(),
+    )
 
     log.info("Loading all active cards")
     card_collection = CardCollection(kb_board)
