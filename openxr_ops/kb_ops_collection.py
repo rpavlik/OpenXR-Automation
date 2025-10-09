@@ -5,6 +5,7 @@
 #
 # Author: Rylie Pavlik <rylie.pavlik@collabora.com>
 
+import asyncio
 import itertools
 import logging
 import re
@@ -61,13 +62,14 @@ class OperationsCard:
         column: CardColumn = CardColumn(column_title)
         title: str = task["title"]
         description: str = task["description"]
-        external_uri = task.get("external_uri")
+        # external_uri = task.get("external_uri")
         main_mr: Optional[int] = None
         # TODO how to handle multiple? Docs don't help
-        if external_uri:
-            m = _MR_URL_RE.match(external_uri)
-            if m:
-                main_mr = int(m.group("mrnum"))
+        # This appears to always be null and we use a different API for it.
+        # if external_uri:
+        #     m = _MR_URL_RE.match(external_uri)
+        #     if m:
+        #         main_mr = int(m.group("mrnum"))
         swimlane_id = task["swimlane_id"]
         swimlane_title = kb_board.swimlane_ids_to_titles[swimlane_id]
         swimlane: CardSwimlane = CardSwimlane(swimlane_title)
@@ -79,6 +81,28 @@ class OperationsCard:
             description=description,
             task_dict=task,
         )
+
+    @classmethod
+    async def from_task_dict_with_more_data(
+        cls, kb_board: KanboardBoard, task: dict[str, Any]
+    ) -> "OperationsCard":
+        ret = cls.from_task_dict(kb_board, task)
+        card_id = int(task["id"])
+        ext_links_future = kb_board.kb.get_all_external_task_links_async(
+            task_id=card_id
+        )
+        # tags_future = kb_board.kb.get_task_tags_async(
+        #     project_id=kb_board.project_id, task_id=card_id
+        # )
+
+        for ext_link in await ext_links_future:
+            m = _MR_URL_RE.match(ext_link["url"])
+            if m:
+                ret.main_mr = int(m.group("mrnum"))
+                break
+
+        # TODO handle tags
+        return ret
 
 
 class CardCollection:
@@ -114,12 +138,15 @@ class CardCollection:
         # self.card_to_mr: Dict[int, int] = dict()
         self.cards: Dict[int, OperationsCard] = dict()
 
+    async def load_card(self, task: dict[str, Any]):
+        card_id = int(task["id"])
+        card = await OperationsCard.from_task_dict_with_more_data(self.kb_board, task)
+        self.cards[card_id] = card
+        if card.main_mr is not None:
+            self.mr_to_card[card.main_mr] = card_id
+
     async def load_board(self, only_open: bool = True):
         tasks = await self.kb_board.get_all_tasks(only_open=only_open)
-        for task in tasks:
-            card_id = int(task["id"])
-            card = OperationsCard.from_task_dict(self.kb_board, task)
-            self.cards[card_id] = card
-            if card.main_mr is not None:
-                self.mr_to_card[card.main_mr] = card_id
-                # self.mr_to_card[card.main_mr] = card_id
+        await asyncio.gather(*[self.load_card(task) for task in tasks])
+        # for task in tasks:
+        # self.mr_to_card[card.main_mr] = card_id

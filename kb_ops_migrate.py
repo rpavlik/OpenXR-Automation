@@ -24,7 +24,16 @@ _USERNAME = "khronos-bot"
 _PROJ_NAME = "Operations - More Columns"
 
 
-async def async_main():
+async def async_main(gl_collection: ReleaseChecklistCollection):
+    log = logging.getLogger(__name__)
+    from pprint import pprint
+
+    card_collection = await load_kb_ops()
+
+    pprint(card_collection.cards)
+
+
+async def load_kb_ops():
     log = logging.getLogger(__name__)
     token = os.environ.get("KANBOARD_API_TOKEN", "")
     kb = kanboard.Client(
@@ -36,7 +45,7 @@ async def async_main():
         insecure=True,
     )
     log.info("Getting project by name")
-    from pprint import pprint, pformat
+    from pprint import pformat
 
     proj = await kb.get_project_by_name_async(name=_PROJ_NAME)
 
@@ -51,8 +60,28 @@ async def async_main():
     log.info("Loading all active cards")
     card_collection = CardCollection(kb_board)
     await card_collection.load_board()
+    return card_collection
 
-    pprint(card_collection.cards)
+
+def load_gitlab_ops():
+    log = logging.getLogger(__name__)
+
+    oxr_gitlab = OpenXRGitlab.create()
+    log.info("Performing startup GitLab queries")
+    collection = ReleaseChecklistCollection(
+        oxr_gitlab.main_proj,
+        oxr_gitlab.operations_proj,
+        checklist_factory=None,
+        vendor_names=VendorNames.from_git(oxr_gitlab.main_proj),
+    )
+
+    try:
+        collection.load_config("ops_issues.toml")
+    except IOError:
+        print("Could not load config")
+
+    collection.load_initial_data(deep=False)
+    return oxr_gitlab, collection
 
 
 if __name__ == "__main__":
@@ -103,11 +132,11 @@ if __name__ == "__main__":
     # args = parser.parse_args()
     # logging.basicConfig(level=logging.INFO)
 
-    log = logging.getLogger(__name__)
+    oxr_gitlab, collection = load_gitlab_ops()
 
     loop = asyncio.get_event_loop()
     # loop.
-    project_id = loop.run_until_complete(async_main())
+    project_id = loop.run_until_complete(async_main(collection))
 
     # oxr_gitlab = OpenXRGitlab.create()
     # log.info("Performing startup queries")
