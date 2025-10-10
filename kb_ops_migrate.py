@@ -19,6 +19,7 @@ import kanboard
 from openxr_ops.checklists import ReleaseChecklistCollection
 from openxr_ops.gitlab import OpenXRGitlab
 from openxr_ops.kanboard_helpers import KanboardBoard
+from openxr_ops.kb_defaults import SERVER, USERNAME
 from openxr_ops.kb_ops_card import OperationsCardCreationData, OperationsCardFlags
 from openxr_ops.kb_ops_collection import CardCollection
 from openxr_ops.kb_ops_queue import COLUMN_CONVERSION, COLUMN_TO_SWIMLANE
@@ -26,7 +27,6 @@ from openxr_ops.kb_ops_stages import CardCategory, CardSwimlane
 from openxr_ops.labels import ColumnName
 from openxr_ops.priority_results import ReleaseChecklistIssue
 from openxr_ops.vendors import VendorNames
-from openxr_ops.kb_defaults import SERVER, USERNAME
 
 _PROJ_NAME = "Operations Test2"
 
@@ -145,7 +145,7 @@ async def load_kb_ops():
     kb_board = KanboardBoard(kb, int(proj["id"]))
     log.info("Getting columns, swimlanes, and categories")
     await asyncio.gather(
-        kb_board.fetch_col_titles(),
+        kb_board.fetch_columns(),
         kb_board.fetch_swimlanes(),
         kb_board.fetch_categories(),
     )

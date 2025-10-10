@@ -5,18 +5,9 @@
 #
 # Author: Rylie Pavlik <rylie.pavlik@collabora.com>
 import logging
-from dataclasses import dataclass
-from typing import Optional
 
-import gitlab
-import gitlab.v4.objects
-import kanboard
-
-from .checklists import ReleaseChecklistFactory, get_extension_names_for_mr
-from .extensions import ExtensionNameGuesser
-from .kb_ops_stages import CardColumn, CardTags, CardSwimlane
-from .labels import ColumnName, GroupLabels, MainProjectLabels
-from .vendors import VendorNames
+from .kb_ops_stages import CardColumn, CardSwimlane
+from .labels import ColumnName
 
 _log = logging.getLogger(__name__)
 COLUMN_CONVERSION = {
