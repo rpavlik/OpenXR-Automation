@@ -28,7 +28,9 @@ class KanboardBoard:
 
         categories = await self.kb.get_all_categories_async(project_id=self.project_id)
         self.category_title_to_id.update({cat["name"]: cat["id"] for cat in categories})
-        self.category_ids_to_titles = {v: k for k, v in self.category_title_to_id.items()}
+        self.category_ids_to_titles = {
+            v: k for k, v in self.category_title_to_id.items()
+        }
 
     async def fetch_swimlanes(self):
         """Retrieve swimlane names and IDs."""
@@ -37,7 +39,7 @@ class KanboardBoard:
         self.swimlane_titles.update({sl["name"]: sl["id"] for sl in swimlanes})
         self.swimlane_ids_to_titles = {v: k for k, v in self.swimlane_titles.items()}
 
-    async def fetch_col_titles(self):
+    async def fetch_columns(self):
         """Retrieve column titles and IDs."""
 
         columns = await self.kb.get_columns_async(project_id=self.project_id)

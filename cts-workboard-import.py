@@ -124,7 +124,7 @@ async def main(in_filename):
     kb_proj_id = kb_proj["id"]
 
     kb_board = KanboardBoard(kb, kb_proj_id)
-    await kb_board.fetch_col_titles()
+    await kb_board.fetch_columns()
 
     # Create all the columns
     await asyncio.gather(
