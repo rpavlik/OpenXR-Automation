@@ -74,6 +74,7 @@ class CardCategory(Enum):
 
 CATEGORY_COLORS = {CardCategory.OUTSIDE_IPR_POLICY: "Red"}
 
+# No API?
 CATEGORY_DESCRIPTIONS = {
     CardCategory.OUTSIDE_IPR_POLICY: "Vendor and multi-vendor extensions, developed outside the Khronos IPR Policy. Not ratified before release, subject only to the approval of the contributors/champion and the spec editor."
     # In IPR Policy:
