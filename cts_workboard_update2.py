@@ -100,6 +100,7 @@ def _find_thumb_companies(
             return f"(Thumb from {companies[0]})"
 
         return f"(Thumbs from {', '.join(companies)})"
+    return None
 
 
 def _make_api_item_text(
@@ -178,7 +179,7 @@ class WorkboardUpdate:
         self.oxr_gitlab = oxr_gitlab
         self.proj = oxr_gitlab.main_proj
         self._log = logging.getLogger("WorkboardUpdate")
-        self.board = dict()
+        self.board: dict[str, Union[str, dict]] = dict()
 
     def load_board(self, in_filename):
         self._log.info("Reading %s", in_filename)
