@@ -61,10 +61,10 @@ class CardTags(Enum):
 
 
 TAG_COLORS = {
-    CardTags.INITIAL_DESIGN_REVIEW_COMPLETE: "Purple",
-    CardTags.INITIAL_SPEC_REVIEW_COMPLETE: "Purple",
-    CardTags.SPEC_SUPPORT_REVIEW_COMMENTS_PENDING: "Cyan",
-    CardTags.API_FROZEN: "Blue",
+    CardTags.INITIAL_DESIGN_REVIEW_COMPLETE: "purple",
+    CardTags.INITIAL_SPEC_REVIEW_COMPLETE: "purple",
+    CardTags.SPEC_SUPPORT_REVIEW_COMMENTS_PENDING: "cyan",
+    CardTags.API_FROZEN: "blue",
 }
 
 
@@ -76,7 +76,7 @@ class CardCategory(Enum):
         return kb_board.category_title_to_id.get(self.value)
 
 
-CATEGORY_COLORS = {CardCategory.OUTSIDE_IPR_POLICY: "Red"}
+CATEGORY_COLORS = {CardCategory.OUTSIDE_IPR_POLICY: "red"}
 
 # No API?
 CATEGORY_DESCRIPTIONS = {
