@@ -71,6 +71,10 @@ TAG_COLORS = {
 class CardCategory(Enum):
     OUTSIDE_IPR_POLICY = "Not Subject to IPR Policy"
 
+    def to_category_id(self, kb_board: KanboardBoard) -> Optional[int]:
+        # depends on data cached by kb_board
+        return kb_board.category_title_to_id.get(self.value)
+
 
 CATEGORY_COLORS = {CardCategory.OUTSIDE_IPR_POLICY: "Red"}
 

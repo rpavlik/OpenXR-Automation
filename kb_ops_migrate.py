@@ -119,6 +119,7 @@ async def create_equiv_card(
         description=description,
         flags=flags,
         issue_url=issue_obj.attributes["web_url"],
+        category=category,
     )
     card_id = await data.create_card(kb_board=kb_board)
     return card_id

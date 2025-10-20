@@ -4,8 +4,8 @@ from typing import Any, Optional
 
 import kanboard
 
-from openxr_ops.kanboard_helpers import KanboardBoard
-from openxr_ops.kb_ops_stages import CardColumn, CardSwimlane, CardTags
+from .kanboard_helpers import KanboardBoard
+from .kb_ops_stages import CardCategory, CardColumn, CardSwimlane, CardTags
 
 _MR_URL_BASE = "https://gitlab.khronos.org/openxr/openxr/-/merge_requests/"
 
@@ -56,6 +56,21 @@ class OperationsCardFlags:
     ) -> "OperationsCardFlags":
         tags_future = kb.get_task_tags_async(task_id=task_id)
         return cls.from_task_tags_result(await tags_future)
+
+    def to_enum_list(self) -> list[CardTags]:
+        ret = []
+        if self.api_frozen:
+            ret.append(CardTags.API_FROZEN)
+        if self.initial_design_review_complete:
+            ret.append(CardTags.INITIAL_DESIGN_REVIEW_COMPLETE)
+        if self.initial_spec_review_complete:
+            ret.append(CardTags.INITIAL_SPEC_REVIEW_COMPLETE)
+        if self.spec_support_review_comments_pending:
+            ret.append(CardTags.SPEC_SUPPORT_REVIEW_COMMENTS_PENDING)
+        return ret
+
+    def to_string_list(self) -> list[str]:
+        return [tag.value for tag in self.to_enum_list()]
 
 
 @dataclass
@@ -169,7 +184,7 @@ class OperationsCardCreationData:
     flags: Optional[OperationsCardFlags]
     issue_url: Optional[str] = None
 
-    category: Optional[str] = None
+    category: Optional[CardCategory] = None
 
     async def create_card(self, kb_board: KanboardBoard) -> Optional[int]:
         swimlane_id = self.swimlane.to_swimlane_id(kb_board)
@@ -178,6 +193,15 @@ class OperationsCardCreationData:
         column_id = self.column.to_column_id(kb_board)
         if column_id is None:
             return None
+        extras = dict()
+        if self.category is not None:
+            category_id = self.category.to_category_id(kb_board)
+            if category_id is not None:
+                extras["category_id"] = category_id
+
+        if self.flags is not None:
+            extras["tags"] = self.flags.to_string_list()
+
         mr_url = f"{_MR_URL_BASE}{self.main_mr}"
 
         task_id = await kb_board.create_task(
@@ -186,6 +210,7 @@ class OperationsCardCreationData:
             swimlane_id=swimlane_id,
             col_id=column_id,
             # gl_url=mr_url,
+            **extras,
         )
 
         await kb_board.kb.create_external_task_link_async(
