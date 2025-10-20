@@ -19,7 +19,7 @@ import kanboard
 from openxr_ops.checklists import ReleaseChecklistCollection
 from openxr_ops.gitlab import OpenXRGitlab
 from openxr_ops.kanboard_helpers import KanboardBoard
-from openxr_ops.kb_defaults import SERVER, USERNAME
+from openxr_ops.kb_defaults import USERNAME, get_kb_api_token, get_kb_api_url
 from openxr_ops.kb_ops_card import OperationsCardCreationData, OperationsCardFlags
 from openxr_ops.kb_ops_collection import CardCollection
 from openxr_ops.kb_ops_queue import COLUMN_CONVERSION, COLUMN_TO_SWIMLANE
@@ -127,9 +127,10 @@ async def create_equiv_card(
 
 async def load_kb_ops():
     log = logging.getLogger(__name__)
-    token = os.environ.get("KANBOARD_API_TOKEN", "")
+    token = get_kb_api_token()
+    url = get_kb_api_url()
     kb = kanboard.Client(
-        url=f"https://{SERVER}/jsonrpc.php",
+        url=url,
         username=USERNAME,
         password=token,
         # cafile="/path/to/my/cert.pem",

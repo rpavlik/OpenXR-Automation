@@ -8,14 +8,13 @@
 
 import asyncio
 import logging
-import os
 from pprint import pformat
 from typing import Literal, Union
 
 import kanboard
 
 from .kanboard_helpers import KanboardBoard
-from .kb_defaults import SERVER, USERNAME
+from .kb_defaults import USERNAME, get_kb_api_token, get_kb_api_url
 from .kb_ops_stages import (
     CATEGORY_COLORS,
     COLUMN_DESCRIPTIONS,
@@ -239,17 +238,17 @@ if __name__ == "__main__":
 
     log = logging.getLogger(__name__)
 
-    token = os.environ.get("KANBOARD_API_TOKEN", "")
+    token = get_kb_api_token()
 
-    url = f"https://{SERVER}/jsonrpc.php"
+    url = get_kb_api_url()
 
     kb = kanboard.Client(
         url=url,
         username=USERNAME,
         password=token,
         # cafile="/path/to/my/cert.pem",
-        # ignore_hostname_verification=True,
-        # insecure=True,
+        ignore_hostname_verification=True,
+        insecure=True,
     )
 
     log.info("Client created: %s @ %s", USERNAME, url)
