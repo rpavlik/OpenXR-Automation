@@ -11,6 +11,7 @@ import itertools
 import logging
 import os
 import re
+from typing import Optional
 
 import gitlab
 import gitlab.v4.objects
@@ -61,6 +62,53 @@ async def async_main(
             log.info("Created new card ID %d", new_card_id)
 
 
+def get_category(checklist_issue: ReleaseChecklistIssue) -> Optional[CardCategory]:
+    """Get KB category from checklist issue."""
+    log = logging.getLogger(__name__ + "get_category")
+
+    category = None
+    if checklist_issue.is_outside_ipr_framework:
+        log.info("Outside IPR policy: %s", checklist_issue.title)
+        category = CardCategory.OUTSIDE_IPR_POLICY
+    return category
+
+
+def get_swimlane_and_column(checklist_issue: ReleaseChecklistIssue):
+    """Get KB column from checklist issue."""
+    old_col = ColumnName.from_labels([checklist_issue.status])
+    assert old_col
+    converted_column = COLUMN_CONVERSION[old_col]
+    swimlane = COLUMN_TO_SWIMLANE[old_col]
+    return swimlane, converted_column
+
+
+def get_title(checklist_issue: ReleaseChecklistIssue) -> str:
+    """Get KB title from checklist issue."""
+    title = checklist_issue.title
+    m = _UNWRAP_RE.match(title)
+    if m:
+        title = m.group("ext")
+    return title
+
+
+def get_description(issue_obj) -> str:
+    """Get initial KB description from ops issue."""
+    description = issue_obj.attributes["description"].replace("- [ ]", "- [_]")
+    return description
+
+
+def get_flags(checklist_issue):
+    """Get KB tags from checklist issue labels."""
+    flags = OperationsCardFlags(
+        api_frozen=checklist_issue.unchangeable,
+        initial_design_review_complete=checklist_issue.initial_design_review_complete,
+        initial_spec_review_complete=checklist_issue.initial_spec_review_complete,
+        spec_support_review_comments_pending=False,
+    )
+
+    return flags
+
+
 async def create_equiv_card(
     oxr_gitlab,
     gl_collection,
@@ -85,31 +133,18 @@ async def create_equiv_card(
     checklist_issue = ReleaseChecklistIssue.create(
         issue_obj, mr_obj, gl_collection.vendor_names
     )
-    old_col = ColumnName.from_labels([checklist_issue.status])
-    assert old_col
-    converted_column = COLUMN_CONVERSION[old_col]
 
-    swimlane = COLUMN_TO_SWIMLANE[old_col]
+    swimlane, converted_column = get_swimlane_and_column(checklist_issue)
 
-    category = None
-    if checklist_issue.is_outside_ipr_framework:
-        category = CardCategory.OUTSIDE_IPR_POLICY
+    category = get_category(checklist_issue)
 
-    flags = OperationsCardFlags(
-        api_frozen=checklist_issue.unchangeable,
-        initial_design_review_complete=checklist_issue.initial_design_review_complete,
-        initial_spec_review_complete=checklist_issue.initial_spec_review_complete,
-        spec_support_review_comments_pending=False,
-    )
+    flags = get_flags(checklist_issue)
 
     # clean up description.
-    description = issue_obj.attributes["description"].replace("- [ ]", "- [_]")
+    description = get_description(issue_obj)
 
     # Clean up title
-    title = checklist_issue.title
-    m = _UNWRAP_RE.match(title)
-    if m:
-        title = m.group("ext")
+    title = get_title(checklist_issue)
 
     data = OperationsCardCreationData(
         main_mr=mr_num,
