@@ -59,6 +59,23 @@ async def populate_columns(kb: kanboard.Client, project_id: int):
         log.info("Removing %d unneeded columns", len(futures))
         await asyncio.gather(*futures)
 
+    updated_cols = await kb.get_columns_async(project_id=project_id)
+    col_ids = {col["title"]: col["id"] for col in updated_cols}
+
+    desired_order = [col.value for col in CardColumn]
+
+    # Make sure column order matches
+    if any(
+        col["title"] != desired_title
+        for col, desired_title in zip(updated_cols, desired_order)
+    ):
+        log.info("Correcting column order")
+        for position, col_name in enumerate(desired_order, 1):
+            col_id = col_ids[col_name]
+            await kb.change_column_position_async(
+                project_id=project_id, column_id=col_id, position=position
+            )
+
 
 async def populate_swimlanes(kb: kanboard.Client, project_id: int):
     log = logging.getLogger(__name__ + ".populate_swimlanes")
