@@ -42,10 +42,36 @@ class Client:
 
     # project_procedures
 
-    def create_project(self, *, name: str, description: Optional[str] = None, owner_id: Optional[int] = None, identifier: Optional[str] = None, start_date: Optional[str] = None, end_date: Optional[str] = None, priority_default: Optional[int] = None, priority_start: Optional[int] = None, priority_end: Optional[int] = None, email: Optional[str] = None): ...
+    def create_project(
+        self,
+        *,
+        name: str,
+        description: Optional[str] = None,
+        owner_id: Optional[int] = None,
+        identifier: Optional[str] = None,
+        start_date: Optional[str] = None,
+        end_date: Optional[str] = None,
+        priority_default: Optional[int] = None,
+        priority_start: Optional[int] = None,
+        priority_end: Optional[int] = None,
+        email: Optional[str] = None
+    ): ...
     """https://docs.kanboard.org/v1/api/project_procedures/#createproject"""
 
-    async def create_project_async(self, *, name: str, description: Optional[str] = None, owner_id: Optional[int] = None, identifier: Optional[str] = None, start_date: Optional[str] = None, end_date: Optional[str] = None, priority_default: Optional[int] = None, priority_start: Optional[int] = None, priority_end: Optional[int] = None, email: Optional[str] = None): ...
+    async def create_project_async(
+        self,
+        *,
+        name: str,
+        description: Optional[str] = None,
+        owner_id: Optional[int] = None,
+        identifier: Optional[str] = None,
+        start_date: Optional[str] = None,
+        end_date: Optional[str] = None,
+        priority_default: Optional[int] = None,
+        priority_start: Optional[int] = None,
+        priority_end: Optional[int] = None,
+        email: Optional[str] = None
+    ): ...
     """https://docs.kanboard.org/v1/api/project_procedures/#createproject"""
 
     def get_project_by_id(self, *, project_id: int): ...
@@ -72,16 +98,48 @@ class Client:
     async def get_project_by_email_async(self, *, email: str): ...
     """https://docs.kanboard.org/v1/api/project_procedures/#getprojectbyemail"""
 
-    def get_all_projects(self, ): ...
+    def get_all_projects(
+        self,
+    ): ...
     """https://docs.kanboard.org/v1/api/project_procedures/#getallprojects"""
 
-    async def get_all_projects_async(self, ): ...
+    async def get_all_projects_async(
+        self,
+    ): ...
     """https://docs.kanboard.org/v1/api/project_procedures/#getallprojects"""
 
-    def update_project(self, *, project_id: int, name: Optional[str] = None, description: Optional[str] = None, owner_id: Optional[int] = None, identifier: Optional[str] = None, start_date: Optional[str] = None, end_date: Optional[str] = None, priority_default: Optional[int] = None, priority_start: Optional[int] = None, priority_end: Optional[int] = None, email: Optional[str] = None): ...
+    def update_project(
+        self,
+        *,
+        project_id: int,
+        name: Optional[str] = None,
+        description: Optional[str] = None,
+        owner_id: Optional[int] = None,
+        identifier: Optional[str] = None,
+        start_date: Optional[str] = None,
+        end_date: Optional[str] = None,
+        priority_default: Optional[int] = None,
+        priority_start: Optional[int] = None,
+        priority_end: Optional[int] = None,
+        email: Optional[str] = None
+    ): ...
     """https://docs.kanboard.org/v1/api/project_procedures/#updateproject"""
 
-    async def update_project_async(self, *, project_id: int, name: Optional[str] = None, description: Optional[str] = None, owner_id: Optional[int] = None, identifier: Optional[str] = None, start_date: Optional[str] = None, end_date: Optional[str] = None, priority_default: Optional[int] = None, priority_start: Optional[int] = None, priority_end: Optional[int] = None, email: Optional[str] = None): ...
+    async def update_project_async(
+        self,
+        *,
+        project_id: int,
+        name: Optional[str] = None,
+        description: Optional[str] = None,
+        owner_id: Optional[int] = None,
+        identifier: Optional[str] = None,
+        start_date: Optional[str] = None,
+        end_date: Optional[str] = None,
+        priority_default: Optional[int] = None,
+        priority_start: Optional[int] = None,
+        priority_end: Optional[int] = None,
+        email: Optional[str] = None
+    ): ...
     """https://docs.kanboard.org/v1/api/project_procedures/#updateproject"""
 
     def enable_project(self, *, project_id: int): ...
@@ -125,25 +183,61 @@ class Client:
     def get_external_task_link_provider_dependencies(self, *, providerName: str): ...
     """https://docs.kanboard.org/v1/api/external_task_link_procedures/#getexternaltasklinkproviderdependencies"""
 
-    async def get_external_task_link_provider_dependencies_async(self, *, providerName: str): ...
+    async def get_external_task_link_provider_dependencies_async(
+        self, *, providerName: str
+    ): ...
     """https://docs.kanboard.org/v1/api/external_task_link_procedures/#getexternaltasklinkproviderdependencies"""
 
-    def create_external_task_link(self, *, task_id: int, url: str, dependency: str, type: Optional[str] = None, title: Optional[str] = None): ...
+    def create_external_task_link(
+        self,
+        *,
+        task_id: int,
+        url: str,
+        dependency: str,
+        type: Optional[str] = None,
+        title: Optional[str] = None
+    ): ...
     """https://docs.kanboard.org/v1/api/external_task_link_procedures/#createexternaltasklink"""
 
-    async def create_external_task_link_async(self, *, task_id: int, url: str, dependency: str, type: Optional[str] = None, title: Optional[str] = None): ...
+    async def create_external_task_link_async(
+        self,
+        *,
+        task_id: int,
+        url: str,
+        dependency: str,
+        type: Optional[str] = None,
+        title: Optional[str] = None
+    ): ...
     """https://docs.kanboard.org/v1/api/external_task_link_procedures/#createexternaltasklink"""
 
-    def update_external_task_link(self, *, task_id: int, link_id: int, title: str, url: str, dependency: Optional[str] = None): ...
+    def update_external_task_link(
+        self,
+        *,
+        task_id: int,
+        link_id: int,
+        title: str,
+        url: str,
+        dependency: Optional[str] = None
+    ): ...
     """https://docs.kanboard.org/v1/api/external_task_link_procedures/#updateexternaltasklink"""
 
-    async def update_external_task_link_async(self, *, task_id: int, link_id: int, title: str, url: str, dependency: Optional[str] = None): ...
+    async def update_external_task_link_async(
+        self,
+        *,
+        task_id: int,
+        link_id: int,
+        title: str,
+        url: str,
+        dependency: Optional[str] = None
+    ): ...
     """https://docs.kanboard.org/v1/api/external_task_link_procedures/#updateexternaltasklink"""
 
     def get_external_task_link_by_id(self, *, task_id: int, link_id: int): ...
     """https://docs.kanboard.org/v1/api/external_task_link_procedures/#getexternaltasklinkbyid"""
 
-    async def get_external_task_link_by_id_async(self, *, task_id: int, link_id: int): ...
+    async def get_external_task_link_by_id_async(
+        self, *, task_id: int, link_id: int
+    ): ...
     """https://docs.kanboard.org/v1/api/external_task_link_procedures/#getexternaltasklinkbyid"""
 
     def get_all_external_task_links(self, *, task_id: int): ...
@@ -163,13 +257,27 @@ class Client:
     def create_group(self, *, name: str, external_id: Optional[str] = None): ...
     """https://docs.kanboard.org/v1/api/group_procedures/#creategroup"""
 
-    async def create_group_async(self, *, name: str, external_id: Optional[str] = None): ...
+    async def create_group_async(
+        self, *, name: str, external_id: Optional[str] = None
+    ): ...
     """https://docs.kanboard.org/v1/api/group_procedures/#creategroup"""
 
-    def update_group(self, *, group_id: int, name: Optional[str] = None, external_id: Optional[str] = None): ...
+    def update_group(
+        self,
+        *,
+        group_id: int,
+        name: Optional[str] = None,
+        external_id: Optional[str] = None
+    ): ...
     """https://docs.kanboard.org/v1/api/group_procedures/#updategroup"""
 
-    async def update_group_async(self, *, group_id: int, name: Optional[str] = None, external_id: Optional[str] = None): ...
+    async def update_group_async(
+        self,
+        *,
+        group_id: int,
+        name: Optional[str] = None,
+        external_id: Optional[str] = None
+    ): ...
     """https://docs.kanboard.org/v1/api/group_procedures/#updategroup"""
 
     def remove_group(self, *, group_id: int): ...
@@ -218,16 +326,22 @@ class Client:
     async def get_tags_by_project_async(self, *, project_id: int): ...
     """https://docs.kanboard.org/v1/api/tags_procedures/#gettagsbyproject"""
 
-    def create_tag(self, *, project_id: int, tag: str, color_id: Optional[str] = None): ...
+    def create_tag(
+        self, *, project_id: int, tag: str, color_id: Optional[str] = None
+    ): ...
     """https://docs.kanboard.org/v1/api/tags_procedures/#createtag"""
 
-    async def create_tag_async(self, *, project_id: int, tag: str, color_id: Optional[str] = None): ...
+    async def create_tag_async(
+        self, *, project_id: int, tag: str, color_id: Optional[str] = None
+    ): ...
     """https://docs.kanboard.org/v1/api/tags_procedures/#createtag"""
 
     def update_tag(self, *, tag_id: int, tag: str, color_id: Optional[str] = None): ...
     """https://docs.kanboard.org/v1/api/tags_procedures/#updatetag"""
 
-    async def update_tag_async(self, *, tag_id: int, tag: str, color_id: Optional[str] = None): ...
+    async def update_tag_async(
+        self, *, tag_id: int, tag: str, color_id: Optional[str] = None
+    ): ...
     """https://docs.kanboard.org/v1/api/tags_procedures/#updatetag"""
 
     def remove_tag(self, *, tag_id: int): ...
@@ -239,7 +353,9 @@ class Client:
     def set_task_tags(self, *, project_id: int, task_id: int, tags: str): ...
     """https://docs.kanboard.org/v1/api/tags_procedures/#settasktags"""
 
-    async def set_task_tags_async(self, *, project_id: int, task_id: int, tags: str): ...
+    async def set_task_tags_async(
+        self, *, project_id: int, task_id: int, tags: str
+    ): ...
     """https://docs.kanboard.org/v1/api/tags_procedures/#settasktags"""
 
     def get_task_tags(self, *, task_id: int): ...
@@ -252,10 +368,14 @@ class Client:
 
     # task_file_procedures
 
-    def create_task_file(self, *, project_id: int, task_id: int, filename: str, blob: str): ...
+    def create_task_file(
+        self, *, project_id: int, task_id: int, filename: str, blob: str
+    ): ...
     """https://docs.kanboard.org/v1/api/task_file_procedures/#createtaskfile"""
 
-    async def create_task_file_async(self, *, project_id: int, task_id: int, filename: str, blob: str): ...
+    async def create_task_file_async(
+        self, *, project_id: int, task_id: int, filename: str, blob: str
+    ): ...
     """https://docs.kanboard.org/v1/api/task_file_procedures/#createtaskfile"""
 
     def get_all_task_files(self, *, task_id: int): ...
@@ -290,10 +410,26 @@ class Client:
 
     # comment_procedures
 
-    def create_comment(self, *, task_id: int, user_id: int, content: str, reference: Optional[str] = None, visibility: Optional[str] = None): ...
+    def create_comment(
+        self,
+        *,
+        task_id: int,
+        user_id: int,
+        content: str,
+        reference: Optional[str] = None,
+        visibility: Optional[str] = None
+    ): ...
     """https://docs.kanboard.org/v1/api/comment_procedures/#createcomment"""
 
-    async def create_comment_async(self, *, task_id: int, user_id: int, content: str, reference: Optional[str] = None, visibility: Optional[str] = None): ...
+    async def create_comment_async(
+        self,
+        *,
+        task_id: int,
+        user_id: int,
+        content: str,
+        reference: Optional[str] = None,
+        visibility: Optional[str] = None
+    ): ...
     """https://docs.kanboard.org/v1/api/comment_procedures/#createcomment"""
 
     def get_comment(self, *, comment_id: int): ...
@@ -322,10 +458,14 @@ class Client:
 
     # category_procedures
 
-    def create_category(self, *, project_id: int, name: str, color_id: Optional[str] = None): ...
+    def create_category(
+        self, *, project_id: int, name: str, color_id: Optional[str] = None
+    ): ...
     """https://docs.kanboard.org/v1/api/category_procedures/#createcategory"""
 
-    async def create_category_async(self, *, project_id: int, name: str, color_id: Optional[str] = None): ...
+    async def create_category_async(
+        self, *, project_id: int, name: str, color_id: Optional[str] = None
+    ): ...
     """https://docs.kanboard.org/v1/api/category_procedures/#createcategory"""
 
     def get_category(self, *, category_id: int): ...
@@ -340,10 +480,14 @@ class Client:
     async def get_all_categories_async(self, *, project_id: int): ...
     """https://docs.kanboard.org/v1/api/category_procedures/#getallcategories"""
 
-    def update_category(self, *, id: int, name: str, color_id: Optional[str] = None): ...
+    def update_category(
+        self, *, id: int, name: str, color_id: Optional[str] = None
+    ): ...
     """https://docs.kanboard.org/v1/api/category_procedures/#updatecategory"""
 
-    async def update_category_async(self, *, id: int, name: str, color_id: Optional[str] = None): ...
+    async def update_category_async(
+        self, *, id: int, name: str, color_id: Optional[str] = None
+    ): ...
     """https://docs.kanboard.org/v1/api/category_procedures/#updatecategory"""
 
     def remove_category(self, *, category_id: int): ...
@@ -362,16 +506,24 @@ class Client:
 
     # me_procedures
 
-    def create_my_private_project(self, *, name: str, description: Optional[str] = None): ...
+    def create_my_private_project(
+        self, *, name: str, description: Optional[str] = None
+    ): ...
     """https://docs.kanboard.org/v1/api/me_procedures/#createmyprivateproject"""
 
-    async def create_my_private_project_async(self, *, name: str, description: Optional[str] = None): ...
+    async def create_my_private_project_async(
+        self, *, name: str, description: Optional[str] = None
+    ): ...
     """https://docs.kanboard.org/v1/api/me_procedures/#createmyprivateproject"""
 
-    def get_my_projects(self, ): ...
+    def get_my_projects(
+        self,
+    ): ...
     """https://docs.kanboard.org/v1/api/me_procedures/#getmyprojects"""
 
-    async def get_my_projects_async(self, ): ...
+    async def get_my_projects_async(
+        self,
+    ): ...
     """https://docs.kanboard.org/v1/api/me_procedures/#getmyprojects"""
 
     # project_metadata_procedures
@@ -385,7 +537,9 @@ class Client:
     def get_project_metadata_by_name(self, *, project_id: int, name: str): ...
     """https://docs.kanboard.org/v1/api/project_metadata_procedures/#getprojectmetadatabyname"""
 
-    async def get_project_metadata_by_name_async(self, *, project_id: int, name: str): ...
+    async def get_project_metadata_by_name_async(
+        self, *, project_id: int, name: str
+    ): ...
     """https://docs.kanboard.org/v1/api/project_metadata_procedures/#getprojectmetadatabyname"""
 
     def save_project_metadata(self, *, project_id: int, values: dict): ...
@@ -402,16 +556,24 @@ class Client:
 
     # internal_task_link_procedures
 
-    def create_task_link(self, *, task_id: int, opposite_task_id: int, link_id: int): ...
+    def create_task_link(
+        self, *, task_id: int, opposite_task_id: int, link_id: int
+    ): ...
     """https://docs.kanboard.org/v1/api/internal_task_link_procedures/#createtasklink"""
 
-    async def create_task_link_async(self, *, task_id: int, opposite_task_id: int, link_id: int): ...
+    async def create_task_link_async(
+        self, *, task_id: int, opposite_task_id: int, link_id: int
+    ): ...
     """https://docs.kanboard.org/v1/api/internal_task_link_procedures/#createtasklink"""
 
-    def update_task_link(self, *, task_link_id: int, task_id: int, opposite_task_id: int, link_id: int): ...
+    def update_task_link(
+        self, *, task_link_id: int, task_id: int, opposite_task_id: int, link_id: int
+    ): ...
     """https://docs.kanboard.org/v1/api/internal_task_link_procedures/#updatetasklink"""
 
-    async def update_task_link_async(self, *, task_link_id: int, task_id: int, opposite_task_id: int, link_id: int): ...
+    async def update_task_link_async(
+        self, *, task_link_id: int, task_id: int, opposite_task_id: int, link_id: int
+    ): ...
     """https://docs.kanboard.org/v1/api/internal_task_link_procedures/#updatetasklink"""
 
     def get_task_link_by_id(self, *, task_link_id: int): ...
@@ -446,22 +608,54 @@ class Client:
     async def get_column_async(self, *, column_id: int): ...
     """https://docs.kanboard.org/v1/api/column_procedures/#getcolumn"""
 
-    def change_column_position(self, *, project_id: int, column_id: int, position: int): ...
+    def change_column_position(
+        self, *, project_id: int, column_id: int, position: int
+    ): ...
     """https://docs.kanboard.org/v1/api/column_procedures/#changecolumnposition"""
 
-    async def change_column_position_async(self, *, project_id: int, column_id: int, position: int): ...
+    async def change_column_position_async(
+        self, *, project_id: int, column_id: int, position: int
+    ): ...
     """https://docs.kanboard.org/v1/api/column_procedures/#changecolumnposition"""
 
-    def update_column(self, *, column_id: int, title: str, task_limit: Optional[int] = None, description: Optional[str] = None): ...
+    def update_column(
+        self,
+        *,
+        column_id: int,
+        title: str,
+        task_limit: Optional[int] = None,
+        description: Optional[str] = None
+    ): ...
     """https://docs.kanboard.org/v1/api/column_procedures/#updatecolumn"""
 
-    async def update_column_async(self, *, column_id: int, title: str, task_limit: Optional[int] = None, description: Optional[str] = None): ...
+    async def update_column_async(
+        self,
+        *,
+        column_id: int,
+        title: str,
+        task_limit: Optional[int] = None,
+        description: Optional[str] = None
+    ): ...
     """https://docs.kanboard.org/v1/api/column_procedures/#updatecolumn"""
 
-    def add_column(self, *, project_id: int, title: str, task_limit: Optional[int] = None, description: Optional[str] = None): ...
+    def add_column(
+        self,
+        *,
+        project_id: int,
+        title: str,
+        task_limit: Optional[int] = None,
+        description: Optional[str] = None
+    ): ...
     """https://docs.kanboard.org/v1/api/column_procedures/#addcolumn"""
 
-    async def add_column_async(self, *, project_id: int, title: str, task_limit: Optional[int] = None, description: Optional[str] = None): ...
+    async def add_column_async(
+        self,
+        *,
+        project_id: int,
+        title: str,
+        task_limit: Optional[int] = None,
+        description: Optional[str] = None
+    ): ...
     """https://docs.kanboard.org/v1/api/column_procedures/#addcolumn"""
 
     def remove_column(self, *, column_id: int): ...
@@ -478,22 +672,34 @@ class Client:
     async def get_project_users_async(self, *, project_id: int): ...
     """https://docs.kanboard.org/v1/api/project_permission_procedures/#getprojectusers"""
 
-    def get_assignable_users(self, *, project_id: int, prepend_unassigned: Optional[bool] = None): ...
+    def get_assignable_users(
+        self, *, project_id: int, prepend_unassigned: Optional[bool] = None
+    ): ...
     """https://docs.kanboard.org/v1/api/project_permission_procedures/#getassignableusers"""
 
-    async def get_assignable_users_async(self, *, project_id: int, prepend_unassigned: Optional[bool] = None): ...
+    async def get_assignable_users_async(
+        self, *, project_id: int, prepend_unassigned: Optional[bool] = None
+    ): ...
     """https://docs.kanboard.org/v1/api/project_permission_procedures/#getassignableusers"""
 
-    def add_project_user(self, *, project_id: int, user_id: int, role: Optional[str] = None): ...
+    def add_project_user(
+        self, *, project_id: int, user_id: int, role: Optional[str] = None
+    ): ...
     """https://docs.kanboard.org/v1/api/project_permission_procedures/#addprojectuser"""
 
-    async def add_project_user_async(self, *, project_id: int, user_id: int, role: Optional[str] = None): ...
+    async def add_project_user_async(
+        self, *, project_id: int, user_id: int, role: Optional[str] = None
+    ): ...
     """https://docs.kanboard.org/v1/api/project_permission_procedures/#addprojectuser"""
 
-    def add_project_group(self, *, project_id: int, group_id: int, role: Optional[str] = None): ...
+    def add_project_group(
+        self, *, project_id: int, group_id: int, role: Optional[str] = None
+    ): ...
     """https://docs.kanboard.org/v1/api/project_permission_procedures/#addprojectgroup"""
 
-    async def add_project_group_async(self, *, project_id: int, group_id: int, role: Optional[str] = None): ...
+    async def add_project_group_async(
+        self, *, project_id: int, group_id: int, role: Optional[str] = None
+    ): ...
     """https://docs.kanboard.org/v1/api/project_permission_procedures/#addprojectgroup"""
 
     def remove_project_user(self, *, project_id: int, user_id: int): ...
@@ -511,13 +717,19 @@ class Client:
     def change_project_user_role(self, *, project_id: int, user_id: int, role: str): ...
     """https://docs.kanboard.org/v1/api/project_permission_procedures/#changeprojectuserrole"""
 
-    async def change_project_user_role_async(self, *, project_id: int, user_id: int, role: str): ...
+    async def change_project_user_role_async(
+        self, *, project_id: int, user_id: int, role: str
+    ): ...
     """https://docs.kanboard.org/v1/api/project_permission_procedures/#changeprojectuserrole"""
 
-    def change_project_group_role(self, *, project_id: int, group_id: int, role: str): ...
+    def change_project_group_role(
+        self, *, project_id: int, group_id: int, role: str
+    ): ...
     """https://docs.kanboard.org/v1/api/project_permission_procedures/#changeprojectgrouprole"""
 
-    async def change_project_group_role_async(self, *, project_id: int, group_id: int, role: str): ...
+    async def change_project_group_role_async(
+        self, *, project_id: int, group_id: int, role: str
+    ): ...
     """https://docs.kanboard.org/v1/api/project_permission_procedures/#changeprojectgrouprole"""
 
     def get_project_user_role(self, *, project_id: int, user_id: int): ...
@@ -549,13 +761,17 @@ class Client:
     def create_link(self, *, label: int, opposite_label: Optional[int] = None): ...
     """https://docs.kanboard.org/v1/api/link_procedures/#createlink"""
 
-    async def create_link_async(self, *, label: int, opposite_label: Optional[int] = None): ...
+    async def create_link_async(
+        self, *, label: int, opposite_label: Optional[int] = None
+    ): ...
     """https://docs.kanboard.org/v1/api/link_procedures/#createlink"""
 
     def update_link(self, *, link_id: int, opposite_link_id: int, label: str): ...
     """https://docs.kanboard.org/v1/api/link_procedures/#updatelink"""
 
-    async def update_link_async(self, *, link_id: int, opposite_link_id: int, label: str): ...
+    async def update_link_async(
+        self, *, link_id: int, opposite_link_id: int, label: str
+    ): ...
     """https://docs.kanboard.org/v1/api/link_procedures/#updatelink"""
 
     def remove_link(self, *, link_id: int): ...
@@ -569,25 +785,39 @@ class Client:
     def has_subtask_timer(self, *, subtask_id: int, user_id: Optional[int] = None): ...
     """https://docs.kanboard.org/v1/api/subtask_time_tracking_procedures/#hassubtasktimer"""
 
-    async def has_subtask_timer_async(self, *, subtask_id: int, user_id: Optional[int] = None): ...
+    async def has_subtask_timer_async(
+        self, *, subtask_id: int, user_id: Optional[int] = None
+    ): ...
     """https://docs.kanboard.org/v1/api/subtask_time_tracking_procedures/#hassubtasktimer"""
 
-    def set_subtask_start_time(self, *, subtask_id: int, user_id: Optional[int] = None): ...
+    def set_subtask_start_time(
+        self, *, subtask_id: int, user_id: Optional[int] = None
+    ): ...
     """https://docs.kanboard.org/v1/api/subtask_time_tracking_procedures/#setsubtaskstarttime"""
 
-    async def set_subtask_start_time_async(self, *, subtask_id: int, user_id: Optional[int] = None): ...
+    async def set_subtask_start_time_async(
+        self, *, subtask_id: int, user_id: Optional[int] = None
+    ): ...
     """https://docs.kanboard.org/v1/api/subtask_time_tracking_procedures/#setsubtaskstarttime"""
 
-    def set_subtask_end_time(self, *, subtask_id: int, user_id: Optional[int] = None): ...
+    def set_subtask_end_time(
+        self, *, subtask_id: int, user_id: Optional[int] = None
+    ): ...
     """https://docs.kanboard.org/v1/api/subtask_time_tracking_procedures/#setsubtaskendtime"""
 
-    async def set_subtask_end_time_async(self, *, subtask_id: int, user_id: Optional[int] = None): ...
+    async def set_subtask_end_time_async(
+        self, *, subtask_id: int, user_id: Optional[int] = None
+    ): ...
     """https://docs.kanboard.org/v1/api/subtask_time_tracking_procedures/#setsubtaskendtime"""
 
-    def get_subtask_time_spent(self, *, subtask_id: int, user_id: Optional[int] = None): ...
+    def get_subtask_time_spent(
+        self, *, subtask_id: int, user_id: Optional[int] = None
+    ): ...
     """https://docs.kanboard.org/v1/api/subtask_time_tracking_procedures/#getsubtasktimespent"""
 
-    async def get_subtask_time_spent_async(self, *, subtask_id: int, user_id: Optional[int] = None): ...
+    async def get_subtask_time_spent_async(
+        self, *, subtask_id: int, user_id: Optional[int] = None
+    ): ...
     """https://docs.kanboard.org/v1/api/subtask_time_tracking_procedures/#getsubtasktimespent"""
 
     # group_member_procedures
@@ -624,10 +854,26 @@ class Client:
 
     # user_procedures
 
-    def create_user(self, *, username: str, password: str, name: Optional[str] = None, email: Optional[str] = None, role: Optional[str] = None): ...
+    def create_user(
+        self,
+        *,
+        username: str,
+        password: str,
+        name: Optional[str] = None,
+        email: Optional[str] = None,
+        role: Optional[str] = None
+    ): ...
     """https://docs.kanboard.org/v1/api/user_procedures/#createuser"""
 
-    async def create_user_async(self, *, username: str, password: str, name: Optional[str] = None, email: Optional[str] = None, role: Optional[str] = None): ...
+    async def create_user_async(
+        self,
+        *,
+        username: str,
+        password: str,
+        name: Optional[str] = None,
+        email: Optional[str] = None,
+        role: Optional[str] = None
+    ): ...
     """https://docs.kanboard.org/v1/api/user_procedures/#createuser"""
 
     def create_ldap_user(self, *, username: str): ...
@@ -648,16 +894,36 @@ class Client:
     async def get_user_by_name_async(self, *, username: str): ...
     """https://docs.kanboard.org/v1/api/user_procedures/#getuserbyname"""
 
-    def get_all_users(self, ): ...
+    def get_all_users(
+        self,
+    ): ...
     """https://docs.kanboard.org/v1/api/user_procedures/#getallusers"""
 
-    async def get_all_users_async(self, ): ...
+    async def get_all_users_async(
+        self,
+    ): ...
     """https://docs.kanboard.org/v1/api/user_procedures/#getallusers"""
 
-    def update_user(self, *, id: int, username: Optional[str] = None, name: Optional[str] = None, email: Optional[str] = None, role: Optional[str] = None): ...
+    def update_user(
+        self,
+        *,
+        id: int,
+        username: Optional[str] = None,
+        name: Optional[str] = None,
+        email: Optional[str] = None,
+        role: Optional[str] = None
+    ): ...
     """https://docs.kanboard.org/v1/api/user_procedures/#updateuser"""
 
-    async def update_user_async(self, *, id: int, username: Optional[str] = None, name: Optional[str] = None, email: Optional[str] = None, role: Optional[str] = None): ...
+    async def update_user_async(
+        self,
+        *,
+        id: int,
+        username: Optional[str] = None,
+        name: Optional[str] = None,
+        email: Optional[str] = None,
+        role: Optional[str] = None
+    ): ...
     """https://docs.kanboard.org/v1/api/user_procedures/#updateuser"""
 
     def remove_user(self, *, user_id: int): ...
@@ -716,22 +982,44 @@ class Client:
     async def get_swimlane_by_name_async(self, *, project_id: int, name: str): ...
     """https://docs.kanboard.org/v1/api/swimlane_procedures/#getswimlanebyname"""
 
-    def change_swimlane_position(self, *, project_id: int, swimlane_id: int, position: int): ...
+    def change_swimlane_position(
+        self, *, project_id: int, swimlane_id: int, position: int
+    ): ...
     """https://docs.kanboard.org/v1/api/swimlane_procedures/#changeswimlaneposition"""
 
-    async def change_swimlane_position_async(self, *, project_id: int, swimlane_id: int, position: int): ...
+    async def change_swimlane_position_async(
+        self, *, project_id: int, swimlane_id: int, position: int
+    ): ...
     """https://docs.kanboard.org/v1/api/swimlane_procedures/#changeswimlaneposition"""
 
-    def update_swimlane(self, *, project_id: int, swimlane_id: int, name: str, description: Optional[str] = None): ...
+    def update_swimlane(
+        self,
+        *,
+        project_id: int,
+        swimlane_id: int,
+        name: str,
+        description: Optional[str] = None
+    ): ...
     """https://docs.kanboard.org/v1/api/swimlane_procedures/#updateswimlane"""
 
-    async def update_swimlane_async(self, *, project_id: int, swimlane_id: int, name: str, description: Optional[str] = None): ...
+    async def update_swimlane_async(
+        self,
+        *,
+        project_id: int,
+        swimlane_id: int,
+        name: str,
+        description: Optional[str] = None
+    ): ...
     """https://docs.kanboard.org/v1/api/swimlane_procedures/#updateswimlane"""
 
-    def add_swimlane(self, *, project_id: int, name: str, description: Optional[str] = None): ...
+    def add_swimlane(
+        self, *, project_id: int, name: str, description: Optional[str] = None
+    ): ...
     """https://docs.kanboard.org/v1/api/swimlane_procedures/#addswimlane"""
 
-    async def add_swimlane_async(self, *, project_id: int, name: str, description: Optional[str] = None): ...
+    async def add_swimlane_async(
+        self, *, project_id: int, name: str, description: Optional[str] = None
+    ): ...
     """https://docs.kanboard.org/v1/api/swimlane_procedures/#addswimlane"""
 
     def remove_swimlane(self, *, project_id: int, swimlane_id: int): ...
@@ -754,10 +1042,28 @@ class Client:
 
     # subtask_procedures
 
-    def create_subtask(self, *, task_id: int, title: int, user_id: Optional[int] = None, time_estimated: Optional[int] = None, time_spent: Optional[int] = None, status: Optional[int] = None): ...
+    def create_subtask(
+        self,
+        *,
+        task_id: int,
+        title: int,
+        user_id: Optional[int] = None,
+        time_estimated: Optional[int] = None,
+        time_spent: Optional[int] = None,
+        status: Optional[int] = None
+    ): ...
     """https://docs.kanboard.org/v1/api/subtask_procedures/#createsubtask"""
 
-    async def create_subtask_async(self, *, task_id: int, title: int, user_id: Optional[int] = None, time_estimated: Optional[int] = None, time_spent: Optional[int] = None, status: Optional[int] = None): ...
+    async def create_subtask_async(
+        self,
+        *,
+        task_id: int,
+        title: int,
+        user_id: Optional[int] = None,
+        time_estimated: Optional[int] = None,
+        time_spent: Optional[int] = None,
+        status: Optional[int] = None
+    ): ...
     """https://docs.kanboard.org/v1/api/subtask_procedures/#createsubtask"""
 
     def get_subtask(self, *, subtask_id: int): ...
@@ -772,10 +1078,30 @@ class Client:
     async def get_all_subtasks_async(self, *, task_id: int): ...
     """https://docs.kanboard.org/v1/api/subtask_procedures/#getallsubtasks"""
 
-    def update_subtask(self, *, id: int, task_id: int, title: Optional[int] = None, user_id: Optional[int] = None, time_estimated: Optional[int] = None, time_spent: Optional[int] = None, status: Optional[int] = None): ...
+    def update_subtask(
+        self,
+        *,
+        id: int,
+        task_id: int,
+        title: Optional[int] = None,
+        user_id: Optional[int] = None,
+        time_estimated: Optional[int] = None,
+        time_spent: Optional[int] = None,
+        status: Optional[int] = None
+    ): ...
     """https://docs.kanboard.org/v1/api/subtask_procedures/#updatesubtask"""
 
-    async def update_subtask_async(self, *, id: int, task_id: int, title: Optional[int] = None, user_id: Optional[int] = None, time_estimated: Optional[int] = None, time_spent: Optional[int] = None, status: Optional[int] = None): ...
+    async def update_subtask_async(
+        self,
+        *,
+        id: int,
+        task_id: int,
+        title: Optional[int] = None,
+        user_id: Optional[int] = None,
+        time_estimated: Optional[int] = None,
+        time_spent: Optional[int] = None,
+        status: Optional[int] = None
+    ): ...
     """https://docs.kanboard.org/v1/api/subtask_procedures/#updatesubtask"""
 
     def remove_subtask(self, *, subtask_id: int): ...
@@ -786,10 +1112,56 @@ class Client:
 
     # task_procedures
 
-    def create_task(self, *, title: str, project_id: int, color_id: Optional[str] = None, column_id: Optional[int] = None, owner_id: Optional[int] = None, creator_id: Optional[int] = None, date_due: Optional[str] = None, description: Optional[str] = None, category_id: Optional[int] = None, score: Optional[int] = None, swimlane_id: Optional[int] = None, priority: Optional[int] = None, recurrence_status: Optional[int] = None, recurrence_trigger: Optional[int] = None, recurrence_factor: Optional[int] = None, recurrence_timeframe: Optional[int] = None, recurrence_basedate: Optional[int] = None, reference: Optional[str] = None, tags: Optional[str] = None, date_started: Optional[str] = None): ...
+    def create_task(
+        self,
+        *,
+        title: str,
+        project_id: int,
+        color_id: Optional[str] = None,
+        column_id: Optional[int] = None,
+        owner_id: Optional[int] = None,
+        creator_id: Optional[int] = None,
+        date_due: Optional[str] = None,
+        description: Optional[str] = None,
+        category_id: Optional[int] = None,
+        score: Optional[int] = None,
+        swimlane_id: Optional[int] = None,
+        priority: Optional[int] = None,
+        recurrence_status: Optional[int] = None,
+        recurrence_trigger: Optional[int] = None,
+        recurrence_factor: Optional[int] = None,
+        recurrence_timeframe: Optional[int] = None,
+        recurrence_basedate: Optional[int] = None,
+        reference: Optional[str] = None,
+        tags: Optional[str] = None,
+        date_started: Optional[str] = None
+    ): ...
     """https://docs.kanboard.org/v1/api/task_procedures/#createtask"""
 
-    async def create_task_async(self, *, title: str, project_id: int, color_id: Optional[str] = None, column_id: Optional[int] = None, owner_id: Optional[int] = None, creator_id: Optional[int] = None, date_due: Optional[str] = None, description: Optional[str] = None, category_id: Optional[int] = None, score: Optional[int] = None, swimlane_id: Optional[int] = None, priority: Optional[int] = None, recurrence_status: Optional[int] = None, recurrence_trigger: Optional[int] = None, recurrence_factor: Optional[int] = None, recurrence_timeframe: Optional[int] = None, recurrence_basedate: Optional[int] = None, reference: Optional[str] = None, tags: Optional[str] = None, date_started: Optional[str] = None): ...
+    async def create_task_async(
+        self,
+        *,
+        title: str,
+        project_id: int,
+        color_id: Optional[str] = None,
+        column_id: Optional[int] = None,
+        owner_id: Optional[int] = None,
+        creator_id: Optional[int] = None,
+        date_due: Optional[str] = None,
+        description: Optional[str] = None,
+        category_id: Optional[int] = None,
+        score: Optional[int] = None,
+        swimlane_id: Optional[int] = None,
+        priority: Optional[int] = None,
+        recurrence_status: Optional[int] = None,
+        recurrence_trigger: Optional[int] = None,
+        recurrence_factor: Optional[int] = None,
+        recurrence_timeframe: Optional[int] = None,
+        recurrence_basedate: Optional[int] = None,
+        reference: Optional[str] = None,
+        tags: Optional[str] = None,
+        date_started: Optional[str] = None
+    ): ...
     """https://docs.kanboard.org/v1/api/task_procedures/#createtask"""
 
     def get_task(self, *, task_id: int): ...
@@ -810,10 +1182,50 @@ class Client:
     async def get_all_tasks_async(self, *, project_id: int, status_id: int): ...
     """https://docs.kanboard.org/v1/api/task_procedures/#getalltasks"""
 
-    def update_task(self, *, id: int, title: Optional[str] = None, color_id: Optional[str] = None, owner_id: Optional[int] = None, date_due: Optional[str] = None, description: Optional[str] = None, category_id: Optional[int] = None, score: Optional[int] = None, priority: Optional[int] = None, recurrence_status: Optional[int] = None, recurrence_trigger: Optional[int] = None, recurrence_factor: Optional[int] = None, recurrence_timeframe: Optional[int] = None, recurrence_basedate: Optional[int] = None, reference: Optional[str] = None, tags: Optional[str] = None, date_started: Optional[str] = None): ...
+    def update_task(
+        self,
+        *,
+        id: int,
+        title: Optional[str] = None,
+        color_id: Optional[str] = None,
+        owner_id: Optional[int] = None,
+        date_due: Optional[str] = None,
+        description: Optional[str] = None,
+        category_id: Optional[int] = None,
+        score: Optional[int] = None,
+        priority: Optional[int] = None,
+        recurrence_status: Optional[int] = None,
+        recurrence_trigger: Optional[int] = None,
+        recurrence_factor: Optional[int] = None,
+        recurrence_timeframe: Optional[int] = None,
+        recurrence_basedate: Optional[int] = None,
+        reference: Optional[str] = None,
+        tags: Optional[str] = None,
+        date_started: Optional[str] = None
+    ): ...
     """https://docs.kanboard.org/v1/api/task_procedures/#updatetask"""
 
-    async def update_task_async(self, *, id: int, title: Optional[str] = None, color_id: Optional[str] = None, owner_id: Optional[int] = None, date_due: Optional[str] = None, description: Optional[str] = None, category_id: Optional[int] = None, score: Optional[int] = None, priority: Optional[int] = None, recurrence_status: Optional[int] = None, recurrence_trigger: Optional[int] = None, recurrence_factor: Optional[int] = None, recurrence_timeframe: Optional[int] = None, recurrence_basedate: Optional[int] = None, reference: Optional[str] = None, tags: Optional[str] = None, date_started: Optional[str] = None): ...
+    async def update_task_async(
+        self,
+        *,
+        id: int,
+        title: Optional[str] = None,
+        color_id: Optional[str] = None,
+        owner_id: Optional[int] = None,
+        date_due: Optional[str] = None,
+        description: Optional[str] = None,
+        category_id: Optional[int] = None,
+        score: Optional[int] = None,
+        priority: Optional[int] = None,
+        recurrence_status: Optional[int] = None,
+        recurrence_trigger: Optional[int] = None,
+        recurrence_factor: Optional[int] = None,
+        recurrence_timeframe: Optional[int] = None,
+        recurrence_basedate: Optional[int] = None,
+        reference: Optional[str] = None,
+        tags: Optional[str] = None,
+        date_started: Optional[str] = None
+    ): ...
     """https://docs.kanboard.org/v1/api/task_procedures/#updatetask"""
 
     def open_task(self, *, task_id: int): ...
@@ -834,22 +1246,74 @@ class Client:
     async def remove_task_async(self, *, task_id: int): ...
     """https://docs.kanboard.org/v1/api/task_procedures/#removetask"""
 
-    def move_task_position(self, *, project_id: int, task_id: int, column_id: int, position: int, swimlane_id: int): ...
+    def move_task_position(
+        self,
+        *,
+        project_id: int,
+        task_id: int,
+        column_id: int,
+        position: int,
+        swimlane_id: int
+    ): ...
     """https://docs.kanboard.org/v1/api/task_procedures/#movetaskposition"""
 
-    async def move_task_position_async(self, *, project_id: int, task_id: int, column_id: int, position: int, swimlane_id: int): ...
+    async def move_task_position_async(
+        self,
+        *,
+        project_id: int,
+        task_id: int,
+        column_id: int,
+        position: int,
+        swimlane_id: int
+    ): ...
     """https://docs.kanboard.org/v1/api/task_procedures/#movetaskposition"""
 
-    def move_task_to_project(self, *, task_id: int, project_id: int, swimlane_id: Optional[int] = None, column_id: Optional[int] = None, category_id: Optional[int] = None, owner_id: Optional[int] = None): ...
+    def move_task_to_project(
+        self,
+        *,
+        task_id: int,
+        project_id: int,
+        swimlane_id: Optional[int] = None,
+        column_id: Optional[int] = None,
+        category_id: Optional[int] = None,
+        owner_id: Optional[int] = None
+    ): ...
     """https://docs.kanboard.org/v1/api/task_procedures/#movetasktoproject"""
 
-    async def move_task_to_project_async(self, *, task_id: int, project_id: int, swimlane_id: Optional[int] = None, column_id: Optional[int] = None, category_id: Optional[int] = None, owner_id: Optional[int] = None): ...
+    async def move_task_to_project_async(
+        self,
+        *,
+        task_id: int,
+        project_id: int,
+        swimlane_id: Optional[int] = None,
+        column_id: Optional[int] = None,
+        category_id: Optional[int] = None,
+        owner_id: Optional[int] = None
+    ): ...
     """https://docs.kanboard.org/v1/api/task_procedures/#movetasktoproject"""
 
-    def duplicate_task_to_project(self, *, task_id: int, project_id: int, swimlane_id: Optional[int] = None, column_id: Optional[int] = None, category_id: Optional[int] = None, owner_id: Optional[int] = None): ...
+    def duplicate_task_to_project(
+        self,
+        *,
+        task_id: int,
+        project_id: int,
+        swimlane_id: Optional[int] = None,
+        column_id: Optional[int] = None,
+        category_id: Optional[int] = None,
+        owner_id: Optional[int] = None
+    ): ...
     """https://docs.kanboard.org/v1/api/task_procedures/#duplicatetasktoproject"""
 
-    async def duplicate_task_to_project_async(self, *, task_id: int, project_id: int, swimlane_id: Optional[int] = None, column_id: Optional[int] = None, category_id: Optional[int] = None, owner_id: Optional[int] = None): ...
+    async def duplicate_task_to_project_async(
+        self,
+        *,
+        task_id: int,
+        project_id: int,
+        swimlane_id: Optional[int] = None,
+        column_id: Optional[int] = None,
+        category_id: Optional[int] = None,
+        owner_id: Optional[int] = None
+    ): ...
     """https://docs.kanboard.org/v1/api/task_procedures/#duplicatetasktoproject"""
 
     def search_tasks(self, *, project_id: int, query: str): ...
@@ -863,7 +1327,9 @@ class Client:
     def create_project_file(self, *, project_id: int, filename: int, blob: str): ...
     """https://docs.kanboard.org/v1/api/project_file_procedures/#createprojectfile"""
 
-    async def create_project_file_async(self, *, project_id: int, filename: int, blob: str): ...
+    async def create_project_file_async(
+        self, *, project_id: int, filename: int, blob: str
+    ): ...
     """https://docs.kanboard.org/v1/api/project_file_procedures/#createprojectfile"""
 
     def get_all_project_files(self, *, project_id: int): ...
@@ -910,10 +1376,14 @@ class Client:
     async def get_actions_async(self, *, project_id: int): ...
     """https://docs.kanboard.org/v1/api/action_procedures/#getactions"""
 
-    def create_action(self, *, project_id: int, event_name: str, action_name: str, params: dict): ...
+    def create_action(
+        self, *, project_id: int, event_name: str, action_name: str, params: dict
+    ): ...
     """https://docs.kanboard.org/v1/api/action_procedures/#createaction"""
 
-    async def create_action_async(self, *, project_id: int, event_name: str, action_name: str, params: dict): ...
+    async def create_action_async(
+        self, *, project_id: int, event_name: str, action_name: str, params: dict
+    ): ...
     """https://docs.kanboard.org/v1/api/action_procedures/#createaction"""
 
     def remove_action(self, *, action_id: int): ...
