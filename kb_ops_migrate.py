@@ -10,7 +10,6 @@ import asyncio
 import datetime
 import itertools
 import logging
-import os
 import re
 from typing import Optional
 
