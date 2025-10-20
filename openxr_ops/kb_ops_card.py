@@ -217,6 +217,7 @@ class OperationsCardCreationData:
             description=self.description,
             swimlane_id=swimlane_id,
             column_id=column_id,
+            color_id="white",
             # gl_url=mr_url,
             **extras,
         )
