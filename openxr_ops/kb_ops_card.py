@@ -203,17 +203,19 @@ class OperationsCardCreationData:
             extras["tags"] = self.flags.to_string_list()
 
         mr_url = f"{_MR_URL_BASE}{self.main_mr}"
+        kb = kb_board.kb
 
-        task_id = await kb_board.create_task(
+        task_id = await kb.create_task_async(
             title=self.title,
+            project_id=kb_board.project_id,
             description=self.description,
             swimlane_id=swimlane_id,
-            col_id=column_id,
+            column_id=column_id,
             # gl_url=mr_url,
             **extras,
         )
 
-        await kb_board.kb.create_external_task_link_async(
+        await kb.create_external_task_link_async(
             task_id=task_id,
             url=mr_url,
             type="weblink",
@@ -222,7 +224,7 @@ class OperationsCardCreationData:
         )
 
         if self.issue_url is not None:
-            await kb_board.kb.create_external_task_link_async(
+            await kb.create_external_task_link_async(
                 task_id=task_id,
                 url=self.issue_url,
                 type="weblink",
