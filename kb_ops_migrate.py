@@ -7,6 +7,7 @@
 # Author: Rylie Pavlik <rylie.pavlik@collabora.com>
 
 import asyncio
+import datetime
 import itertools
 import logging
 import os
@@ -29,7 +30,7 @@ from openxr_ops.labels import ColumnName
 from openxr_ops.priority_results import ReleaseChecklistIssue
 from openxr_ops.vendors import VendorNames
 
-_PROJ_NAME = "Operations Test2"
+_PROJ_NAME = "test1"
 
 _UNWRAP_RE = re.compile(r"\['(?P<ext>.*)'\]")
 
@@ -80,6 +81,15 @@ def get_swimlane_and_column(checklist_issue: ReleaseChecklistIssue):
     converted_column = COLUMN_CONVERSION[old_col]
     swimlane = COLUMN_TO_SWIMLANE[old_col]
     return swimlane, converted_column
+
+
+def get_started_date(checklist_issue: ReleaseChecklistIssue):
+    """Get KB start date from checklist issue."""
+    started = datetime.datetime.now(datetime.UTC) - datetime.timedelta(
+        days=checklist_issue.latency
+    )
+
+    return started
 
 
 def get_title(checklist_issue: ReleaseChecklistIssue) -> str:
@@ -146,6 +156,8 @@ async def create_equiv_card(
     # Clean up title
     title = get_title(checklist_issue)
 
+    started = get_started_date(checklist_issue)
+
     data = OperationsCardCreationData(
         main_mr=mr_num,
         column=converted_column,
@@ -155,6 +167,7 @@ async def create_equiv_card(
         flags=flags,
         issue_url=issue_obj.attributes["web_url"],
         category=category,
+        date_started=started,
     )
     card_id = await data.create_card(kb_board=kb_board)
     return card_id

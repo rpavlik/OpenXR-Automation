@@ -1,3 +1,4 @@
+import datetime
 import re
 from dataclasses import dataclass
 from typing import Any, Optional
@@ -186,6 +187,8 @@ class OperationsCardCreationData:
 
     category: Optional[CardCategory] = None
 
+    date_started: Optional[datetime.datetime] = None
+
     async def create_card(self, kb_board: KanboardBoard) -> Optional[int]:
         swimlane_id = self.swimlane.to_swimlane_id(kb_board)
         if swimlane_id is None:
@@ -201,6 +204,9 @@ class OperationsCardCreationData:
 
         if self.flags is not None:
             extras["tags"] = self.flags.to_string_list()
+
+        if self.date_started is not None:
+            extras["date_started"] = self.date_started.strftime("%Y-%m-%d %H:%M")
 
         mr_url = f"{_MR_URL_BASE}{self.main_mr}"
         kb = kb_board.kb
