@@ -141,6 +141,8 @@ async def load_kb_ops():
     from pprint import pformat
 
     proj = await kb.get_project_by_name_async(name=_PROJ_NAME)
+    if proj == False:
+        raise RuntimeError("No project named " + _PROJ_NAME)
 
     log.debug("Project data: %s", pformat(proj))
 
