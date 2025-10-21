@@ -11,7 +11,8 @@ import datetime
 import itertools
 import logging
 import re
-from typing import Optional
+from typing import Optional, Union
+import csv
 
 import gitlab
 import gitlab.v4.objects
@@ -33,6 +34,10 @@ _PROJ_NAME = "test1"
 
 _UNWRAP_RE = re.compile(r"\['(?P<ext>.*)'\]")
 
+_MR_REF_RE = re.compile(
+    r"(openxr/openxr!|openxr!|!|https://gitlab.khronos.org/openxr/openxr/-/merge_requests/)(?P<mrnum>[0-9]+)"
+)
+
 
 async def async_main(
     oxr_gitlab: OpenXRGitlab, gl_collection: ReleaseChecklistCollection
@@ -41,6 +46,8 @@ async def async_main(
     from pprint import pprint
 
     kb_board, card_collection = await load_kb_ops()
+
+    dates: list[dict[str, Union[str, int]]] = []
 
     # TODO stop limiting
     for issue_ref, mr_num in itertools.islice(gl_collection.issue_to_mr.items(), 0, 50):
@@ -55,11 +62,23 @@ async def async_main(
             # TODO verify it's fully populated here
             continue
 
-        new_card_id = await create_equiv_card(
+        new_card_id, card_dates = await create_equiv_card(
             oxr_gitlab, gl_collection, kb_board, mr_num, issue_obj
         )
         if new_card_id is not None:
             log.info("Created new card ID %d", new_card_id)
+            if card_dates is not None:
+                card_dates["task_id"] = new_card_id
+                dates.append(card_dates)
+
+    datestamp = datetime.datetime.now(datetime.UTC).strftime("%Y%m%d-%H.%M.%S")
+    fn = f"dates-{datestamp}.csv"
+    log.info("Writing dates to %s", fn)
+    with open(fn, "w") as fp:
+        datafile = csv.DictWriter(fp, ["task_id", "created_on", "started_on", "moved"])
+        datafile.writeheader()
+        for entry in dates:
+            datafile.writerow(entry)
 
 
 def get_category(checklist_issue: ReleaseChecklistIssue) -> Optional[CardCategory]:
@@ -82,13 +101,33 @@ def get_swimlane_and_column(checklist_issue: ReleaseChecklistIssue):
     return swimlane, converted_column
 
 
-def get_started_date(checklist_issue: ReleaseChecklistIssue):
+def get_latency_date(checklist_issue: ReleaseChecklistIssue):
     """Get KB start date from checklist issue."""
     started = datetime.datetime.now(datetime.UTC) - datetime.timedelta(
         days=checklist_issue.latency
     )
 
     return started
+
+
+_KANBOARD_DATE_FORMAT = "%Y-%m-%d %H:%M"
+
+
+def get_dates(checklist_issue: ReleaseChecklistIssue) -> dict[str, Union[str, int]]:
+    latency_date = get_latency_date(checklist_issue)
+    issue_created_at = datetime.datetime.fromisoformat(
+        checklist_issue.issue_obj.attributes["created_at"]
+    )
+    mr_created_at = datetime.datetime.fromisoformat(
+        checklist_issue.mr.attributes["created_at"]
+    )
+    created = min(issue_created_at, mr_created_at)
+    date_objects = {
+        "created_on": created,
+        "started_on": mr_created_at,
+        "moved": latency_date,
+    }
+    return {k: v.strftime(_KANBOARD_DATE_FORMAT) for k, v in date_objects.items()}
 
 
 def get_title(checklist_issue: ReleaseChecklistIssue) -> str:
@@ -124,21 +163,22 @@ async def create_equiv_card(
     kb_board,
     mr_num,
     issue_obj: gitlab.v4.objects.ProjectIssue,
-):
+    # dates: list[dict[str, Union[str, int]]],
+) -> tuple[Optional[int], Optional[dict[str, Union[str, int]]]]:
     log = logging.getLogger(__name__)
     if issue_obj.attributes["state"] == "closed":
         # skip it
-        return
+        return None, None
     mr_obj = oxr_gitlab.main_proj.mergerequests.get(mr_num)
     if mr_obj.attributes["state"] in ("closed", "merged"):
         # skip it
-        return
+        return None, None
     statuses = [
         label for label in issue_obj.attributes["labels"] if label.startswith("status:")
     ]
     if len(statuses) != 1:
         log.warning("Wrong status count on %d", mr_num)
-        return
+        return None, None
     checklist_issue = ReleaseChecklistIssue.create(
         issue_obj, mr_obj, gl_collection.vendor_names
     )
@@ -155,7 +195,7 @@ async def create_equiv_card(
     # Clean up title
     title = get_title(checklist_issue)
 
-    started = get_started_date(checklist_issue)
+    started = get_latency_date(checklist_issue)
 
     data = OperationsCardCreationData(
         main_mr=mr_num,
@@ -169,7 +209,10 @@ async def create_equiv_card(
         date_started=started,
     )
     card_id = await data.create_card(kb_board=kb_board)
-    return card_id
+
+    # date_dict = {"task_id": card_id}
+    # date_dict.update()
+    return card_id, get_dates(checklist_issue)
 
 
 async def load_kb_ops():
