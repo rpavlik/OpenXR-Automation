@@ -1,0 +1,48 @@
+[[subtasks]]
+category = "before design review"
+[[subtasks.task]]
+task = "Extension number reserved"
+[[subtasks.task]]
+task = "Changelog fragments written"
+[[subtasks.task]]
+task = "XML changes made"
+[[subtasks.task]]
+task = "Initial ADOC stubbed out"
+migration_prefix = "ADOC written"
+
+[[subtasks]]
+category = "before spec review"
+[[subtasks.task]]
+task = "Full ADOC spec written"
+migration_prefix = "ADOC written"
+[[subtasks.task]]
+task = "Champion reviewed generated HTML output (`./makeAllExts html`)"
+migration_prefix = "Champion reviewed generated HTML output"
+[[subtasks.task]]
+task = "Champion reviewed generated header (`./makeAllExts header`)"
+migration_prefix = "Champion reviewed generated header"
+[[subtasks.task]]
+task = "Champion reviewed generated ref/man pages (`./makeAllExts manhtmlpages`)"
+migration_prefix = "Champion reviewed generated ref/man pages"
+[[subtasks.task]]
+task = "Champion performed self-review using the [Extension Review](https://gitlab.khronos.org/openxr/openxr/-/wikis/extension-review) checklist"
+migration_prefix = "Champion performed self-review"
+
+[[subtasks]]
+category = "before publication"
+[[subtasks.task]]
+task = "CTS tests written"
+migration_prefix = "CTS tests written"
+[[subtasks]]
+category = "ratification submission"
+[[subtasks.task]]
+task = "WG vote to submit passed with a 3/4 majority"
+[[subtasks.task]]
+task = "Submission package available for Promoter review"
+
+[[subtasks]]
+category = "ratification"
+[[subtasks.task]]
+task = "OpenXR specification ratified by Promoters"
+[[subtasks.task]]
+task = "Loader support (if required) ready for release"
