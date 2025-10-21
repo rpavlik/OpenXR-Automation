@@ -138,11 +138,92 @@ def get_title(checklist_issue: ReleaseChecklistIssue) -> str:
         title = m.group("ext")
     return title
 
+_KEY_DATA_HEADER = 'Key Data'
+_STATUS_AND_DATES_HEADER = 'Status and Important Dates, if any'
+_PRECOND_FOR_SPEC_REVIEW_HEADER = "Preconditions for Spec Editor Review"
+
+_CHECKBOX_RE = re.compile(r"- \[(?P<content>[x _])\] .*")
+
+_BLANK_STATUS_SECTION = """
+## Status and Important Dates, if any
+
+- [ ] Structural/overall design finalized
+  - Last date for structural design change suggestions:
+    (_date, or remove this bullet if N/A or already past_)
+- [ ] API shape finalized
+  - Last date for API shape change suggestions:
+    (_date, or remove this bullet if N/A or already past_)
+- [ ] API naming finalized
+  - Last date for minor API suggestions (function/struct/member naming, etc.):
+    (_date, or remove this bullet if N/A or already past_)
+- [ ] OK to release when other requirements satisfied
+  - Do not release before: (_N/A or date_)
+  - Preferred time range for release: (_N/A or date range_)
+""".strip()
+
+def _get_checkbox(line: str) -> Optional[bool]:
+    m =  _CHECKBOX_RE.match(line)
+    if m:
+        return m.group("content") == "x"
+    return None
+
+def _find_checkboxes(lines:list[str]):
+    for line in lines:
+        m =  _CHECKBOX_RE.match(line)
+        if m:
+            yield m.group("content") == "x", line
+
+def _line_contains_placeholder(line:str) ->bool:
+    # Only for the placeholders in the status/dates section!
+    return "(_date, or remove" in line or "(_N/A or" in line
+
+def _format_mr(m: re.Match):
+    num = m.group("mrnum")
+    match = m.group(0)
+    return f"[{match}](https://gitlab.khronos.org/openxr/openxr/-/merge_requests/{num})"
 
 def get_description(issue_obj) -> str:
     """Get initial KB description from ops issue."""
-    description = issue_obj.attributes["description"].replace("- [ ]", "- [_]")
-    return description
+    # Truncate it to the first section.
+    full_desc: str = issue_obj.attributes["description"]
+    lines: list[str] = full_desc.splitlines()
+    keeper_lines: list[str] = []
+    header_line_indices: dict[str, int] = {
+        line.strip("#").strip(): i
+        for i, line in enumerate(lines)
+        if line.startswith("##")
+    }
+    is_line_precondition: list[bool] = ["Preconditions" in line for line in lines]
+    first_precondition_line = is_line_precondition.index(True)
+
+    end_line = first_precondition_line
+    # headers = [_KEY_DATA_HEADER, _STATUS_AND_DATES_HEADER, _PRECOND_FOR_SPEC_REVIEW_HEADER]
+    if _STATUS_AND_DATES_HEADER in header_line_indices:
+        # We have a status section
+        if _BLANK_STATUS_SECTION in full_desc:
+            # but it is unmodified
+            end_line = header_line_indices[_STATUS_AND_DATES_HEADER]
+        # status_lines = lines[header_line_indices[_STATUS_AND_DATES_HEADER]:first_precondition_line]
+        # check_data = [_get_checkbox(line) for line in status_lines]
+        # checkboxes = [check for check in check_data if check is not None]
+        # has_check = checkboxes and any(checkboxes)
+        # placeholder_lines
+    # if all(header in header_line_indices for header in headers):
+    #     # We can do the smart thing.
+    #     status_lines = lines[header_line_indices[]]
+
+    # key_data_index = header_line_indices[]
+    # status_index = header_line_indices[]
+    # for line in lines:
+    #     if "Preconditions" in line:
+    #         break
+    #     keeper_lines.append(line)
+    joined = "\n".join(lines[:end_line]).replace("- [ ]", "- [_]")
+    # Format some merge request links
+    return _MR_REF_RE.sub(_format_mr, joined, count=10)
+
+    # description = issue_obj.attributes["description"].replace("- [ ]", "- [_]")
+    # return description
 
 
 def get_flags(checklist_issue):
