@@ -192,6 +192,14 @@ async def populate_actions(
                 pformat(existing_action),
             )
             existing_action_ids_to_drop.append(action_id)
+        elif expected_index in discovered_expected_indices:
+
+            log.info(
+                "Found that existing auto action with action id %d is a duplicate of index %d in our expected list, will drop it.",
+                action_id,
+                expected_index,
+            )
+            existing_action_ids_to_drop.append(action_id)
         else:
             log.info(
                 "Found that existing auto action with action id %d is index %d in our expected list. %s == %s",
