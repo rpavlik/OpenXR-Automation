@@ -390,7 +390,7 @@ class SubtasksFromColumnAndSwimlane(AutoSubtasksBase):
         )
 
 
-def from_migration_subtasks_group(group: MigrationSubtasksGroup):
+def actions_from_migration_subtasks_group(group: MigrationSubtasksGroup):
     log = logging.getLogger(f"{__name__}.from_migration_subtasks_group")
     subtasks = [subtask.task for subtask in group.tasks]
 
@@ -398,8 +398,7 @@ def from_migration_subtasks_group(group: MigrationSubtasksGroup):
         if (
             group.condition.column
             and group.condition.swimlane
-            and not group.condition.category
-            and not group.condition.exclude_categories
+            and not group.condition.has_category_predicate()
         ):
             return SubtasksFromColumnAndSwimlane.create(
                 column=group.condition.column,
@@ -409,32 +408,18 @@ def from_migration_subtasks_group(group: MigrationSubtasksGroup):
 
         if (
             group.condition.column
-            and group.condition.category
+            and group.condition.has_category_predicate()
             and not group.condition.swimlane
-            and not group.condition.exclude_categories
         ):
             return SubtasksFromColumnAndCategory.create(
                 column=group.condition.column,
-                category=group.condition.category,
+                category=group.condition.get_category_predicate(),
                 subtasks=subtasks,
             )
 
         if (
             group.condition.column
-            and group.condition.exclude_categories
-            and not group.condition.category
-            and not group.condition.swimlane
-        ):
-            return SubtasksFromColumnAndCategory.create(
-                column=group.condition.column,
-                category=None,
-                subtasks=subtasks,
-            )
-
-        if (
-            group.condition.column
-            and not group.condition.category
-            and not group.condition.exclude_categories
+            and not group.condition.has_category_predicate()
             and not group.condition.swimlane
         ):
             return SubtasksFromColumn.create(
@@ -443,23 +428,12 @@ def from_migration_subtasks_group(group: MigrationSubtasksGroup):
             )
 
         if (
-            group.condition.category
-            and not group.condition.column
-            and not group.condition.exclude_categories
-            and not group.condition.swimlane
-        ):
-            return SubtasksFromCategory.create(
-                category=group.condition.category,
-                subtasks=subtasks,
-            )
-        if (
-            group.condition.exclude_categories
-            and not group.condition.category
+            group.condition.has_category_predicate()
             and not group.condition.column
             and not group.condition.swimlane
         ):
             return SubtasksFromCategory.create(
-                category=None,
+                category=group.condition.get_category_predicate(),
                 subtasks=subtasks,
             )
         log.warning(

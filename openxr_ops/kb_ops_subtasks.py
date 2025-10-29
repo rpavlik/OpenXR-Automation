@@ -70,6 +70,16 @@ class MigrationSubtasksGroupCondition:
             allow_duplicate_subtasks=d.get("allow_duplicate_subtasks", False),
         )
 
+    def has_category_predicate(self):
+        return (self.category is not None and not self.exclude_categories) or (
+            self.category is None and self.exclude_categories
+        )
+
+    def get_category_predicate(self) -> Optional[CardCategory]:
+        if self.exclude_categories:
+            return None
+        return self.category
+
 
 @dataclass
 class MigrationSubtasksGroup:

@@ -9,9 +9,14 @@
 import asyncio
 import logging
 from pprint import pformat
-from typing import Literal, Union
+from typing import Literal, Optional, Union
 
 import kanboard
+from openxr_ops.kb_ops_auto_actions import (
+    actions_from_migration_subtasks_group,
+    get_and_parse_actions,
+)
+from openxr_ops.kb_ops_subtasks import get_all_subtasks
 
 from .kanboard_helpers import KanboardBoard
 from .kb_defaults import USERNAME, get_kb_api_token, get_kb_api_url
@@ -153,6 +158,51 @@ async def populate_tags(kb: kanboard.Client, project_id: int):
         await asyncio.gather(*futures)
 
 
+def find_auto_action(action, expected_auto_actions) -> Optional[int]:
+    for i, expected_action in enumerate(expected_auto_actions):
+        if action == expected_action:
+            return i
+    return None
+
+
+async def populate_actions(
+    kb: kanboard.Client, kb_board: KanboardBoard, project_id: int
+):
+    log = logging.getLogger(f"{__name__}.populate_actions")
+    subtask_groups = get_all_subtasks()
+
+    expected_auto_actions = []
+    """Actions from config file."""
+
+    current_actions_future = get_and_parse_actions(kb, kb_board, project_id)
+    for group in subtask_groups:
+        action = actions_from_migration_subtasks_group(group)
+        if action is not None:
+            expected_auto_actions.append(action)
+
+    unparsed, existing_dict = await current_actions_future
+    existing_action_ids_to_drop: list[int] = []
+    discovered_expected_indices: list[int] = []
+    for action_id, existing_action in existing_dict.items():
+        expected_index = find_auto_action(existing_action, expected_auto_actions)
+        if expected_index is None:
+            log.info(
+                "Found that existing auto action with action id %d is not in our expected list. %s",
+                action_id,
+                pformat(existing_action),
+            )
+            existing_action_ids_to_drop.append(action_id)
+        else:
+            log.info(
+                "Found that existing auto action with action id %d is index %d in our expected list. %s == %s",
+                action_id,
+                expected_index,
+                pformat(existing_action),
+                pformat(expected_auto_actions[expected_index]),
+            )
+            discovered_expected_indices.append(expected_index)
+
+
 async def populate_project(kb: kanboard.Client, proj_id: int):
     log = logging.getLogger(__name__ + ".populate_project")
 
@@ -177,6 +227,8 @@ async def populate_project(kb: kanboard.Client, proj_id: int):
         kb_board.fetch_swimlanes(),
         kb_board.fetch_categories(),
     )
+
+    await populate_actions(kb, kb_board, proj_id)
 
 
 async def create_or_populate_project(kb: kanboard.Client, project_name: str):
