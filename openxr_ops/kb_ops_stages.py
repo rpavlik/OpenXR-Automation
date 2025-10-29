@@ -75,6 +75,13 @@ class CardCategory(Enum):
         # depends on data cached by kb_board
         return kb_board.category_title_to_id.get(self.value)
 
+    @classmethod
+    def from_category_id(
+        cls, kb_board: KanboardBoard, category_id: int
+    ) -> "CardCategory":
+        # depends on data cached by kb_board
+        return cls(kb_board.category_ids_to_titles[category_id])
+
 
 CATEGORY_COLORS = {CardCategory.OUTSIDE_IPR_POLICY: "red"}
 
