@@ -6,18 +6,24 @@
 #
 # Author: Rylie Pavlik <rylie.pavlik@collabora.com>
 
-from dataclasses import dataclass
-
 import importlib
 import importlib.resources
 import tomllib
+from dataclasses import dataclass
+from typing import Optional
+
+from .kb_ops_stages import CardCategory, CardColumn, CardSwimlane
 
 
 @dataclass
 class MigrationSubtaskEntry:
+    """A single subtask."""
 
     task: str
+    """Subtask name/string."""
+
     migration_prefix: str
+    """String to search for in old checklist to determine the subtask state."""
 
     @classmethod
     def from_dict(cls, d: dict):
@@ -26,20 +32,74 @@ class MigrationSubtaskEntry:
         return cls(task=task, migration_prefix=migration_prefix)
 
 
-@dataclass
-class MigrationSubtasksGroup:
-    category: str
+def parse_into(enum_type, s: Optional[str]):
+    if s is None:
+        return None
+    return enum_type(s)
 
-    tasks: list[MigrationSubtaskEntry]
+
+@dataclass
+class MigrationSubtasksGroupCondition:
+    """
+    Conditions to automatically add a group of subtasks.
+
+    All populated condition fields must match to be true.
+    """
+
+    swimlane: Optional[CardSwimlane]
+    column: Optional[CardColumn]
+    category: Optional[CardCategory]
+    exclude_category: Optional[CardCategory]
+
+    allow_duplicate_subtasks: bool = False
+    """Whether to add these subtasks even if they already exist."""
 
     @classmethod
     def from_dict(cls, d: dict):
-        category = d["category"]
+        swimlane = parse_into(CardSwimlane, d.get("swimlane"))
+
+        column = parse_into(CardColumn, d.get("column"))
+
+        category = parse_into(CardCategory, d.get("category"))
+
+        exclude_category = parse_into(CardCategory, d.get("exclude_category"))
+
+        return cls(
+            swimlane=swimlane,
+            column=column,
+            category=category,
+            exclude_category=exclude_category,
+            allow_duplicate_subtasks=d.get("allow_duplicate_subtasks", False),
+        )
+
+
+@dataclass
+class MigrationSubtasksGroup:
+    """A collection of subtasks, often with a related trigger."""
+
+    group_name: str
+    """Arbitrary name."""
+
+    tasks: list[MigrationSubtaskEntry]
+    """List of subtasks in the group."""
+
+    condition: Optional[MigrationSubtasksGroupCondition] = None
+    """Condition to evaluate to auto-create the subtasks in the group."""
+
+    @classmethod
+    def from_dict(cls, d: dict):
+        """Contruct a group from a dict (generally from TOML)."""
+        group_name = d["group_name"]
         tasks = [MigrationSubtaskEntry.from_dict(task) for task in d["task"]]
-        return cls(category=category, tasks=tasks)
+        condition = None
+        cond_dict = d.get("condition")
+        if cond_dict:
+            condition = MigrationSubtasksGroupCondition.from_dict(cond_dict)
+        return cls(group_name=group_name, tasks=tasks, condition=condition)
 
 
 def get_all_subtasks() -> list[MigrationSubtasksGroup]:
+    """Load all subtasks from the data file."""
     data = (
         importlib.resources.files("openxr_ops")
         .joinpath("subtasks.toml")
