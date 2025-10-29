@@ -7,12 +7,12 @@
 # Author: Rylie Pavlik <rylie.pavlik@collabora.com>
 
 import asyncio
+import csv
 import datetime
 import itertools
 import logging
 import re
 from typing import Optional, Union
-import csv
 
 import gitlab
 import gitlab.v4.objects
@@ -138,8 +138,9 @@ def get_title(checklist_issue: ReleaseChecklistIssue) -> str:
         title = m.group("ext")
     return title
 
-_KEY_DATA_HEADER = 'Key Data'
-_STATUS_AND_DATES_HEADER = 'Status and Important Dates, if any'
+
+_KEY_DATA_HEADER = "Key Data"
+_STATUS_AND_DATES_HEADER = "Status and Important Dates, if any"
 _PRECOND_FOR_SPEC_REVIEW_HEADER = "Preconditions for Spec Editor Review"
 
 _CHECKBOX_RE = re.compile(r"- \[(?P<content>[x _])\] .*")
@@ -161,26 +162,31 @@ _BLANK_STATUS_SECTION = """
   - Preferred time range for release: (_N/A or date range_)
 """.strip()
 
+
 def _get_checkbox(line: str) -> Optional[bool]:
-    m =  _CHECKBOX_RE.match(line)
+    m = _CHECKBOX_RE.match(line)
     if m:
         return m.group("content") == "x"
     return None
 
-def _find_checkboxes(lines:list[str]):
+
+def _find_checkboxes(lines: list[str]):
     for line in lines:
-        m =  _CHECKBOX_RE.match(line)
+        m = _CHECKBOX_RE.match(line)
         if m:
             yield m.group("content") == "x", line
 
-def _line_contains_placeholder(line:str) ->bool:
+
+def _line_contains_placeholder(line: str) -> bool:
     # Only for the placeholders in the status/dates section!
     return "(_date, or remove" in line or "(_N/A or" in line
+
 
 def _format_mr(m: re.Match):
     num = m.group("mrnum")
     match = m.group(0)
     return f"[{match}](https://gitlab.khronos.org/openxr/openxr/-/merge_requests/{num})"
+
 
 def get_description(issue_obj) -> str:
     """Get initial KB description from ops issue."""
