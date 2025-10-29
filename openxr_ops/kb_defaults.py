@@ -13,9 +13,9 @@ USERNAME = "khronos-bot"
 
 
 def get_kb_api_url():
-    url = os.environ.get("KANBOARD_URL", f"https://{SERVER}/jsonrpc.php")
+    url = os.environ.get("KANBOARD_URL", default=f"https://{SERVER}/jsonrpc.php")
     return url
 
 
 def get_kb_api_token():
-    return os.environ.get("KANBOARD_API_TOKEN", "")
+    return os.environ.get("KANBOARD_API_TOKEN", default="")
