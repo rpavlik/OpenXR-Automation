@@ -182,7 +182,7 @@ async def populate_actions(
 
     unparsed, existing_dict = await current_actions_future
     existing_action_ids_to_drop: list[int] = []
-    discovered_expected_indices: list[int] = []
+    discovered_expected_indices: set[int] = set()
     for action_id, existing_action in existing_dict.items():
         expected_index = find_auto_action(existing_action, expected_auto_actions)
         if expected_index is None:
@@ -202,13 +202,40 @@ async def populate_actions(
             existing_action_ids_to_drop.append(action_id)
         else:
             log.info(
-                "Found that existing auto action with action id %d is index %d in our expected list. %s == %s",
+                "Found that existing auto action with action id %d is index %d in our expected list. %s",
                 action_id,
                 expected_index,
-                pformat(existing_action),
                 pformat(expected_auto_actions[expected_index]),
             )
-            discovered_expected_indices.append(expected_index)
+            discovered_expected_indices.add(expected_index)
+    log.info(
+        "Parsed %d automatic actions, left %d unparsed",
+        len(existing_dict),
+        len(unparsed),
+    )
+
+    log.info("Matched %d automatic actions", len(discovered_expected_indices))
+
+    to_destroy = [
+        kb.remove_action_async(action_id=action_id)
+        for action_id in existing_action_ids_to_drop
+    ]
+    log.info("Removing %d automatic actions", len(to_destroy))
+    await asyncio.gather(*to_destroy)
+
+    to_create = []
+    for expected_index, expected_action in enumerate(expected_auto_actions):
+        if expected_index in discovered_expected_indices:
+            continue
+        to_create.append(
+            kb.create_action_async(
+                project_id=project_id, **expected_action.to_arg_dict(kb_board)
+            )
+        )
+
+    log.info("Creating %d automatic actions", len(to_create))
+
+    await asyncio.gather(*to_create)
 
 
 async def populate_project(kb: kanboard.Client, proj_id: int):
