@@ -17,6 +17,15 @@ task = "Initial ADOC stubbed out"
 migration_prefix = "ADOC written"
 
 [[subtasks]]
+group_name = "handle design review"
+[subtasks.condition]
+swimlane = "Design Review phase"
+column = "Needs Revisions"
+allow_duplicate_subtasks = true
+[[subtasks.task]]
+task = "Design review comments addressed, threads resolved"
+
+[[subtasks]]
 group_name = "before spec review"
 [subtasks.condition]
 swimlane = "Spec Review phase"
@@ -36,8 +45,17 @@ migration_prefix = "Champion reviewed generated header"
 task = "Champion reviewed generated ref/man pages (`./makeAllExts manhtmlpages`)"
 migration_prefix = "Champion reviewed generated ref/man pages"
 [[subtasks.task]]
-task = "Champion performed self-review using the [Extension Review](https://gitlab.khronos.org/openxr/openxr/-/wikis/extension-review) checklist"
+task = "Champion performed self-review using the Extension Review checklist on the wiki"
 migration_prefix = "Champion performed self-review"
+
+[[subtasks]]
+group_name = "handle spec review"
+[subtasks.condition]
+swimlane = "Spec Review phase"
+column = "Needs Revisions"
+allow_duplicate_subtasks = true
+[[subtasks.task]]
+task = "Spec review comments addressed, threads resolved"
 
 [[subtasks]]
 group_name = "before publication"
