@@ -6,12 +6,12 @@
 #
 # Author: Rylie Pavlik <rylie.pavlik@collabora.com>
 
+from dataclasses import dataclass
 from enum import Enum
-from dataclasses import dataclass, field
 from typing import Any
 
 from .kanboard_helpers import KanboardBoard
-from .kb_ops_stages import CardCategory, CardColumn
+from .kb_ops_stages import CardCategory, CardColumn, CardSwimlane
 
 
 class AutoActionTypes(Enum):
@@ -53,16 +53,18 @@ class AutoActionEvents(Enum):
 class AutoSubtasksBase:
     """Base for creating subtasks automatically."""
 
-    action_name: AutoActionTypes
-    event: AutoActionEvents
-
     subtasks: list[str]
 
     allow_duplicate_subtasks: bool
     """Whether to add these subtasks even if they already exist."""
 
-    def make_args(self, specific_params: dict[str, Any]):
-        specific_params.update(
+    def make_args(
+        self,
+        action: AutoActionTypes,
+        event: AutoActionEvents,
+        params: dict[str, Any],
+    ):
+        params.update(
             {
                 "user_id": 0,  # not using this for now
                 "multitasktitles": _to_multitasktitles(self.subtasks),
@@ -73,9 +75,9 @@ class AutoSubtasksBase:
             }
         )
         return {
-            EVENT_NAME: self.event.value,
-            ACTION_NAME: self.action_name.value,
-            "params": specific_params,
+            EVENT_NAME: event.value,
+            ACTION_NAME: action.value,
+            "params": params,
         }
 
 
@@ -89,14 +91,6 @@ class SubtasksFromCategory(AutoSubtasksBase):
 
     category: CardCategory
 
-    # @classmethod
-    # def get_action_name(cls):
-    #     return AutoActionTypes.SUBTASKS_FROM_CATEGORY.value
-
-    # @classmethod
-    # def get_event_name(cls):
-    #     return "task.create_update"
-
     @classmethod
     def create(
         cls,
@@ -105,17 +99,17 @@ class SubtasksFromCategory(AutoSubtasksBase):
         allow_duplicate_subtasks: bool = False,
     ):
         return SubtasksFromCategory(
-            action_name=AutoActionTypes.SUBTASKS_FROM_CATEGORY,
-            event=AutoActionEvents.TASK_CREATE_UPDATE,
             subtasks=subtasks,
             allow_duplicate_subtasks=allow_duplicate_subtasks,
             category=category,
         )
 
     def to_arg_dict(self, kb_board: KanboardBoard):
-        assert self.event == AutoActionEvents.TASK_CREATE_UPDATE
-        assert self.action_name == AutoActionTypes.SUBTASKS_FROM_CATEGORY
-        return self.make_args({"category_id": self.category.to_category_id(kb_board)})
+        return self.make_args(
+            action=AutoActionTypes.SUBTASKS_FROM_CATEGORY,
+            event=AutoActionEvents.TASK_CREATE_UPDATE,
+            params={"category_id": self.category.to_category_id(kb_board)},
+        )
 
 
 @dataclass
@@ -128,14 +122,6 @@ class SubtasksFromColumn(AutoSubtasksBase):
 
     column: CardColumn
 
-    # @classmethod
-    # def get_action_name(cls):
-    #     return AutoActionTypes.SUBTASKS_FROM_COLUMN.value
-
-    # @classmethod
-    # def get_event_name(cls):
-    #     return "task.create_update"
-
     @classmethod
     def create(
         cls,
@@ -144,21 +130,19 @@ class SubtasksFromColumn(AutoSubtasksBase):
         allow_duplicate_subtasks: bool = False,
     ):
         return cls(
-            action_name=AutoActionTypes.SUBTASKS_FROM_COLUMN,
-            event=AutoActionEvents.TASK_CREATE_UPDATE,
             subtasks=subtasks,
             allow_duplicate_subtasks=allow_duplicate_subtasks,
             column=column,
         )
 
     def to_arg_dict(self, kb_board: KanboardBoard):
-        assert self.event == AutoActionEvents.TASK_CREATE_UPDATE
-        assert self.action_name == AutoActionTypes.SUBTASKS_FROM_CATEGORY
         return self.make_args(
-            {
+            action=AutoActionTypes.SUBTASKS_FROM_COLUMN,
+            event=AutoActionEvents.TASK_CREATE_UPDATE,
+            params={
                 "column_id": self.column.to_column_id(kb_board),
                 "check_box_all_columns": 0,  # unused for now
-            }
+            },
         )
 
 
@@ -173,14 +157,6 @@ class SubtasksFromColumnAndCategory(AutoSubtasksBase):
     column: CardColumn
     category: CardCategory
 
-    # @classmethod
-    # def get_action_name(cls):
-    #     return AutoActionTypes.SUBTASKS_FROM_COLUMN_AND_CATEGORY.value
-
-    # @classmethod
-    # def get_event_name(cls):
-    #     return "task.move.column"
-
     @classmethod
     def create(
         cls,
@@ -190,8 +166,6 @@ class SubtasksFromColumnAndCategory(AutoSubtasksBase):
         allow_duplicate_subtasks: bool = False,
     ):
         return cls(
-            action_name=AutoActionTypes.SUBTASKS_FROM_COLUMN_AND_CATEGORY,
-            event=AutoActionEvents.TASK_MOVE_COLUMN,
             subtasks=subtasks,
             allow_duplicate_subtasks=allow_duplicate_subtasks,
             column=column,
@@ -199,25 +173,48 @@ class SubtasksFromColumnAndCategory(AutoSubtasksBase):
         )
 
     def to_arg_dict(self, kb_board: KanboardBoard):
-        assert self.event == AutoActionEvents.TASK_MOVE_COLUMN
-        assert self.action_name == AutoActionTypes.SUBTASKS_FROM_COLUMN_AND_CATEGORY
         return self.make_args(
-            {
+            action=AutoActionTypes.SUBTASKS_FROM_COLUMN_AND_CATEGORY,
+            event=AutoActionEvents.TASK_MOVE_COLUMN,
+            params={
                 "column_id": self.column.to_column_id(kb_board),
                 "category_id": self.category.to_category_id(kb_board),
-            }
+            },
         )
 
-    # def to_arg_dict(self, kb_board: KanboardBoard):
-    #     return {
-    #         EVENT_NAME: self.get_event_name(),
-    #         ACTION_NAME: self.get_action_name(),
-    #         "params": {
-    #             "column_id": self.column.to_column_id(kb_board),
-    #             "category_id": self.category.to_category_id(kb_board),
-    #             "user_id": 0,  # not using this for now
-    #             "multitasktitles": to_multitasktitles(self.subtasks),
-    #             "time_estimated": 0,  # unused for now
-    #             "check_box_no_duplicates": not self.allow_duplicate_subtasks,
-    #         },
-    #     }
+
+@dataclass
+class SubtasksFromColumnAndSwimland(AutoSubtasksBase):
+    """
+    Automatic action to create subtasks on moving a task to a column if in a swimlane.
+
+    In AutoSubtasks plugin fork.
+    """
+
+    column: CardColumn
+    swimlane: CardSwimlane
+
+    @classmethod
+    def create(
+        cls,
+        column: CardColumn,
+        swimlane: CardSwimlane,
+        subtasks: list[str],
+        allow_duplicate_subtasks: bool = False,
+    ):
+        return cls(
+            subtasks=subtasks,
+            allow_duplicate_subtasks=allow_duplicate_subtasks,
+            column=column,
+            swimlane=swimlane,
+        )
+
+    def to_arg_dict(self, kb_board: KanboardBoard):
+        return self.make_args(
+            action=AutoActionTypes.SUBTASKS_FROM_COLUMN_AND_CATEGORY,
+            event=AutoActionEvents.TASK_MOVE_COLUMN,
+            params={
+                "column_id": self.column.to_column_id(kb_board),
+                "swimlane_id": self.swimlane.to_swimlane_id(kb_board),
+            },
+        )
