@@ -11,10 +11,12 @@ import logging
 from dataclasses import dataclass
 from enum import Enum
 from typing import Any, Literal, Optional, Union
+from pprint import pformat
 
 import kanboard
 
 from openxr_ops.kb_defaults import USERNAME, get_kb_api_token, get_kb_api_url
+from openxr_ops.kb_ops_subtasks import MigrationSubtasksGroup
 
 from .kanboard_helpers import KanboardBoard
 from .kb_ops_stages import CardCategory, CardColumn, CardSwimlane
@@ -120,12 +122,12 @@ class SubtasksFromCategory(AutoSubtasksBase):
     In AutoSubtasks plugin.
     """
 
-    category: CardCategory
+    category: Optional[CardCategory]
 
     @classmethod
     def create(
         cls,
-        category: CardCategory,
+        category: Optional[CardCategory],
         subtasks: list[str],
         allow_duplicate_subtasks: bool = False,
     ):
@@ -147,7 +149,11 @@ class SubtasksFromCategory(AutoSubtasksBase):
         return self.make_args(
             action=self.action_name(),
             event=self.default_event_name(),
-            params={"category_id": self.category.to_category_id(kb_board)},
+            params={
+                "category_id": CardCategory.optional_to_category_id(
+                    kb_board, self.category
+                )
+            },
         )
 
     @classmethod
@@ -163,7 +169,7 @@ class SubtasksFromCategory(AutoSubtasksBase):
             return None
 
         params = action["params"]
-        category = CardCategory.from_category_id(
+        category = CardCategory.from_category_id_maybe_none(
             kb_board=kb_board, category_id=int(params["category_id"])
         )
         return cls(
@@ -246,13 +252,13 @@ class SubtasksFromColumnAndCategory(AutoSubtasksBase):
     """
 
     column: CardColumn
-    category: CardCategory
+    category: Optional[CardCategory]
 
     @classmethod
     def create(
         cls,
         column: CardColumn,
-        category: CardCategory,
+        category: Optional[CardCategory],
         subtasks: list[str],
         allow_duplicate_subtasks: bool = False,
     ):
@@ -272,12 +278,17 @@ class SubtasksFromColumnAndCategory(AutoSubtasksBase):
         return AutoActionEvents.TASK_MOVE_COLUMN
 
     def to_arg_dict(self, kb_board: KanboardBoard):
+        cat_id = 0
+        if self.category is not None:
+            cat_id = self.category.to_category_id(kb_board)
         return self.make_args(
             action=self.action_name(),
             event=self.default_event_name(),
             params={
                 "column_id": self.column.to_column_id(kb_board),
-                "category_id": self.category.to_category_id(kb_board),
+                "category_id": CardCategory.optional_to_category_id(
+                    kb_board, self.category
+                ),
             },
         )
 
@@ -297,7 +308,7 @@ class SubtasksFromColumnAndCategory(AutoSubtasksBase):
 
         params = action["params"]
         column = CardColumn.from_column_id(kb_board, int(params["column_id"]))
-        category = CardCategory.from_category_id(
+        category = CardCategory.from_category_id_maybe_none(
             kb_board=kb_board, category_id=int(params["category_id"])
         )
         return cls(
@@ -379,6 +390,85 @@ class SubtasksFromColumnAndSwimlane(AutoSubtasksBase):
         )
 
 
+def from_migration_subtasks_group(group: MigrationSubtasksGroup):
+    log = logging.getLogger(f"{__name__}.from_migration_subtasks_group")
+    subtasks = [subtask.task for subtask in group.tasks]
+
+    if group.condition:
+        if (
+            group.condition.column
+            and group.condition.swimlane
+            and not group.condition.category
+            and not group.condition.exclude_categories
+        ):
+            return SubtasksFromColumnAndSwimlane.create(
+                column=group.condition.column,
+                swimlane=group.condition.swimlane,
+                subtasks=subtasks,
+            )
+
+        if (
+            group.condition.column
+            and group.condition.category
+            and not group.condition.swimlane
+            and not group.condition.exclude_categories
+        ):
+            return SubtasksFromColumnAndCategory.create(
+                column=group.condition.column,
+                category=group.condition.category,
+                subtasks=subtasks,
+            )
+
+        if (
+            group.condition.column
+            and group.condition.exclude_categories
+            and not group.condition.category
+            and not group.condition.swimlane
+        ):
+            return SubtasksFromColumnAndCategory.create(
+                column=group.condition.column,
+                category=None,
+                subtasks=subtasks,
+            )
+
+        if (
+            group.condition.column
+            and not group.condition.category
+            and not group.condition.exclude_categories
+            and not group.condition.swimlane
+        ):
+            return SubtasksFromColumn.create(
+                column=group.condition.column,
+                subtasks=subtasks,
+            )
+
+        if (
+            group.condition.category
+            and not group.condition.column
+            and not group.condition.exclude_categories
+            and not group.condition.swimlane
+        ):
+            return SubtasksFromCategory.create(
+                category=group.condition.category,
+                subtasks=subtasks,
+            )
+        if (
+            group.condition.exclude_categories
+            and not group.condition.category
+            and not group.condition.column
+            and not group.condition.swimlane
+        ):
+            return SubtasksFromCategory.create(
+                category=None,
+                subtasks=subtasks,
+            )
+        log.warning(
+            "Condition does not match any known combo: %s", pformat(group.condition)
+        )
+        return
+    log.warning("No condition provided")
+
+
 AUTO_ACTION_TYPES = [
     SubtasksFromColumnAndSwimlane,
     SubtasksFromColumnAndCategory,
@@ -415,6 +505,7 @@ async def get_and_parse_actions(kb: kanboard.Client, kb_board, proj_id: int):
 async def get_and_parse_actions_from_named_project(
     kb: kanboard.Client, project_name: str
 ):
+    log = logging.getLogger(f"{__name__}.get_and_parse_actions_from_named_project")
     proj: Union[dict, Literal[False]] = await kb.get_project_by_name_async(
         name=project_name
     )

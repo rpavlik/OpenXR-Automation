@@ -76,9 +76,27 @@ class CardCategory(Enum):
         return kb_board.category_title_to_id.get(self.value)
 
     @classmethod
+    def optional_to_category_id(
+        cls, kb_board: KanboardBoard, category: Optional["CardCategory"]
+    ) -> Optional[int]:
+        if category is None:
+            return 0
+        # depends on data cached by kb_board
+        return category.to_category_id(kb_board)
+
+    @classmethod
     def from_category_id(
         cls, kb_board: KanboardBoard, category_id: int
     ) -> "CardCategory":
+        # depends on data cached by kb_board
+        return cls(kb_board.category_ids_to_titles[category_id])
+
+    @classmethod
+    def from_category_id_maybe_none(
+        cls, kb_board: KanboardBoard, category_id: int
+    ) -> Optional["CardCategory"]:
+        if category_id == 0:
+            return None
         # depends on data cached by kb_board
         return cls(kb_board.category_ids_to_titles[category_id])
 
