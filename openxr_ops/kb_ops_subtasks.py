@@ -49,7 +49,7 @@ class MigrationSubtasksGroupCondition:
     swimlane: Optional[CardSwimlane]
     column: Optional[CardColumn]
     category: Optional[CardCategory]
-    exclude_category: Optional[CardCategory]
+    exclude_categories: bool = False
 
     allow_duplicate_subtasks: bool = False
     """Whether to add these subtasks even if they already exist."""
@@ -62,13 +62,11 @@ class MigrationSubtasksGroupCondition:
 
         category = parse_into(CardCategory, d.get("category"))
 
-        exclude_category = parse_into(CardCategory, d.get("exclude_category"))
-
         return cls(
             swimlane=swimlane,
             column=column,
             category=category,
-            exclude_category=exclude_category,
+            exclude_categories=d.get("exclude_categories", False),
             allow_duplicate_subtasks=d.get("allow_duplicate_subtasks", False),
         )
 
