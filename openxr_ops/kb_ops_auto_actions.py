@@ -35,6 +35,9 @@ class AutoActionTypes(Enum):
     SUBTASKS_FROM_COLUMN_AND_SWIMLANE = (
         "\\Kanboard\\Plugin\\AutoSubtasks\\Action\\SwimlaneAutoCreateSubtaskVanilla"
     )
+
+    SUBTASKS_FROM_COLUMN_AND_SWIMLANE_AND_CATEGORY = "\\Kanboard\\Plugin\\AutoSubtasks\\Action\\SwimlaneCategoryColAutoSubtaskVanilla"
+
     ASSIGN_CURRENT_USER_ON_COLUMN = "\\Kanboard\\Action\\TaskAssignCurrentUserColumn"
 
 
@@ -49,7 +52,7 @@ def _to_check_box_no_duplicates(allow_duplicate_subtasks: bool):
 
 
 def _to_multitasktitles(tasks: list[str]):
-    return "\n".join(tasks)
+    return "\r\n".join(tasks)
 
 
 class AutoActionEvents(Enum):
@@ -102,7 +105,7 @@ class AutoSubtasksBase:
             return None
 
         multitasktitles: str = params["multitasktitles"]
-        subtasks = [subtask.strip() for subtask in multitasktitles.splitlines()]
+        subtasks = [subtask.strip() for subtask in multitasktitles.split("\n")]
         allow_duplicate = False
         checkbox_no_dupe = params.get("check_box_no_duplicates", 0)
         if (
@@ -390,11 +393,105 @@ class SubtasksFromColumnAndSwimlane(AutoSubtasksBase):
         )
 
 
+@dataclass
+class SubtasksFromColumnAndSwimlaneAndCategory(AutoSubtasksBase):
+    """
+    Automatic action to create subtasks on moving a task to a column if in a swimlane and category.
+
+    In AutoSubtasks plugin fork.
+    """
+
+    column: CardColumn
+    swimlane: CardSwimlane
+    category: Optional[CardCategory]
+
+    @classmethod
+    def create(
+        cls,
+        column: CardColumn,
+        swimlane: CardSwimlane,
+        category: Optional[CardCategory],
+        subtasks: list[str],
+        allow_duplicate_subtasks: bool = False,
+    ):
+        return cls(
+            subtasks=subtasks,
+            allow_duplicate_subtasks=allow_duplicate_subtasks,
+            column=column,
+            swimlane=swimlane,
+            category=category,
+        )
+
+    @classmethod
+    def action_name(cls):
+        return AutoActionTypes.SUBTASKS_FROM_COLUMN_AND_SWIMLANE_AND_CATEGORY
+
+    @classmethod
+    def default_event_name(cls):
+        return AutoActionEvents.TASK_MOVE_COLUMN
+
+    def to_arg_dict(self, kb_board: KanboardBoard):
+        return self.make_args(
+            action=self.action_name(),
+            event=self.default_event_name(),
+            params={
+                "column_id": self.column.to_column_id(kb_board),
+                "swimlane_id": self.swimlane.to_swimlane_id(kb_board),
+                "category_id": CardCategory.optional_to_category_id(
+                    kb_board, self.category
+                ),
+            },
+        )
+
+    @classmethod
+    def try_from_json(cls, kb_board, action: dict[str, Any]):
+        log = logging.getLogger(f"{__name__}.{cls.__name__}")
+        if action["action_name"] != cls.action_name().value:
+            log.debug("action_name mismatch: %s", action["action_name"])
+            return None
+        if action["event_name"] != cls.default_event_name().value:
+            log.debug("event_name mismatch: %s", action["event_name"])
+            return None
+
+        base = AutoSubtasksBase.base_try_from_json(action)
+        if base is None:
+            return None
+
+        params = action["params"]
+        column = CardColumn.from_column_id(kb_board, int(params["column_id"]))
+        swimlane = CardSwimlane.from_swimlane_id(
+            kb_board=kb_board, swimlane_id=int(params["swimlane_id"])
+        )
+        category = CardCategory.from_category_id_maybe_none(
+            kb_board=kb_board, category_id=int(params["category_id"])
+        )
+        return cls(
+            subtasks=base.subtasks,
+            allow_duplicate_subtasks=base.allow_duplicate_subtasks,
+            column=column,
+            swimlane=swimlane,
+            category=category,
+        )
+
+
 def actions_from_migration_subtasks_group(group: MigrationSubtasksGroup):
     log = logging.getLogger(f"{__name__}.from_migration_subtasks_group")
     subtasks = [subtask.task for subtask in group.tasks]
 
     if group.condition:
+        if (
+            group.condition.column
+            and group.condition.swimlane
+            and group.condition.has_category_predicate()
+        ):
+            return SubtasksFromColumnAndSwimlaneAndCategory.create(
+                column=group.condition.column,
+                swimlane=group.condition.swimlane,
+                category=group.condition.get_category_predicate(),
+                subtasks=subtasks,
+                allow_duplicate_subtasks=group.condition.allow_duplicate_subtasks,
+            )
+
         if (
             group.condition.column
             and group.condition.swimlane
@@ -404,6 +501,7 @@ def actions_from_migration_subtasks_group(group: MigrationSubtasksGroup):
                 column=group.condition.column,
                 swimlane=group.condition.swimlane,
                 subtasks=subtasks,
+                allow_duplicate_subtasks=group.condition.allow_duplicate_subtasks,
             )
 
         if (
@@ -415,6 +513,7 @@ def actions_from_migration_subtasks_group(group: MigrationSubtasksGroup):
                 column=group.condition.column,
                 category=group.condition.get_category_predicate(),
                 subtasks=subtasks,
+                allow_duplicate_subtasks=group.condition.allow_duplicate_subtasks,
             )
 
         if (
@@ -425,6 +524,7 @@ def actions_from_migration_subtasks_group(group: MigrationSubtasksGroup):
             return SubtasksFromColumn.create(
                 column=group.condition.column,
                 subtasks=subtasks,
+                allow_duplicate_subtasks=group.condition.allow_duplicate_subtasks,
             )
 
         if (
@@ -435,6 +535,7 @@ def actions_from_migration_subtasks_group(group: MigrationSubtasksGroup):
             return SubtasksFromCategory.create(
                 category=group.condition.get_category_predicate(),
                 subtasks=subtasks,
+                allow_duplicate_subtasks=group.condition.allow_duplicate_subtasks,
             )
         log.warning(
             "Condition does not match any known combo: %s", pformat(group.condition)
@@ -444,6 +545,7 @@ def actions_from_migration_subtasks_group(group: MigrationSubtasksGroup):
 
 
 AUTO_ACTION_TYPES = [
+    SubtasksFromColumnAndSwimlaneAndCategory,
     SubtasksFromColumnAndSwimlane,
     SubtasksFromColumnAndCategory,
     SubtasksFromCategory,
