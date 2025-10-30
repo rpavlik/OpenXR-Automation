@@ -109,6 +109,7 @@ class AutoSubtasksBase:
         checkbox_no_dupe = params.get("check_box_no_duplicates", 0)
         if (
             checkbox_no_dupe == 0
+            or checkbox_no_dupe == "0"
             or checkbox_no_dupe == "false"
             or checkbox_no_dupe == False
         ):
