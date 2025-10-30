@@ -252,8 +252,12 @@ async def create_equiv_task(
     kb_project,
     mr_num,
     issue_obj: gitlab.v4.objects.ProjectIssue,
-    # dates: list[dict[str, Union[str, int]]],
 ) -> tuple[Optional[int], Optional[dict[str, Union[str, int]]]]:
+    """
+    Create a KB task for a gitlab ops issue.
+
+    Returns task ID and a dict containing a row for the dates CSV.
+    """
     log = logging.getLogger(__name__)
     if issue_obj.attributes["state"] == "closed":
         # skip it
