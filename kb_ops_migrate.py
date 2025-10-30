@@ -12,7 +12,8 @@ import datetime
 import itertools
 import logging
 import re
-from typing import Optional, Union
+from dataclasses import dataclass
+from typing import Literal, Optional, Union
 
 import gitlab
 import gitlab.v4.objects
@@ -43,6 +44,15 @@ _MR_REF_RE = re.compile(
 )
 
 
+@dataclass
+class UpdateOptions:
+    update_title: bool = True
+    update_description: bool = True
+    update_column_and_swimlane: bool = True
+    update_category: bool = True
+    update_tags: bool = True
+
+
 class OperationsGitLabToKanboard:
 
     def __init__(
@@ -51,11 +61,13 @@ class OperationsGitLabToKanboard:
         gl_collection: ReleaseChecklistCollection,
         # kb: kanboard.Client,
         kb_project_name: str,
+        update_options: UpdateOptions,
     ):
         self.oxr_gitlab: OpenXRGitlab = oxr_gitlab
         self.gl_collection: ReleaseChecklistCollection = gl_collection
         # self.kb: kanboard.Client = kb
         self.kb_project_name: str = kb_project_name
+        self.update_options: UpdateOptions = update_options
 
         self.log = logging.getLogger(f"{__name__}.{self.__class__.__name__}")
         self.dates: list[dict[str, Union[str, int]]] = []
@@ -75,45 +87,54 @@ class OperationsGitLabToKanboard:
         self,
         kb_task: OperationsTask,
         mr_num: int,
-        checklist_issue: ReleaseChecklistIssue,
         data: OperationsTaskCreationData,
     ):
-        log = logging.getLogger(f"{__name__}.update_task")
         # already created
         assert kb_task.task_dict is not None
-        log.info("MR !%d: Task already exists - %s", mr_num, kb_task.task_dict["url"])
+        self.log.info(
+            "MR !%d: Task already exists - %s", mr_num, kb_task.task_dict["url"]
+        )
 
-        # update_task_params = {"id": kb_task.task_id}
-        # should_update_task: bool = False
         ## Category
         if kb_task.category != data.category:
-            log.info(
+            self.log.info(
                 "MR !%d: Mismatch in category %s != %s",
                 mr_num,
                 str(data.category),
                 str(kb_task.category),
             )
-            cat_id = TaskCategory.optional_to_category_id(
-                kb_project=self.kb_project, category=data.category
-            )
-            if cat_id is not None:
-                # update_task_params["category_id"] = cat_id
-                await self.kb.update_task_async(id=kb_task.task_id, category_id=cat_id)
+            if self.update_options.update_category:
+                cat_id = TaskCategory.optional_to_category_id(
+                    kb_project=self.kb_project, category=data.category
+                )
+                if cat_id is not None:
+                    await self.kb.update_task_async(
+                        id=kb_task.task_id, category_id=cat_id
+                    )
 
         ## Title
         if kb_task.title != data.title:
-            log.info(
+            self.log.info(
                 "MR !%d: Mismatch in title %s != %s",
                 mr_num,
                 str(data.title),
                 str(kb_task.title),
             )
-            await self.kb.update_task_async(id=kb_task.task_id, title=data.title)
+            if self.update_options.update_title:
+                await self.kb.update_task_async(id=kb_task.task_id, title=data.title)
+
+        ## Description
+        if data.description and kb_task.description != data.description:
+            self.log.info("MR !%d: Mismatch in description", mr_num)
+            if self.update_options.update_description:
+                await self.kb.update_task_async(
+                    id=kb_task.task_id, description=data.description
+                )
 
         ## Swimlane or Column
         must_move = False
         if kb_task.swimlane != data.swimlane:
-            log.info(
+            self.log.info(
                 "MR !%d: Mismatch in swimlane %s != %s",
                 mr_num,
                 str(data.swimlane),
@@ -122,7 +143,7 @@ class OperationsGitLabToKanboard:
             must_move = True
 
         if kb_task.column != data.column:
-            log.info(
+            self.log.info(
                 "MR !%d: Mismatch in column %s != %s",
                 mr_num,
                 str(data.column),
@@ -130,7 +151,7 @@ class OperationsGitLabToKanboard:
             )
             must_move = True
 
-        if must_move:
+        if must_move and self.update_options.update_column_and_swimlane:
             column_id = data.column.to_column_id(self.kb_project)
             if column_id is None:
                 raise RuntimeError("Could not find column ID for " + str(data.column))
@@ -147,6 +168,23 @@ class OperationsGitLabToKanboard:
                 swimlane_id=swimlane_id,
                 position=1,
             )
+
+        if kb_task.flags != data.flags:
+            self.log.info(
+                "MR !%d: Mismatch in flags %s != %s",
+                mr_num,
+                str(data.flags),
+                str(kb_task.flags),
+            )
+            if self.update_options.update_tags:
+                tags = []
+                if data.flags is not None:
+                    tags = data.flags.to_string_list()
+                await self.kb.set_task_tags_async(
+                    project_id=self.kb_project.project_id,
+                    task_id=kb_task.task_id,
+                    tags=tags,
+                )
 
     async def process_mr(
         self,
@@ -181,7 +219,6 @@ class OperationsGitLabToKanboard:
             await self.update_task(
                 kb_task=kb_task,
                 mr_num=mr_num,
-                checklist_issue=checklist_issue,
                 data=data,
             )
             return None
@@ -231,7 +268,10 @@ async def async_main(
     project_name: str,
 ):
     obj = OperationsGitLabToKanboard(
-        oxr_gitlab=oxr_gitlab, gl_collection=gl_collection, kb_project_name=project_name
+        oxr_gitlab=oxr_gitlab,
+        gl_collection=gl_collection,
+        kb_project_name=project_name,
+        update_options=UpdateOptions(),
     )
     await obj.prepare()
     await obj.process_all_mrs()
@@ -241,11 +281,9 @@ async def async_main(
 
 def get_category(checklist_issue: ReleaseChecklistIssue) -> Optional[TaskCategory]:
     """Get KB category from checklist issue."""
-    log = logging.getLogger(__name__ + "get_category")
 
     category = None
     if checklist_issue.is_outside_ipr_framework:
-        log.info("Outside IPR policy: %s", checklist_issue.title)
         category = TaskCategory.OUTSIDE_IPR_POLICY
     return category
 
