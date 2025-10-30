@@ -6,24 +6,10 @@
 # Author: Rylie Pavlik <rylie.pavlik@collabora.com>
 
 import asyncio
-import itertools
-import logging
-import re
-import tomllib
-from functools import cached_property
-from typing import Any, Dict, Iterable, List, Optional, Set, cast
+from typing import Any, Dict, Optional
 
-import gitlab
-import gitlab.v4.objects
-import kanboard
-
-from openxr_ops.kb_ops_task import OperationsTask
-
-from .checklists import ReleaseChecklistFactory
-from .extensions import ExtensionNameGuesser
 from .kanboard_helpers import KanboardProject
-from .labels import MainProjectLabels
-from .vendors import VendorNames
+from .kb_ops_task import OperationsTask
 
 
 class TaskCollection:

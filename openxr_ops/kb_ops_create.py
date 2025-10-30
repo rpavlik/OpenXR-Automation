@@ -13,14 +13,12 @@ from typing import Literal, Optional, Union
 
 import kanboard
 
-from openxr_ops.kb_ops_auto_actions import (
+from .kanboard_helpers import KanboardProject
+from .kb_defaults import USERNAME, get_kb_api_token, get_kb_api_url
+from .kb_ops_auto_actions import (
     actions_from_migration_subtasks_group,
     get_and_parse_actions,
 )
-from openxr_ops.kb_ops_subtasks import get_all_subtasks
-
-from .kanboard_helpers import KanboardProject
-from .kb_defaults import USERNAME, get_kb_api_token, get_kb_api_url
 from .kb_ops_stages import (
     CATEGORY_COLORS,
     COLUMN_DESCRIPTIONS,
@@ -31,6 +29,7 @@ from .kb_ops_stages import (
     TaskSwimlane,
     TaskTags,
 )
+from .kb_ops_subtasks import get_all_subtasks
 
 
 async def populate_columns(kb: kanboard.Client, project_id: int):

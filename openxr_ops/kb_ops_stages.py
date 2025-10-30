@@ -7,7 +7,7 @@
 
 
 from enum import Enum
-from typing import Iterable, Optional
+from typing import Optional
 
 from .kanboard_helpers import KanboardProject
 
