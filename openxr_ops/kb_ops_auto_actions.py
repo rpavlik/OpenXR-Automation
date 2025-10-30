@@ -280,9 +280,6 @@ class SubtasksFromColumnAndCategory(AutoSubtasksBase):
         return AutoActionEvents.TASK_MOVE_COLUMN
 
     def to_arg_dict(self, kb_project: KanboardProject):
-        cat_id = 0
-        if self.category is not None:
-            cat_id = self.category.to_category_id(kb_project)
         return self.make_args(
             action=self.action_name(),
             event=self.default_event_name(),
