@@ -196,17 +196,18 @@ class OperationsTaskCreationData:
         column_id = self.column.to_column_id(kb_project)
         if column_id is None:
             return None
-        extras = dict()
+
+        category_id: Optional[int] = None
         if self.category is not None:
             category_id = self.category.to_category_id(kb_project)
-            if category_id is not None:
-                extras["category_id"] = category_id
 
+        tags: Optional[list[str]] = None
         if self.flags is not None:
-            extras["tags"] = self.flags.to_string_list()
+            tags = self.flags.to_string_list()
 
+        date_started: Optional[str] = None
         if self.date_started is not None:
-            extras["date_started"] = self.date_started.strftime("%Y-%m-%d %H:%M")
+            date_started = self.date_started.strftime("%Y-%m-%d %H:%M")
 
         mr_url = f"{_MR_URL_BASE}{self.main_mr}"
         kb = kb_project.kb
@@ -219,7 +220,9 @@ class OperationsTaskCreationData:
             column_id=column_id,
             color_id="white",
             # gl_url=mr_url,
-            **extras,
+            category_id=category_id,
+            tags=tags,
+            date_started=date_started,
         )
 
         await kb.create_external_task_link_async(
