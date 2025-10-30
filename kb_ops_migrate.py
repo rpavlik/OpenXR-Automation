@@ -40,12 +40,14 @@ _MR_REF_RE = re.compile(
 
 
 async def async_main(
-    oxr_gitlab: OpenXRGitlab, gl_collection: ReleaseChecklistCollection
+    oxr_gitlab: OpenXRGitlab,
+    gl_collection: ReleaseChecklistCollection,
+    project_name: str,
 ):
     log = logging.getLogger(__name__)
     from pprint import pprint
 
-    kb_board, card_collection = await load_kb_ops()
+    kb_board, card_collection = await load_kb_ops(project_name)
 
     dates: list[dict[str, Union[str, int]]] = []
 
@@ -302,7 +304,7 @@ async def create_equiv_card(
     return card_id, get_dates(checklist_issue)
 
 
-async def load_kb_ops():
+async def load_kb_ops(project_name: str):
     log = logging.getLogger(__name__)
     token = get_kb_api_token()
     url = get_kb_api_url()
@@ -317,9 +319,9 @@ async def load_kb_ops():
     log.info("Getting project by name")
     from pprint import pformat
 
-    proj = await kb.get_project_by_name_async(name=_PROJ_NAME)
+    proj = await kb.get_project_by_name_async(name=project_name)
     if proj == False:
-        raise RuntimeError("No project named " + _PROJ_NAME)
+        raise RuntimeError("No project named " + project_name)
 
     log.debug("Project data: %s", pformat(proj))
 
@@ -366,9 +368,27 @@ if __name__ == "__main__":
     from dotenv import load_dotenv
 
     load_dotenv()
+
+    import argparse
+
+    parser = argparse.ArgumentParser()
+
+    parser.add_help = True
+    parser.add_argument(
+        "--project",
+        type=str,
+        nargs=1,
+        help="Migrate to the named project",
+        default=_PROJ_NAME,
+        required=True,
+    )
+
+    args = parser.parse_args()
     oxr_gitlab, collection = load_gitlab_ops()
     assert collection
 
     loop = asyncio.get_event_loop()
     # loop.
-    project_id = loop.run_until_complete(async_main(oxr_gitlab, collection))
+    project_id = loop.run_until_complete(
+        async_main(oxr_gitlab, collection, args.project[0])
+    )
