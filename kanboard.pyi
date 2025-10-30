@@ -350,11 +350,11 @@ class Client:
     async def remove_tag_async(self, *, tag_id: int): ...
     """https://docs.kanboard.org/v1/api/tags_procedures/#removetag"""
 
-    def set_task_tags(self, *, project_id: int, task_id: int, tags: str): ...
+    def set_task_tags(self, *, project_id: int, task_id: int, tags: list[str]): ...
     """https://docs.kanboard.org/v1/api/tags_procedures/#settasktags"""
 
     async def set_task_tags_async(
-        self, *, project_id: int, task_id: int, tags: str
+        self, *, project_id: int, task_id: int, tags: list[str]
     ): ...
     """https://docs.kanboard.org/v1/api/tags_procedures/#settasktags"""
 
@@ -1133,7 +1133,7 @@ class Client:
         recurrence_timeframe: Optional[int] = None,
         recurrence_basedate: Optional[int] = None,
         reference: Optional[str] = None,
-        tags: Optional[str] = None,
+        tags: Optional[list[str]] = None,
         date_started: Optional[str] = None
     ): ...
     """https://docs.kanboard.org/v1/api/task_procedures/#createtask"""
@@ -1159,7 +1159,7 @@ class Client:
         recurrence_timeframe: Optional[int] = None,
         recurrence_basedate: Optional[int] = None,
         reference: Optional[str] = None,
-        tags: Optional[str] = None,
+        tags: Optional[list[str]] = None,
         date_started: Optional[str] = None
     ): ...
     """https://docs.kanboard.org/v1/api/task_procedures/#createtask"""
@@ -1200,7 +1200,7 @@ class Client:
         recurrence_timeframe: Optional[int] = None,
         recurrence_basedate: Optional[int] = None,
         reference: Optional[str] = None,
-        tags: Optional[str] = None,
+        tags: Optional[list[str]] = None,
         date_started: Optional[str] = None
     ): ...
     """https://docs.kanboard.org/v1/api/task_procedures/#updatetask"""
@@ -1223,7 +1223,7 @@ class Client:
         recurrence_timeframe: Optional[int] = None,
         recurrence_basedate: Optional[int] = None,
         reference: Optional[str] = None,
-        tags: Optional[str] = None,
+        tags: Optional[list[str]] = None,
         date_started: Optional[str] = None
     ): ...
     """https://docs.kanboard.org/v1/api/task_procedures/#updatetask"""
