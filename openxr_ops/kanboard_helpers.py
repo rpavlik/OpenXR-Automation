@@ -4,7 +4,7 @@
 # SPDX-License-Identifier: BSL-1.0
 #
 # Author: Rylie Pavlik <rylie.pavlik@collabora.com>
-from typing import Optional
+import asyncio
 
 import kanboard
 
@@ -22,6 +22,14 @@ class KanboardProject:
 
         self.category_title_to_id: dict[str, int] = dict()
         self.category_ids_to_titles: dict[int, str] = dict()
+
+    async def fetch_all_id_maps(self):
+        """Retrieve names and IDs for categories, swimlands, and columns."""
+        await asyncio.gather(
+            self.fetch_categories(),
+            self.fetch_columns(),
+            self.fetch_swimlanes(),
+        )
 
     async def fetch_categories(self):
         """Retrieve category names and IDs."""
@@ -57,12 +65,6 @@ class KanboardProject:
         self.col_ids_to_titles[col_id] = title
         return col_id
 
-    async def get_task_by_ref(self, ref):
-        # https://docs.kanboard.org/v1/api/task_procedures/#gettaskbyreference
-        return await self.kb.get_task_by_reference_async(
-            project_id=self.project_id, reference=ref
-        )
-
     async def get_all_tasks(self, only_open: bool = True):
         """Wrapper for https://docs.kanboard.org/v1/api/task_procedures/#getalltasks async."""
         status_id = 0
@@ -71,30 +73,3 @@ class KanboardProject:
         return await self.kb.get_all_tasks_async(
             project_id=self.project_id, status_id=status_id
         )
-
-    async def create_task(
-        self,
-        col_id,
-        title,
-        description,
-        reference: Optional[str] = None,
-        swimlane_id: Optional[int] = None,
-    ) -> int:
-        args = {
-            "title": title,
-            "project_id": self.project_id,
-            "column_id": col_id,
-            # "owner_id": None,
-            # "creator_id": None,
-            # "date_due": None,
-            "description": description,
-            # "category_id": None,
-            # "score": None,
-            # "swimlane_id": None,
-        }
-        if swimlane_id is not None:
-            args["swimlane_id"] = swimlane_id
-        if reference is not None:
-            args["reference"] = reference
-
-        return await self.kb.create_task_async(**args)

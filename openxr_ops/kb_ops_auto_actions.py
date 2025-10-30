@@ -587,11 +587,7 @@ async def get_and_parse_actions_from_named_project(
 
     proj_id = int(proj["id"])
     kb_project = KanboardProject(kb, proj_id)
-    await asyncio.gather(
-        kb_project.fetch_columns(),
-        kb_project.fetch_swimlanes(),
-        kb_project.fetch_categories(),
-    )
+    await kb_project.fetch_all_id_maps()
     return await get_and_parse_actions(kb, kb_project=kb_project, proj_id=proj_id)
 
 
@@ -667,11 +663,7 @@ if __name__ == "__main__":
         async def runner():
             proj_id = args.project_id[0]
             kb_project = KanboardProject(kb, proj_id)
-            await asyncio.gather(
-                kb_project.fetch_columns(),
-                kb_project.fetch_swimlanes(),
-                kb_project.fetch_categories(),
-            )
+            await kb_project.fetch_all_id_maps()
             unparsed, all_parsed = await get_and_parse_actions(kb, kb_project, proj_id)
             from pprint import pprint
 

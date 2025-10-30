@@ -329,11 +329,7 @@ async def load_kb_ops(project_name: str):
 
     kb_project = KanboardProject(kb, int(proj["id"]))
     log.info("Getting columns, swimlanes, and categories")
-    await asyncio.gather(
-        kb_project.fetch_columns(),
-        kb_project.fetch_swimlanes(),
-        kb_project.fetch_categories(),
-    )
+    await kb_project.fetch_all_id_maps()
 
     log.info("Loading all active KB tasks")
     task_collection = TaskCollection(kb_project)

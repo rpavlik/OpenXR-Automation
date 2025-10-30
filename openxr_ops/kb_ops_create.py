@@ -257,11 +257,7 @@ async def populate_project(kb: kanboard.Client, proj_id: int):
     kb_project = KanboardProject(kb, proj_id)
 
     # Repopulate
-    await asyncio.gather(
-        kb_project.fetch_columns(),
-        kb_project.fetch_swimlanes(),
-        kb_project.fetch_categories(),
-    )
+    await kb_project.fetch_all_id_maps()
 
     await populate_actions(kb, kb_project, proj_id)
 
