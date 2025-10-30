@@ -88,6 +88,13 @@ class ReleaseChecklistIssue:
         )
 
     @property
+    def editor_review_requested(self) -> bool:
+        return (
+            OpsProjectLabels.EDITOR_REVIEW_REQUESTED
+            in self.issue_obj.attributes["labels"]
+        )
+
+    @property
     def is_khr(self) -> bool:
         return GroupLabels.KHR_EXT in self.issue_obj.attributes["labels"]
 

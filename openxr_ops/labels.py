@@ -36,6 +36,7 @@ class OpsProjectLabels:
     INITIAL_SPEC_REVIEW_COMPLETE = "initial-review-complete"
     INITIAL_DESIGN_REVIEW_COMPLETE = "initial-design-review-complete"
     CHAMPION_APPROVED = "champion-approved"
+    EDITOR_REVIEW_REQUESTED = "editor-review-requested"
 
     UNCHANGEABLE = "API Shipped publicly (unchangable)"
 
