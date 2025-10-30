@@ -540,7 +540,7 @@ def actions_from_migration_subtasks_group(group: MigrationSubtasksGroup):
             "Condition does not match any known combo: %s", pformat(group.condition)
         )
         return
-    log.warning("No condition provided")
+    log.warning("No condition provided for %s", group.group_name)
 
 
 AUTO_ACTION_TYPES = [
