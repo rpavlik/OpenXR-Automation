@@ -7,13 +7,13 @@
 # Author: Rylie Pavlik <rylie.pavlik@collabora.com>
 
 import logging
-from typing import Iterable, List, Optional, Union
-
 import tomllib
+from typing import Iterable, List, Optional, Union
 
 from .checklists import ColumnName, ReleaseChecklistCollection
 from .custom_sort import SORTERS, BasicDesignReviewSort, BasicSpecReviewSort, SorterBase
 from .gitlab import OpenXRGitlab
+from .labels import OpsProjectLabels
 from .priority_results import NOW, PriorityResults, ReleaseChecklistIssue, apply_offsets
 from .vendors import VendorNames
 
@@ -70,6 +70,9 @@ def load_needs_review(
             continue
 
         if column.value not in issue_obj.labels:
+            continue
+
+        if OpsProjectLabels.EDITOR_REVIEW_REQUESTED not in issue_obj.labels:
             continue
 
         # print(issue_obj.attributes["title"])
