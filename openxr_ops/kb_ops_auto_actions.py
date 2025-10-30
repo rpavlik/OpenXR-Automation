@@ -17,8 +17,8 @@ import kanboard
 
 from .kanboard_helpers import KanboardProject
 from .kb_defaults import USERNAME, get_kb_api_token, get_kb_api_url
+from .kb_ops_config import MigrationSubtasksGroup
 from .kb_ops_stages import TaskCategory, TaskColumn, TaskSwimlane
-from .kb_ops_subtasks import MigrationSubtasksGroup
 
 
 class AutoActionTypes(Enum):

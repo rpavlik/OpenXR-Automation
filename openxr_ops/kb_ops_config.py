@@ -110,7 +110,7 @@ def get_all_subtasks() -> list[MigrationSubtasksGroup]:
     """Load all subtasks from the data file."""
     data = (
         importlib.resources.files("openxr_ops")
-        .joinpath("subtasks.toml")
+        .joinpath("kb_config.toml")
         .read_text(encoding="utf-8")
     )
     parsed = tomllib.loads(data)

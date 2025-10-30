@@ -19,6 +19,7 @@ from .kb_ops_auto_actions import (
     actions_from_migration_subtasks_group,
     get_and_parse_actions,
 )
+from .kb_ops_config import get_all_subtasks
 from .kb_ops_stages import (
     CATEGORY_COLORS,
     COLUMN_DESCRIPTIONS,
@@ -29,7 +30,6 @@ from .kb_ops_stages import (
     TaskSwimlane,
     TaskTags,
 )
-from .kb_ops_subtasks import get_all_subtasks
 
 
 async def populate_columns(kb: kanboard.Client, project_id: int):
