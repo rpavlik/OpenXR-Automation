@@ -15,10 +15,7 @@ import kanboard
 
 from .kanboard_helpers import KanboardProject
 from .kb_defaults import USERNAME, get_kb_api_token, get_kb_api_url
-from .kb_ops_auto_actions import (
-    actions_from_migration_subtasks_group,
-    get_and_parse_actions,
-)
+from .kb_ops_auto_actions import actions_from_subtask_group, get_and_parse_actions
 from .kb_ops_config import get_all_subtasks
 from .kb_ops_stages import (
     CATEGORY_COLORS,
@@ -176,7 +173,7 @@ async def populate_actions(
 
     current_actions_future = get_and_parse_actions(kb, kb_project, project_id)
     for group in subtask_groups:
-        action = actions_from_migration_subtasks_group(group)
+        action = actions_from_subtask_group(group)
         if action is not None:
             expected_auto_actions.append(action)
 

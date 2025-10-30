@@ -16,10 +16,10 @@ from .kb_ops_stages import TaskCategory, TaskColumn, TaskSwimlane
 
 
 @dataclass
-class MigrationSubtaskEntry:
+class ConfigSubtaskEntry:
     """A single subtask."""
 
-    task: str
+    name: str
     """Subtask name/string."""
 
     migration_prefix: str
@@ -27,9 +27,9 @@ class MigrationSubtaskEntry:
 
     @classmethod
     def from_dict(cls, d: dict):
-        task = d["task"]
-        migration_prefix = d.get("migration_prefix", task)
-        return cls(task=task, migration_prefix=migration_prefix)
+        name = d["name"]
+        migration_prefix = d.get("migration_prefix", name)
+        return cls(name=name, migration_prefix=migration_prefix)
 
 
 def parse_into(enum_type, s: Optional[str]):
@@ -39,7 +39,7 @@ def parse_into(enum_type, s: Optional[str]):
 
 
 @dataclass
-class MigrationSubtasksGroupCondition:
+class ConfigSubtasksGroupCondition:
     """
     Conditions to automatically add a group of subtasks.
 
@@ -82,31 +82,31 @@ class MigrationSubtasksGroupCondition:
 
 
 @dataclass
-class MigrationSubtasksGroup:
+class ConfigSubtaskGroup:
     """A collection of subtasks, often with a related trigger."""
 
     group_name: str
     """Arbitrary name."""
 
-    tasks: list[MigrationSubtaskEntry]
+    subtasks: list[ConfigSubtaskEntry]
     """List of subtasks in the group."""
 
-    condition: Optional[MigrationSubtasksGroupCondition] = None
+    condition: Optional[ConfigSubtasksGroupCondition] = None
     """Condition to evaluate to auto-create the subtasks in the group."""
 
     @classmethod
     def from_dict(cls, d: dict):
         """Contruct a group from a dict (generally from TOML)."""
         group_name = d["group_name"]
-        tasks = [MigrationSubtaskEntry.from_dict(task) for task in d["task"]]
+        subtasks = [ConfigSubtaskEntry.from_dict(subtask) for subtask in d["subtask"]]
         condition = None
         cond_dict = d.get("condition")
         if cond_dict:
-            condition = MigrationSubtasksGroupCondition.from_dict(cond_dict)
-        return cls(group_name=group_name, tasks=tasks, condition=condition)
+            condition = ConfigSubtasksGroupCondition.from_dict(cond_dict)
+        return cls(group_name=group_name, subtasks=subtasks, condition=condition)
 
 
-def get_all_subtasks() -> list[MigrationSubtasksGroup]:
+def get_all_subtasks() -> list[ConfigSubtaskGroup]:
     """Load all subtasks from the data file."""
     data = (
         importlib.resources.files("openxr_ops")
@@ -115,7 +115,8 @@ def get_all_subtasks() -> list[MigrationSubtasksGroup]:
     )
     parsed = tomllib.loads(data)
     return [
-        MigrationSubtasksGroup.from_dict(subtasks) for subtasks in parsed["subtasks"]
+        ConfigSubtaskGroup.from_dict(subtask_group)
+        for subtask_group in parsed["subtask_group"]
     ]
 
 

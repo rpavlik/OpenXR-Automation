@@ -17,7 +17,7 @@ import kanboard
 
 from .kanboard_helpers import KanboardProject
 from .kb_defaults import USERNAME, get_kb_api_token, get_kb_api_url
-from .kb_ops_config import MigrationSubtasksGroup
+from .kb_ops_config import ConfigSubtaskGroup
 from .kb_ops_stages import TaskCategory, TaskColumn, TaskSwimlane
 
 
@@ -470,9 +470,9 @@ class SubtasksFromColumnAndSwimlaneAndCategory(AutoSubtasksBase):
         )
 
 
-def actions_from_migration_subtasks_group(group: MigrationSubtasksGroup):
+def actions_from_subtask_group(group: ConfigSubtaskGroup):
     log = logging.getLogger(f"{__name__}.from_migration_subtasks_group")
-    subtasks = [subtask.task for subtask in group.tasks]
+    subtask_names = [subtask.name for subtask in group.subtasks]
 
     if group.condition:
         if (
@@ -484,7 +484,7 @@ def actions_from_migration_subtasks_group(group: MigrationSubtasksGroup):
                 column=group.condition.column,
                 swimlane=group.condition.swimlane,
                 category=group.condition.get_category_predicate(),
-                subtasks=subtasks,
+                subtasks=subtask_names,
                 allow_duplicate_subtasks=group.condition.allow_duplicate_subtasks,
             )
 
@@ -496,7 +496,7 @@ def actions_from_migration_subtasks_group(group: MigrationSubtasksGroup):
             return SubtasksFromColumnAndSwimlane.create(
                 column=group.condition.column,
                 swimlane=group.condition.swimlane,
-                subtasks=subtasks,
+                subtasks=subtask_names,
                 allow_duplicate_subtasks=group.condition.allow_duplicate_subtasks,
             )
 
@@ -508,7 +508,7 @@ def actions_from_migration_subtasks_group(group: MigrationSubtasksGroup):
             return SubtasksFromColumnAndCategory.create(
                 column=group.condition.column,
                 category=group.condition.get_category_predicate(),
-                subtasks=subtasks,
+                subtasks=subtask_names,
                 allow_duplicate_subtasks=group.condition.allow_duplicate_subtasks,
             )
 
@@ -519,7 +519,7 @@ def actions_from_migration_subtasks_group(group: MigrationSubtasksGroup):
         ):
             return SubtasksFromColumn.create(
                 column=group.condition.column,
-                subtasks=subtasks,
+                subtasks=subtask_names,
                 allow_duplicate_subtasks=group.condition.allow_duplicate_subtasks,
             )
 
@@ -530,7 +530,7 @@ def actions_from_migration_subtasks_group(group: MigrationSubtasksGroup):
         ):
             return SubtasksFromCategory.create(
                 category=group.condition.get_category_predicate(),
-                subtasks=subtasks,
+                subtasks=subtask_names,
                 allow_duplicate_subtasks=group.condition.allow_duplicate_subtasks,
             )
         log.warning(

@@ -1,104 +1,113 @@
-[[subtasks]]
-group_name = "universal"
-[condition]
-column = "In Preparation"
-[[subtasks.task]]
-task = "Extension number reserved"
-[[subtasks.task]]
-task = "XML changes made"
+# Copyright 2024-2025, The Khronos Group Inc.
+#
+# SPDX-License-Identifier: Apache-2.0
+#
+# Author: Rylie Pavlik <rylie.pavlik@collabora.com>
 
-[[subtasks]]
+
+# Each group of subtasks has a (mostly unused) name,
+# a possible "condition" (for auto creation),
+# and then the subtasks themselves.
+[[subtask_group]]
+group_name = "universal"
+[subtask_group.condition]
+column = "In Preparation"
+[[subtask_group.subtask]]
+name = "Extension number reserved"
+[[subtask_group.subtask]]
+name = "XML changes made"
+
+[[subtask_group]]
 group_name = "before design review"
-[subtasks.condition]
+[subtask_group.condition]
 swimlane = "Design Review phase"
 column = "In Preparation"
-[[subtasks.task]]
-task = "Initial ADOC stubbed out"
+[[subtask_group.subtask]]
+name = "Initial ADOC stubbed out"
 migration_prefix = "ADOC written"
 
-[[subtasks]]
+[[subtask_group]]
 group_name = "handle design review"
-[subtasks.condition]
+[subtask_group.condition]
 swimlane = "Design Review phase"
 column = "Needs Revisions"
 allow_duplicate_subtasks = true
-[[subtasks.task]]
-task = "Design review comments addressed, threads resolved"
+[[subtask_group.subtask]]
+name = "Design review comments addressed, threads resolved"
 
-[[subtasks]]
+[[subtask_group]]
 group_name = "before spec review"
-[subtasks.condition]
+[subtask_group.condition]
 swimlane = "Spec Review phase"
 column = "In Preparation"
-[[subtasks.task]]
-task = "Changelog fragments written"
-[[subtasks.task]]
-task = "Full ADOC spec written"
+[[subtask_group.subtask]]
+name = "Changelog fragments written"
+[[subtask_group.subtask]]
+name = "Full ADOC spec written"
 migration_prefix = "ADOC written"
-[[subtasks.task]]
-task = "Champion reviewed generated HTML output (`./makeAllExts html`)"
+[[subtask_group.subtask]]
+name = "Champion reviewed generated HTML output (`./makeAllExts html`)"
 migration_prefix = "Champion reviewed generated HTML output"
-[[subtasks.task]]
-task = "Champion reviewed generated header (`./makeAllExts header`)"
+[[subtask_group.subtask]]
+name = "Champion reviewed generated header (`./makeAllExts header`)"
 migration_prefix = "Champion reviewed generated header"
-[[subtasks.task]]
-task = "Champion reviewed generated ref/man pages (`./makeAllExts manhtmlpages`)"
+[[subtask_group.subtask]]
+name = "Champion reviewed generated ref/man pages (`./makeAllExts manhtmlpages`)"
 migration_prefix = "Champion reviewed generated ref/man pages"
-[[subtasks.task]]
-task = "Champion performed self-review using the Extension Review checklist on the wiki"
+[[subtask_group.subtask]]
+name = "Champion performed self-review using the Extension Review checklist on the wiki"
 migration_prefix = "Champion performed self-review"
 
-[[subtasks]]
+[[subtask_group]]
 group_name = "handle spec review"
-[subtasks.condition]
+[subtask_group.condition]
 swimlane = "Spec Review phase"
 column = "Needs Revisions"
 allow_duplicate_subtasks = true
-[[subtasks.task]]
-task = "Spec review comments addressed, threads resolved"
+[[subtask_group.subtask]]
+name = "Spec review comments addressed, threads resolved"
 
-[[subtasks]]
+[[subtask_group]]
 group_name = "before publication"
-[subtasks.condition]
+[subtask_group.condition]
 swimlane = "Spec Review phase"
 column = "In Preparation"
 # exclude_category = "Not Subject to IPR Policy"
 exclude_categories = true
-[[subtasks.task]]
-task = "CTS tests written"
+[[subtask_group.subtask]]
+name = "CTS tests written"
 migration_prefix = "CTS tests written"
 
-
-[[subtasks]]
+[[subtask_group]]
 group_name = "before publication"
-[subtasks.condition]
+[subtask_group.condition]
 swimlane = "Spec Review phase"
 column = "In Preparation"
 category = "Not Subject to IPR Policy"
-[[subtasks.task]]
-task = "CTS tests written (optional)"
+[[subtask_group.subtask]]
+name = "CTS tests written (optional)"
 migration_prefix = "CTS tests written"
 
-[[subtasks]]
+[[subtask_group]]
 group_name = "ratification submission"
-[subtasks.condition]
+[subtask_group.condition]
 swimlane = "Spec Review phase"
 column = "Pending Approvals And Merge"
 # exclude_category = "Not Subject to IPR Policy"
 exclude_categories = true
-[[subtasks.task]]
-task = "WG vote to submit passed with a 3/4 majority"
-[[subtasks.task]]
-task = "Submission package available for Promoter review"
+[[subtask_group.subtask]]
+name = "WG vote to submit passed with a 3/4 majority"
+[[subtask_group.subtask]]
+name = "Submission package available for Promoter review"
 
-[[subtasks]]
+[[subtask_group]]
 group_name = "ratification"
-[subtasks.condition]
+[subtask_group.condition]
 swimlane = "Spec Review phase"
 column = "Pending Approvals And Merge"
 # exclude_category = "Not Subject to IPR Policy"
 exclude_categories = true
-[[subtasks.task]]
-task = "OpenXR specification ratified by Promoters"
-[[subtasks.task]]
-task = "Loader support (if required) ready for release"
+[[subtask_group.subtask]]
+name = "OpenXR specification ratified by Promoters"
+[[subtask_group.subtask]]
+name = "Loader support (if required) ready for release"
