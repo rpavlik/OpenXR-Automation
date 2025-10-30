@@ -22,10 +22,10 @@ from openxr_ops.checklists import ReleaseChecklistCollection
 from openxr_ops.gitlab import OpenXRGitlab
 from openxr_ops.kanboard_helpers import KanboardBoard
 from openxr_ops.kb_defaults import USERNAME, get_kb_api_token, get_kb_api_url
-from openxr_ops.kb_ops_card import OperationsCardCreationData, OperationsCardFlags
-from openxr_ops.kb_ops_collection import CardCollection
+from openxr_ops.kb_ops_collection import TaskCollection
 from openxr_ops.kb_ops_queue import COLUMN_CONVERSION, COLUMN_TO_SWIMLANE
-from openxr_ops.kb_ops_stages import CardCategory, CardSwimlane
+from openxr_ops.kb_ops_stages import TaskCategory, TaskSwimlane
+from openxr_ops.kb_ops_task import OperationsTaskCreationData, OperationsTaskFlags
 from openxr_ops.labels import ColumnName
 from openxr_ops.priority_results import ReleaseChecklistIssue
 from openxr_ops.vendors import VendorNames
@@ -47,31 +47,31 @@ async def async_main(
     log = logging.getLogger(__name__)
     from pprint import pprint
 
-    kb_board, card_collection = await load_kb_ops(project_name)
+    kb_board, task_collection = await load_kb_ops(project_name)
 
     dates: list[dict[str, Union[str, int]]] = []
 
     # TODO stop limiting
     for issue_ref, mr_num in itertools.islice(gl_collection.issue_to_mr.items(), 0, 50):
         issue_obj = gl_collection.mr_to_issue_object[mr_num]
-        kb_card = card_collection.get_card_by_mr(mr_num)
-        if kb_card is not None:
+        kb_task = task_collection.get_task_by_mr(mr_num)
+        if kb_task is not None:
             # already created
-            assert kb_card.task_dict is not None
+            assert kb_task.task_dict is not None
             log.info(
-                "MR !%d: Card already exists - %s", mr_num, kb_card.task_dict["url"]
+                "MR !%d: Task already exists - %s", mr_num, kb_task.task_dict["url"]
             )
             # TODO verify it's fully populated here
             continue
 
-        new_card_id, card_dates = await create_equiv_card(
+        new_task_id, task_dates = await create_equiv_task(
             oxr_gitlab, gl_collection, kb_board, mr_num, issue_obj
         )
-        if new_card_id is not None:
-            log.info("Created new card ID %d", new_card_id)
-            if card_dates is not None:
-                card_dates["task_id"] = new_card_id
-                dates.append(card_dates)
+        if new_task_id is not None:
+            log.info("Created new task ID %d", new_task_id)
+            if task_dates is not None:
+                task_dates["task_id"] = new_task_id
+                dates.append(task_dates)
 
     datestamp = datetime.datetime.now(datetime.UTC).strftime("%Y%m%d-%H.%M.%S")
     fn = f"dates-{datestamp}.csv"
@@ -83,14 +83,14 @@ async def async_main(
             datafile.writerow(entry)
 
 
-def get_category(checklist_issue: ReleaseChecklistIssue) -> Optional[CardCategory]:
+def get_category(checklist_issue: ReleaseChecklistIssue) -> Optional[TaskCategory]:
     """Get KB category from checklist issue."""
     log = logging.getLogger(__name__ + "get_category")
 
     category = None
     if checklist_issue.is_outside_ipr_framework:
         log.info("Outside IPR policy: %s", checklist_issue.title)
-        category = CardCategory.OUTSIDE_IPR_POLICY
+        category = TaskCategory.OUTSIDE_IPR_POLICY
     return category
 
 
@@ -236,7 +236,7 @@ def get_description(issue_obj) -> str:
 
 def get_flags(checklist_issue):
     """Get KB tags from checklist issue labels."""
-    flags = OperationsCardFlags(
+    flags = OperationsTaskFlags(
         api_frozen=checklist_issue.unchangeable,
         initial_design_review_complete=checklist_issue.initial_design_review_complete,
         initial_spec_review_complete=checklist_issue.initial_spec_review_complete,
@@ -246,7 +246,7 @@ def get_flags(checklist_issue):
     return flags
 
 
-async def create_equiv_card(
+async def create_equiv_task(
     oxr_gitlab,
     gl_collection,
     kb_board,
@@ -286,7 +286,7 @@ async def create_equiv_card(
 
     started = get_latency_date(checklist_issue)
 
-    data = OperationsCardCreationData(
+    data = OperationsTaskCreationData(
         main_mr=mr_num,
         column=converted_column,
         swimlane=swimlane,
@@ -297,11 +297,9 @@ async def create_equiv_card(
         category=category,
         date_started=started,
     )
-    card_id = await data.create_card(kb_board=kb_board)
+    task_id = await data.create_task(kb_board=kb_board)
 
-    # date_dict = {"task_id": card_id}
-    # date_dict.update()
-    return card_id, get_dates(checklist_issue)
+    return task_id, get_dates(checklist_issue)
 
 
 async def load_kb_ops(project_name: str):
@@ -333,10 +331,10 @@ async def load_kb_ops(project_name: str):
         kb_board.fetch_categories(),
     )
 
-    log.info("Loading all active cards")
-    card_collection = CardCollection(kb_board)
-    await card_collection.load_board()
-    return kb_board, card_collection
+    log.info("Loading all active KB tasks")
+    task_collection = TaskCollection(kb_board)
+    await task_collection.load_board()
+    return kb_board, task_collection
 
 
 def load_gitlab_ops(for_real: bool = True):

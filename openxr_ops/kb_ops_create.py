@@ -26,10 +26,10 @@ from .kb_ops_stages import (
     COLUMN_DESCRIPTIONS,
     SWIMLANE_DESCRIPTIONS,
     TAG_COLORS,
-    CardCategory,
-    CardColumn,
-    CardSwimlane,
-    CardTags,
+    TaskCategory,
+    TaskColumn,
+    TaskSwimlane,
+    TaskTags,
 )
 
 
@@ -45,14 +45,14 @@ async def populate_columns(kb: kanboard.Client, project_id: int):
             title=col.value,
             description=COLUMN_DESCRIPTIONS[col],
         )
-        for col in CardColumn
+        for col in TaskColumn
         if col.value not in col_titles
     ]
     if futures:
         log.info("Adding %d columns", len(futures))
         await asyncio.gather(*futures)
 
-    desired = {col.value for col in CardColumn}
+    desired = {col.value for col in TaskColumn}
 
     # Remove extra columns
     futures = [
@@ -67,7 +67,7 @@ async def populate_columns(kb: kanboard.Client, project_id: int):
     updated_cols = await kb.get_columns_async(project_id=project_id)
     col_ids = {col["title"]: col["id"] for col in updated_cols}
 
-    desired_order = [col.value for col in CardColumn]
+    desired_order = [col.value for col in TaskColumn]
 
     # Make sure column order matches
     if any(
@@ -91,7 +91,7 @@ async def populate_swimlanes(kb: kanboard.Client, project_id: int):
     if len(lanes) == 1 and "Default swimlane" in lane_names:
         # Rename our default lane to be the first lane in the list.
         log.info("Updating default swimlane")
-        first_lane = list(CardSwimlane)[0]
+        first_lane = list(TaskSwimlane)[0]
         await kb.update_swimlane_async(
             project_id=project_id,
             swimlane_id=lanes[0]["id"],
@@ -108,7 +108,7 @@ async def populate_swimlanes(kb: kanboard.Client, project_id: int):
             name=lane.value,
             description=SWIMLANE_DESCRIPTIONS[lane],
         )
-        for lane in CardSwimlane
+        for lane in TaskSwimlane
         if lane.value not in lane_names
     ]
 
@@ -129,7 +129,7 @@ async def populate_categories(kb: kanboard.Client, project_id: int):
             name=category.value,
             color_id=CATEGORY_COLORS[category],
         )
-        for category in CardCategory
+        for category in TaskCategory
         if category.value not in cat_names
     ]
 
@@ -150,7 +150,7 @@ async def populate_tags(kb: kanboard.Client, project_id: int):
             tag=tag.value,
             color_id=TAG_COLORS[tag],
         )
-        for tag in CardTags
+        for tag in TaskTags
         if tag.value not in tag_names
     ]
 

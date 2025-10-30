@@ -17,7 +17,7 @@ import gitlab
 import gitlab.v4.objects
 import kanboard
 
-from openxr_ops.kb_ops_card import OperationsCard
+from openxr_ops.kb_ops_task import OperationsTask
 
 from .checklists import ReleaseChecklistFactory
 from .extensions import ExtensionNameGuesser
@@ -26,7 +26,7 @@ from .labels import MainProjectLabels
 from .vendors import VendorNames
 
 
-class CardCollection:
+class TaskCollection:
     """The object containing the loaded data of the KanBoard ops project."""
 
     def __init__(
@@ -55,28 +55,29 @@ class CardCollection:
         # self.mr_to_issue: Dict[int, str] = {}
         # self.ignore_issues: Set[str] = set()
         # self.include_issues: List[int] = []
-        self.mr_to_card: Dict[int, int] = dict()
-        # self.card_to_mr: Dict[int, int] = dict()
-        self.cards: Dict[int, OperationsCard] = dict()
+        self.mr_to_task_id: Dict[int, int] = dict()
+        self.tasks: Dict[int, OperationsTask] = dict()
 
-    async def _load_card(self, task: dict[str, Any]):
-        card_id = int(task["id"])
-        card = await OperationsCard.from_task_dict_with_more_data(self.kb_board, task)
-        self.cards[card_id] = card
-        if card.main_mr is not None:
-            self.mr_to_card[card.main_mr] = card_id
+    async def _load_task(self, task_data: dict[str, Any]):
+        task_id = int(task_data["id"])
+        task = await OperationsTask.from_task_dict_with_more_data(
+            self.kb_board, task_data
+        )
+        self.tasks[task_id] = task
+        if task.main_mr is not None:
+            self.mr_to_task_id[task.main_mr] = task_id
 
     async def load_board(self, only_open: bool = True):
         tasks = await self.kb_board.get_all_tasks(only_open=only_open)
-        await asyncio.gather(*[self._load_card(task) for task in tasks])
-        # for task in tasks:
-        # self.mr_to_card[card.main_mr] = card_id
+        await asyncio.gather(*[self._load_task(task) for task in tasks])
 
-    def get_card_by_mr(self, mr_num) -> Optional[OperationsCard]:
-        card_id = self.mr_to_card.get(mr_num)
-        if card_id is not None:
-            return self.get_card_by_id(card_id)
+    def get_task_by_mr(self, mr_num: int) -> Optional[OperationsTask]:
+        """Get task object associated with an OpenXR GitLab MR number, if any exists."""
+        task_id = self.mr_to_task_id.get(mr_num)
+        if task_id is not None:
+            return self.get_task_by_id(task_id)
         return None
 
-    def get_card_by_id(self, card_id) -> Optional[OperationsCard]:
-        return self.cards.get(card_id)
+    def get_task_by_id(self, task_id: int) -> Optional[OperationsTask]:
+        """Get task object from a task ID number."""
+        return self.tasks.get(task_id)

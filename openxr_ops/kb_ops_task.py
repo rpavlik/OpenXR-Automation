@@ -6,7 +6,7 @@ from typing import Any, Optional
 import kanboard
 
 from .kanboard_helpers import KanboardBoard
-from .kb_ops_stages import CardCategory, CardColumn, CardSwimlane, CardTags
+from .kb_ops_stages import TaskCategory, TaskColumn, TaskSwimlane, TaskTags
 
 _MR_URL_BASE = "https://gitlab.khronos.org/openxr/openxr/-/merge_requests/"
 
@@ -26,7 +26,7 @@ def extract_mr_number(uri: Optional[str]) -> Optional[int]:
 
 
 @dataclass
-class OperationsCardFlags:
+class OperationsTaskFlags:
     """Booleans that come from presence/absence of tags."""
 
     api_frozen: bool
@@ -35,39 +35,39 @@ class OperationsCardFlags:
     spec_support_review_comments_pending: bool
 
     @classmethod
-    def from_task_tags_result(cls, task_tags: dict[str, str]) -> "OperationsCardFlags":
+    def from_task_tags_result(cls, task_tags: dict[str, str]) -> "OperationsTaskFlags":
         tags = set(task_tags.values())
 
         return cls(
-            api_frozen=(CardTags.API_FROZEN.value in tags),
+            api_frozen=(TaskTags.API_FROZEN.value in tags),
             initial_design_review_complete=(
-                CardTags.INITIAL_DESIGN_REVIEW_COMPLETE.value in tags
+                TaskTags.INITIAL_DESIGN_REVIEW_COMPLETE.value in tags
             ),
             initial_spec_review_complete=(
-                CardTags.INITIAL_SPEC_REVIEW_COMPLETE.value in tags
+                TaskTags.INITIAL_SPEC_REVIEW_COMPLETE.value in tags
             ),
             spec_support_review_comments_pending=(
-                CardTags.SPEC_SUPPORT_REVIEW_COMMENTS_PENDING.value in tags
+                TaskTags.SPEC_SUPPORT_REVIEW_COMMENTS_PENDING.value in tags
             ),
         )
 
     @classmethod
     async def fetch_tags_list(
         cls, kb: kanboard.Client, task_id: int
-    ) -> "OperationsCardFlags":
+    ) -> "OperationsTaskFlags":
         tags_future = kb.get_task_tags_async(task_id=task_id)
         return cls.from_task_tags_result(await tags_future)
 
-    def to_enum_list(self) -> list[CardTags]:
+    def to_enum_list(self) -> list[TaskTags]:
         ret = []
         if self.api_frozen:
-            ret.append(CardTags.API_FROZEN)
+            ret.append(TaskTags.API_FROZEN)
         if self.initial_design_review_complete:
-            ret.append(CardTags.INITIAL_DESIGN_REVIEW_COMPLETE)
+            ret.append(TaskTags.INITIAL_DESIGN_REVIEW_COMPLETE)
         if self.initial_spec_review_complete:
-            ret.append(CardTags.INITIAL_SPEC_REVIEW_COMPLETE)
+            ret.append(TaskTags.INITIAL_SPEC_REVIEW_COMPLETE)
         if self.spec_support_review_comments_pending:
-            ret.append(CardTags.SPEC_SUPPORT_REVIEW_COMMENTS_PENDING)
+            ret.append(TaskTags.SPEC_SUPPORT_REVIEW_COMMENTS_PENDING)
         return ret
 
     def to_string_list(self) -> list[str]:
@@ -75,10 +75,10 @@ class OperationsCardFlags:
 
 
 @dataclass
-class OperationsCardBase:
-    card_id: int
-    column: CardColumn
-    swimlane: CardSwimlane
+class OperationsTaskBase:
+    task_id: int
+    column: TaskColumn
+    swimlane: TaskSwimlane
     title: str
     description: str
     task_dict: Optional[dict]
@@ -86,7 +86,7 @@ class OperationsCardBase:
     @classmethod
     def from_task_dict(
         cls, kb_board: KanboardBoard, task: dict[str, Any]
-    ) -> "OperationsCardBase":
+    ) -> "OperationsTaskBase":
         """
         Interpret a task dictionary from e.g. get_all_tasks.
 
@@ -95,18 +95,18 @@ class OperationsCardBase:
         Unable to populate the main MR or any more advanced properties.
         """
 
-        card_id = int(task["id"])
+        task_id = int(task["id"])
         column_id = int(task["column_id"])
-        column: CardColumn = CardColumn.from_column_id(kb_board, col_id=column_id)
+        column: TaskColumn = TaskColumn.from_column_id(kb_board, col_id=column_id)
         title: str = task["title"]
         description: str = task["description"]
 
         swimlane_id = int(task["swimlane_id"])
-        swimlane: CardSwimlane = CardSwimlane.from_swimlane_id(
+        swimlane: TaskSwimlane = TaskSwimlane.from_swimlane_id(
             kb_board, swimlane_id=int(swimlane_id)
         )
         return cls(
-            card_id=card_id,
+            task_id=task_id,
             column=column,
             swimlane=swimlane,
             title=title,
@@ -116,23 +116,23 @@ class OperationsCardBase:
 
 
 @dataclass
-class OperationsCard(OperationsCardBase):
-    """Like OperationsCardBase but this requires additional queries"""
+class OperationsTask(OperationsTaskBase):
+    """Like OperationsTaskBase but this requires additional queries"""
 
     main_mr: Optional[int]
 
     ext_links_list: list[dict[str, Any]]
 
-    flags: Optional[OperationsCardFlags]
+    flags: Optional[OperationsTaskFlags]
 
     tags_dict: dict[str, Any]
 
     @classmethod
     async def from_base_with_more_data(
-        cls, base: OperationsCardBase, kb: kanboard.Client
-    ) -> "OperationsCard":
-        ext_links_future = kb.get_all_external_task_links_async(task_id=base.card_id)
-        tags_future = kb.get_task_tags_async(task_id=base.card_id)
+        cls, base: OperationsTaskBase, kb: kanboard.Client
+    ) -> "OperationsTask":
+        ext_links_future = kb.get_all_external_task_links_async(task_id=base.task_id)
+        tags_future = kb.get_task_tags_async(task_id=base.task_id)
 
         main_mr: Optional[int] = None
         ext_links = await ext_links_future
@@ -142,10 +142,10 @@ class OperationsCard(OperationsCardBase):
                 break
 
         tags = await tags_future
-        flags = OperationsCardFlags.from_task_tags_result(tags)
+        flags = OperationsTaskFlags.from_task_tags_result(tags)
 
         return cls(
-            card_id=base.card_id,
+            task_id=base.task_id,
             column=base.column,
             swimlane=base.swimlane,
             title=base.title,
@@ -160,14 +160,14 @@ class OperationsCard(OperationsCardBase):
     @classmethod
     async def from_task_dict_with_more_data(
         cls, kb_board: KanboardBoard, task: dict[str, Any]
-    ) -> "OperationsCard":
-        base = OperationsCardBase.from_task_dict(kb_board, task)
+    ) -> "OperationsTask":
+        base = OperationsTaskBase.from_task_dict(kb_board, task)
         return await cls.from_base_with_more_data(base=base, kb=kb_board.kb)
 
     @classmethod
     async def from_task_id(
         cls, kb_board: KanboardBoard, task_id: int
-    ) -> "OperationsCard":
+    ) -> "OperationsTask":
         task_dict = await kb_board.kb.get_task(task_id=task_id)
         return await cls.from_task_dict_with_more_data(
             task=task_dict, kb_board=kb_board
@@ -175,21 +175,21 @@ class OperationsCard(OperationsCardBase):
 
 
 @dataclass
-class OperationsCardCreationData:
+class OperationsTaskCreationData:
     main_mr: int
-    column: CardColumn
-    swimlane: CardSwimlane
+    column: TaskColumn
+    swimlane: TaskSwimlane
     title: str
     description: str
 
-    flags: Optional[OperationsCardFlags]
+    flags: Optional[OperationsTaskFlags]
     issue_url: Optional[str] = None
 
-    category: Optional[CardCategory] = None
+    category: Optional[TaskCategory] = None
 
     date_started: Optional[datetime.datetime] = None
 
-    async def create_card(self, kb_board: KanboardBoard) -> Optional[int]:
+    async def create_task(self, kb_board: KanboardBoard) -> Optional[int]:
         swimlane_id = self.swimlane.to_swimlane_id(kb_board)
         if swimlane_id is None:
             return None

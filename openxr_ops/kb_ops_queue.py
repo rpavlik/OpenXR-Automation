@@ -6,54 +6,54 @@
 # Author: Rylie Pavlik <rylie.pavlik@collabora.com>
 import logging
 
-from .kb_ops_stages import CardColumn, CardSwimlane
+from .kb_ops_stages import TaskColumn, TaskSwimlane
 from .labels import ColumnName
 
 _log = logging.getLogger(__name__)
 COLUMN_CONVERSION = {
-    ColumnName.INACTIVE: CardColumn.INACTIVE,
+    ColumnName.INACTIVE: TaskColumn.INACTIVE,
     #
     # Design review stages
-    ColumnName.INITIAL_DESIGN: CardColumn.IN_PREPARATION,
-    ColumnName.AWAITING_DESIGN_REVIEW: CardColumn.AWAITING_REVIEW,
-    ColumnName.NEEDS_DESIGN_REVISION: CardColumn.NEEDS_REVISIONS,
+    ColumnName.INITIAL_DESIGN: TaskColumn.IN_PREPARATION,
+    ColumnName.AWAITING_DESIGN_REVIEW: TaskColumn.AWAITING_REVIEW,
+    ColumnName.NEEDS_DESIGN_REVISION: TaskColumn.NEEDS_REVISIONS,
     #
     # Spec review steps
-    ColumnName.COMPOSITION_OR_ELABORATION: CardColumn.IN_PREPARATION,
-    ColumnName.AWAITING_SPEC_REVIEW: CardColumn.AWAITING_REVIEW,
-    ColumnName.NEEDS_SPEC_REVISION: CardColumn.NEEDS_REVISIONS,
-    ColumnName.FROZEN_NEEDS_IMPL_OR_CTS: CardColumn.PENDING_APPROVALS_AND_MERGE,
-    ColumnName.NEEDS_CHAMPION_APPROVAL_OR_RATIFICATION: CardColumn.PENDING_APPROVALS_AND_MERGE,
-    ColumnName.NEEDS_OTHER: CardColumn.PENDING_APPROVALS_AND_MERGE,
-    ColumnName.AWAITING_MERGE: CardColumn.PENDING_APPROVALS_AND_MERGE,
-    ColumnName.RELEASE_PENDING: CardColumn.PENDING_APPROVALS_AND_MERGE,
+    ColumnName.COMPOSITION_OR_ELABORATION: TaskColumn.IN_PREPARATION,
+    ColumnName.AWAITING_SPEC_REVIEW: TaskColumn.AWAITING_REVIEW,
+    ColumnName.NEEDS_SPEC_REVISION: TaskColumn.NEEDS_REVISIONS,
+    ColumnName.FROZEN_NEEDS_IMPL_OR_CTS: TaskColumn.PENDING_APPROVALS_AND_MERGE,
+    ColumnName.NEEDS_CHAMPION_APPROVAL_OR_RATIFICATION: TaskColumn.PENDING_APPROVALS_AND_MERGE,
+    ColumnName.NEEDS_OTHER: TaskColumn.PENDING_APPROVALS_AND_MERGE,
+    ColumnName.AWAITING_MERGE: TaskColumn.PENDING_APPROVALS_AND_MERGE,
+    ColumnName.RELEASE_PENDING: TaskColumn.PENDING_APPROVALS_AND_MERGE,
 }
 COLUMN_TO_SWIMLANE = {
     #
     # Assume these all have some design done or skipped.
-    ColumnName.INACTIVE: CardSwimlane.SPEC_REVIEW_PHASE,
+    ColumnName.INACTIVE: TaskSwimlane.SPEC_REVIEW_PHASE,
     #
     # Design review stages
-    ColumnName.INITIAL_DESIGN: CardSwimlane.DESIGN_REVIEW_PHASE,
-    ColumnName.AWAITING_DESIGN_REVIEW: CardSwimlane.DESIGN_REVIEW_PHASE,
-    ColumnName.NEEDS_DESIGN_REVISION: CardSwimlane.DESIGN_REVIEW_PHASE,
+    ColumnName.INITIAL_DESIGN: TaskSwimlane.DESIGN_REVIEW_PHASE,
+    ColumnName.AWAITING_DESIGN_REVIEW: TaskSwimlane.DESIGN_REVIEW_PHASE,
+    ColumnName.NEEDS_DESIGN_REVISION: TaskSwimlane.DESIGN_REVIEW_PHASE,
     #
     # Spec review steps
-    ColumnName.COMPOSITION_OR_ELABORATION: CardSwimlane.SPEC_REVIEW_PHASE,
-    ColumnName.AWAITING_SPEC_REVIEW: CardSwimlane.SPEC_REVIEW_PHASE,
-    ColumnName.NEEDS_SPEC_REVISION: CardSwimlane.SPEC_REVIEW_PHASE,
-    ColumnName.FROZEN_NEEDS_IMPL_OR_CTS: CardSwimlane.SPEC_REVIEW_PHASE,
-    ColumnName.NEEDS_CHAMPION_APPROVAL_OR_RATIFICATION: CardSwimlane.SPEC_REVIEW_PHASE,
-    ColumnName.NEEDS_OTHER: CardSwimlane.SPEC_REVIEW_PHASE,
-    ColumnName.AWAITING_MERGE: CardSwimlane.SPEC_REVIEW_PHASE,
-    ColumnName.RELEASE_PENDING: CardSwimlane.SPEC_REVIEW_PHASE,
+    ColumnName.COMPOSITION_OR_ELABORATION: TaskSwimlane.SPEC_REVIEW_PHASE,
+    ColumnName.AWAITING_SPEC_REVIEW: TaskSwimlane.SPEC_REVIEW_PHASE,
+    ColumnName.NEEDS_SPEC_REVISION: TaskSwimlane.SPEC_REVIEW_PHASE,
+    ColumnName.FROZEN_NEEDS_IMPL_OR_CTS: TaskSwimlane.SPEC_REVIEW_PHASE,
+    ColumnName.NEEDS_CHAMPION_APPROVAL_OR_RATIFICATION: TaskSwimlane.SPEC_REVIEW_PHASE,
+    ColumnName.NEEDS_OTHER: TaskSwimlane.SPEC_REVIEW_PHASE,
+    ColumnName.AWAITING_MERGE: TaskSwimlane.SPEC_REVIEW_PHASE,
+    ColumnName.RELEASE_PENDING: TaskSwimlane.SPEC_REVIEW_PHASE,
 }
 
 
 # @dataclass
-# class InitialCardData:
+# class InitialTaskData:
 #     """
-#     Data used to create an initial card.
+#     Data used to create an initial task.
 
 #     May be imported from GitLab or created fresh from the templates.
 #     """
@@ -62,7 +62,7 @@ COLUMN_TO_SWIMLANE = {
 #     vendor_id: str
 #     mr_num: int
 #     merge_request: gitlab.v4.objects.ProjectMergeRequest
-#     column: CardColumn = CardColumn.INITIAL_DESIGN
+#     column: TaskColumn = TaskColumn.INITIAL_DESIGN
 
 #     # checklist_issue: Optional[gitlab.v4.objects.ProjectIssue] = None
 #     # checklist_issue_ref: Optional[str] = None
@@ -100,7 +100,7 @@ COLUMN_TO_SWIMLANE = {
 #         proj: gitlab.v4.objects.Project,
 #         mr_num,
 #         **kwargs,
-#     ) -> "InitialCardData":
+#     ) -> "InitialTaskData":
 #         """Create a ChecklistData based on a merge request number."""
 
 #         mr = proj.mergerequests.get(mr_num)
@@ -123,12 +123,12 @@ COLUMN_TO_SWIMLANE = {
 #             )
 #             raise RuntimeError(f"wrong number of vendors for {ext_names} : {mr_num}")
 #         vendor_id = list(vendor_ids)[0]
-#         return InitialCardData(
+#         return InitialTaskData(
 #             ext_names=ext_names,
 #             vendor_id=vendor_id,
 #             mr_num=mr_num,
 #             merge_request=mr,
-#             column=CardColumn.INITIAL_DESIGN,
+#             column=TaskColumn.INITIAL_DESIGN,
 #         )
 
 #     def add_mr_labels(self):

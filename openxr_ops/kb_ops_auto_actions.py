@@ -19,7 +19,7 @@ from openxr_ops.kb_defaults import USERNAME, get_kb_api_token, get_kb_api_url
 from openxr_ops.kb_ops_subtasks import MigrationSubtasksGroup
 
 from .kanboard_helpers import KanboardBoard
-from .kb_ops_stages import CardCategory, CardColumn, CardSwimlane
+from .kb_ops_stages import TaskCategory, TaskColumn, TaskSwimlane
 
 
 class AutoActionTypes(Enum):
@@ -125,12 +125,12 @@ class SubtasksFromCategory(AutoSubtasksBase):
     In AutoSubtasks plugin.
     """
 
-    category: Optional[CardCategory]
+    category: Optional[TaskCategory]
 
     @classmethod
     def create(
         cls,
-        category: Optional[CardCategory],
+        category: Optional[TaskCategory],
         subtasks: list[str],
         allow_duplicate_subtasks: bool = False,
     ):
@@ -153,7 +153,7 @@ class SubtasksFromCategory(AutoSubtasksBase):
             action=self.action_name(),
             event=self.default_event_name(),
             params={
-                "category_id": CardCategory.optional_to_category_id(
+                "category_id": TaskCategory.optional_to_category_id(
                     kb_board, self.category
                 )
             },
@@ -172,7 +172,7 @@ class SubtasksFromCategory(AutoSubtasksBase):
             return None
 
         params = action["params"]
-        category = CardCategory.from_category_id_maybe_none(
+        category = TaskCategory.from_category_id_maybe_none(
             kb_board=kb_board, category_id=int(params["category_id"])
         )
         return cls(
@@ -190,12 +190,12 @@ class SubtasksFromColumn(AutoSubtasksBase):
     In AutoSubtasks plugin.
     """
 
-    column: CardColumn
+    column: TaskColumn
 
     @classmethod
     def create(
         cls,
-        column: CardColumn,
+        column: TaskColumn,
         subtasks: list[str],
         allow_duplicate_subtasks: bool = False,
     ):
@@ -238,7 +238,7 @@ class SubtasksFromColumn(AutoSubtasksBase):
             return None
 
         params = action["params"]
-        column = CardColumn.from_column_id(kb_board, int(params["column_id"]))
+        column = TaskColumn.from_column_id(kb_board, int(params["column_id"]))
         return cls(
             subtasks=base.subtasks,
             allow_duplicate_subtasks=base.allow_duplicate_subtasks,
@@ -254,14 +254,14 @@ class SubtasksFromColumnAndCategory(AutoSubtasksBase):
     In AutoSubtasks plugin fork.
     """
 
-    column: CardColumn
-    category: Optional[CardCategory]
+    column: TaskColumn
+    category: Optional[TaskCategory]
 
     @classmethod
     def create(
         cls,
-        column: CardColumn,
-        category: Optional[CardCategory],
+        column: TaskColumn,
+        category: Optional[TaskCategory],
         subtasks: list[str],
         allow_duplicate_subtasks: bool = False,
     ):
@@ -289,7 +289,7 @@ class SubtasksFromColumnAndCategory(AutoSubtasksBase):
             event=self.default_event_name(),
             params={
                 "column_id": self.column.to_column_id(kb_board),
-                "category_id": CardCategory.optional_to_category_id(
+                "category_id": TaskCategory.optional_to_category_id(
                     kb_board, self.category
                 ),
             },
@@ -310,8 +310,8 @@ class SubtasksFromColumnAndCategory(AutoSubtasksBase):
             return None
 
         params = action["params"]
-        column = CardColumn.from_column_id(kb_board, int(params["column_id"]))
-        category = CardCategory.from_category_id_maybe_none(
+        column = TaskColumn.from_column_id(kb_board, int(params["column_id"]))
+        category = TaskCategory.from_category_id_maybe_none(
             kb_board=kb_board, category_id=int(params["category_id"])
         )
         return cls(
@@ -330,14 +330,14 @@ class SubtasksFromColumnAndSwimlane(AutoSubtasksBase):
     In AutoSubtasks plugin fork.
     """
 
-    column: CardColumn
-    swimlane: CardSwimlane
+    column: TaskColumn
+    swimlane: TaskSwimlane
 
     @classmethod
     def create(
         cls,
-        column: CardColumn,
-        swimlane: CardSwimlane,
+        column: TaskColumn,
+        swimlane: TaskSwimlane,
         subtasks: list[str],
         allow_duplicate_subtasks: bool = False,
     ):
@@ -381,8 +381,8 @@ class SubtasksFromColumnAndSwimlane(AutoSubtasksBase):
             return None
 
         params = action["params"]
-        column = CardColumn.from_column_id(kb_board, int(params["column_id"]))
-        swimlane = CardSwimlane.from_swimlane_id(
+        column = TaskColumn.from_column_id(kb_board, int(params["column_id"]))
+        swimlane = TaskSwimlane.from_swimlane_id(
             kb_board=kb_board, swimlane_id=int(params["swimlane_id"])
         )
         return cls(
@@ -401,16 +401,16 @@ class SubtasksFromColumnAndSwimlaneAndCategory(AutoSubtasksBase):
     In AutoSubtasks plugin fork.
     """
 
-    column: CardColumn
-    swimlane: CardSwimlane
-    category: Optional[CardCategory]
+    column: TaskColumn
+    swimlane: TaskSwimlane
+    category: Optional[TaskCategory]
 
     @classmethod
     def create(
         cls,
-        column: CardColumn,
-        swimlane: CardSwimlane,
-        category: Optional[CardCategory],
+        column: TaskColumn,
+        swimlane: TaskSwimlane,
+        category: Optional[TaskCategory],
         subtasks: list[str],
         allow_duplicate_subtasks: bool = False,
     ):
@@ -437,7 +437,7 @@ class SubtasksFromColumnAndSwimlaneAndCategory(AutoSubtasksBase):
             params={
                 "column_id": self.column.to_column_id(kb_board),
                 "swimlane_id": self.swimlane.to_swimlane_id(kb_board),
-                "category_id": CardCategory.optional_to_category_id(
+                "category_id": TaskCategory.optional_to_category_id(
                     kb_board, self.category
                 ),
             },
@@ -458,11 +458,11 @@ class SubtasksFromColumnAndSwimlaneAndCategory(AutoSubtasksBase):
             return None
 
         params = action["params"]
-        column = CardColumn.from_column_id(kb_board, int(params["column_id"]))
-        swimlane = CardSwimlane.from_swimlane_id(
+        column = TaskColumn.from_column_id(kb_board, int(params["column_id"]))
+        swimlane = TaskSwimlane.from_swimlane_id(
             kb_board=kb_board, swimlane_id=int(params["swimlane_id"])
         )
-        category = CardCategory.from_category_id_maybe_none(
+        category = TaskCategory.from_category_id_maybe_none(
             kb_board=kb_board, category_id=int(params["category_id"])
         )
         return cls(

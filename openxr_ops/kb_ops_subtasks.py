@@ -12,7 +12,7 @@ import tomllib
 from dataclasses import dataclass
 from typing import Optional
 
-from .kb_ops_stages import CardCategory, CardColumn, CardSwimlane
+from .kb_ops_stages import TaskCategory, TaskColumn, TaskSwimlane
 
 
 @dataclass
@@ -46,9 +46,9 @@ class MigrationSubtasksGroupCondition:
     All populated condition fields must match to be true.
     """
 
-    swimlane: Optional[CardSwimlane]
-    column: Optional[CardColumn]
-    category: Optional[CardCategory]
+    swimlane: Optional[TaskSwimlane]
+    column: Optional[TaskColumn]
+    category: Optional[TaskCategory]
     exclude_categories: bool = False
 
     allow_duplicate_subtasks: bool = False
@@ -56,11 +56,11 @@ class MigrationSubtasksGroupCondition:
 
     @classmethod
     def from_dict(cls, d: dict):
-        swimlane = parse_into(CardSwimlane, d.get("swimlane"))
+        swimlane = parse_into(TaskSwimlane, d.get("swimlane"))
 
-        column = parse_into(CardColumn, d.get("column"))
+        column = parse_into(TaskColumn, d.get("column"))
 
-        category = parse_into(CardCategory, d.get("category"))
+        category = parse_into(TaskCategory, d.get("category"))
 
         return cls(
             swimlane=swimlane,
@@ -75,7 +75,7 @@ class MigrationSubtasksGroupCondition:
             self.category is None and self.exclude_categories
         )
 
-    def get_category_predicate(self) -> Optional[CardCategory]:
+    def get_category_predicate(self) -> Optional[TaskCategory]:
         if self.exclude_categories:
             return None
         return self.category
