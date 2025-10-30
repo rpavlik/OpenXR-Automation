@@ -19,6 +19,7 @@ name = "XML changes made"
 
 [[subtask_group]]
 group_name = "before design review"
+prefix = "Before Requesting Design Review:"
 [subtask_group.condition]
 swimlane = "Design Review phase"
 column = "In Preparation"
@@ -37,6 +38,7 @@ name = "Design review comments addressed, threads resolved"
 
 [[subtask_group]]
 group_name = "before spec review"
+prefix = "Before Requesting Review:"
 [subtask_group.condition]
 swimlane = "Spec Review phase"
 column = "In Preparation"
@@ -68,7 +70,8 @@ allow_duplicate_subtasks = true
 name = "Spec review comments addressed, threads resolved"
 
 [[subtask_group]]
-group_name = "before publication"
+group_name = "before release - ratification track"
+prefix = "Before CfV:"
 [subtask_group.condition]
 swimlane = "Spec Review phase"
 column = "In Preparation"
@@ -77,9 +80,14 @@ exclude_categories = true
 [[subtask_group.subtask]]
 name = "CTS tests written"
 migration_prefix = "CTS tests written"
+[[subtask_group.subtask]]
+name = "First conformant implementation"
+[[subtask_group.subtask]]
+name = "Second conformant implementation"
 
 [[subtask_group]]
-group_name = "before publication"
+group_name = "before release - non-ratification track"
+prefix = "Before Release:"
 [subtask_group.condition]
 swimlane = "Spec Review phase"
 column = "In Preparation"
@@ -90,6 +98,7 @@ migration_prefix = "CTS tests written"
 
 [[subtask_group]]
 group_name = "ratification submission"
+prefix = "Before Board Submission:"
 [subtask_group.condition]
 swimlane = "Spec Review phase"
 column = "Pending Approvals And Merge"
@@ -102,6 +111,7 @@ name = "Submission package available for Promoter review"
 
 [[subtask_group]]
 group_name = "ratification"
+prefix = "Before Release:"
 [subtask_group.condition]
 swimlane = "Spec Review phase"
 column = "Pending Approvals And Merge"

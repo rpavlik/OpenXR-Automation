@@ -473,7 +473,7 @@ class SubtasksFromColumnAndSwimlaneAndCategory(AutoSubtasksBase):
 
 def actions_from_subtask_group(group: ConfigSubtaskGroup):
     log = logging.getLogger(f"{__name__}.from_migration_subtasks_group")
-    subtask_names = [subtask.name for subtask in group.subtasks]
+    subtask_names = [subtask.get_full_subtask_name(group) for subtask in group.subtasks]
 
     if group.condition:
         if (

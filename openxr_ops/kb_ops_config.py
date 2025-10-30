@@ -31,6 +31,11 @@ class ConfigSubtaskEntry:
         migration_prefix = d.get("migration_prefix", name)
         return cls(name=name, migration_prefix=migration_prefix)
 
+    def get_full_subtask_name(self, group):
+        if group.prefix:
+            return f"{group.prefix} {self.name}"
+        return self.name
+
 
 def parse_into(enum_type, s: Optional[str]):
     if s is None:
@@ -91,6 +96,9 @@ class ConfigSubtaskGroup:
     subtasks: list[ConfigSubtaskEntry]
     """List of subtasks in the group."""
 
+    prefix: Optional[str]
+    """A name prefix to apply to all these subtasks."""
+
     condition: Optional[ConfigSubtasksGroupCondition] = None
     """Condition to evaluate to auto-create the subtasks in the group."""
 
@@ -99,11 +107,17 @@ class ConfigSubtaskGroup:
         """Contruct a group from a dict (generally from TOML)."""
         group_name = d["group_name"]
         subtasks = [ConfigSubtaskEntry.from_dict(subtask) for subtask in d["subtask"]]
+        prefix = d.get("prefix")
         condition = None
         cond_dict = d.get("condition")
         if cond_dict:
             condition = ConfigSubtasksGroupCondition.from_dict(cond_dict)
-        return cls(group_name=group_name, subtasks=subtasks, condition=condition)
+        return cls(
+            group_name=group_name,
+            subtasks=subtasks,
+            prefix=prefix,
+            condition=condition,
+        )
 
 
 def get_all_subtasks() -> list[ConfigSubtaskGroup]:
