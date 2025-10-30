@@ -234,13 +234,14 @@ def get_description(issue_obj) -> str:
     # return description
 
 
-def get_flags(checklist_issue):
+def get_flags(checklist_issue: ReleaseChecklistIssue):
     """Get KB tags from checklist issue labels."""
     flags = OperationsTaskFlags(
         api_frozen=checklist_issue.unchangeable,
         initial_design_review_complete=checklist_issue.initial_design_review_complete,
         initial_spec_review_complete=checklist_issue.initial_spec_review_complete,
         spec_support_review_comments_pending=False,
+        editor_review_requested=checklist_issue.editor_review_requested,
     )
 
     return flags

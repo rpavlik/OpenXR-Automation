@@ -58,6 +58,7 @@ class TaskTags(Enum):
     INITIAL_SPEC_REVIEW_COMPLETE = "Initial Spec Review Complete"
     SPEC_SUPPORT_REVIEW_COMMENTS_PENDING = "Spec Support Review Comments Pending"
     API_FROZEN = "API Frozen"
+    EDITOR_REVIEW_REQUESTED = "Editor Review Requested"
 
 
 TAG_COLORS = {
@@ -65,6 +66,7 @@ TAG_COLORS = {
     TaskTags.INITIAL_SPEC_REVIEW_COMPLETE: "purple",
     TaskTags.SPEC_SUPPORT_REVIEW_COMMENTS_PENDING: "cyan",
     TaskTags.API_FROZEN: "blue",
+    TaskTags.EDITOR_REVIEW_REQUESTED: "green",
 }
 
 

@@ -33,6 +33,7 @@ class OperationsTaskFlags:
     initial_design_review_complete: bool
     initial_spec_review_complete: bool
     spec_support_review_comments_pending: bool
+    editor_review_requested: bool
 
     @classmethod
     def from_task_tags_result(cls, task_tags: dict[str, str]) -> "OperationsTaskFlags":
@@ -49,6 +50,7 @@ class OperationsTaskFlags:
             spec_support_review_comments_pending=(
                 TaskTags.SPEC_SUPPORT_REVIEW_COMMENTS_PENDING.value in tags
             ),
+            editor_review_requested=(TaskTags.EDITOR_REVIEW_REQUESTED.value in tags),
         )
 
     @classmethod
@@ -68,6 +70,8 @@ class OperationsTaskFlags:
             ret.append(TaskTags.INITIAL_SPEC_REVIEW_COMPLETE)
         if self.spec_support_review_comments_pending:
             ret.append(TaskTags.SPEC_SUPPORT_REVIEW_COMMENTS_PENDING)
+        if self.editor_review_requested:
+            ret.append(TaskTags.EDITOR_REVIEW_REQUESTED)
         return ret
 
     def to_string_list(self) -> list[str]:
