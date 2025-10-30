@@ -25,7 +25,11 @@ from openxr_ops.kb_defaults import USERNAME, get_kb_api_token, get_kb_api_url
 from openxr_ops.kb_ops_collection import TaskCollection
 from openxr_ops.kb_ops_queue import COLUMN_CONVERSION, COLUMN_TO_SWIMLANE
 from openxr_ops.kb_ops_stages import TaskCategory, TaskSwimlane
-from openxr_ops.kb_ops_task import OperationsTaskCreationData, OperationsTaskFlags
+from openxr_ops.kb_ops_task import (
+    OperationsTask,
+    OperationsTaskCreationData,
+    OperationsTaskFlags,
+)
 from openxr_ops.labels import ColumnName
 from openxr_ops.priority_results import ReleaseChecklistIssue
 from openxr_ops.vendors import VendorNames
@@ -39,71 +43,120 @@ _MR_REF_RE = re.compile(
 )
 
 
-async def update_task(
-    kb_project: kanboard.Client,
-    kb_task,
-    mr_num,
-    checklist_issue,
-    data: OperationsTaskCreationData,
-):
-    log = logging.getLogger(f"{__name__}.update_task")
-    # already created
-    assert kb_task.task_dict is not None
-    log.info("MR !%d: Task already exists - %s", mr_num, kb_task.task_dict["url"])
-    # TODO verify it's fully populated here
+class OperationsGitLabToKanboard:
 
+    def __init__(
+        self,
+        oxr_gitlab: OpenXRGitlab,
+        gl_collection: ReleaseChecklistCollection,
+        # kb: kanboard.Client,
+        kb_project_name: str,
+    ):
+        self.oxr_gitlab: OpenXRGitlab = oxr_gitlab
+        self.gl_collection: ReleaseChecklistCollection = gl_collection
+        # self.kb: kanboard.Client = kb
+        self.kb_project_name: str = kb_project_name
 
-async def process_mr(
-    oxr_gitlab: OpenXRGitlab,
-    gl_collection: ReleaseChecklistCollection,
-    task_collection,
-    kb_project,
-    mr_num,
-):
-    """
-    Create or update the KB task for a given MR.
+        self.log = logging.getLogger(f"{__name__}.{self.__class__.__name__}")
+        self.dates: list[dict[str, Union[str, int]]] = []
+        """Rows for a CSV file."""
 
-    Returns a dict containing a CSV row of timestamps for external application
-    if task is newly created.
-    """
-    log = logging.getLogger(f"{__name__}.process_mr")
-    issue_obj = gl_collection.mr_to_issue_object[mr_num]
-    checklist_issue = make_checklist_issue(
-        oxr_gitlab=oxr_gitlab,
-        gl_collection=gl_collection,
-        mr_num=mr_num,
-        issue_obj=issue_obj,
-    )
-    if checklist_issue is None:
-        return None
+        # these are populated later in prepare
+        self.kb_project: KanboardProject
+        self.task_collection: TaskCollection
 
-    data = populate_data_from_gitlab(
-        checklist_issue=checklist_issue,
-        mr_num=mr_num,
-    )
-    if data is None:
-        return None
+    async def prepare(self):
 
-    kb_task = task_collection.get_task_by_mr(mr_num)
+        self.kb_project, self.task_collection = await load_kb_ops(self.kb_project_name)
 
-    if kb_task is not None:
-        await update_task(
-            kb_project=kb_project,
-            kb_task=kb_task,
+    async def update_task(
+        self,
+        kb_task: OperationsTask,
+        mr_num: int,
+        checklist_issue: ReleaseChecklistIssue,
+        data: OperationsTaskCreationData,
+    ):
+        log = logging.getLogger(f"{__name__}.update_task")
+        # already created
+        assert kb_task.task_dict is not None
+        log.info("MR !%d: Task already exists - %s", mr_num, kb_task.task_dict["url"])
+        # TODO verify it's fully populated here
+
+    async def process_mr(
+        self,
+        mr_num: int,
+    ):
+        """
+        Create or update the KB task for a given MR.
+
+        Returns a dict containing a CSV row of timestamps for external application
+        if task is newly created.
+        """
+        issue_obj = self.gl_collection.mr_to_issue_object[mr_num]
+        checklist_issue = make_checklist_issue(
+            oxr_gitlab=oxr_gitlab,
+            gl_collection=self.gl_collection,
             mr_num=mr_num,
-            checklist_issue=checklist_issue,
-            data=data,
+            issue_obj=issue_obj,
         )
-        return None
+        if checklist_issue is None:
+            return None
 
-    task_dates = get_dates(checklist_issue)
-    new_task_id = await data.create_task(kb_project=kb_project)
+        data = populate_data_from_gitlab(
+            checklist_issue=checklist_issue,
+            mr_num=mr_num,
+        )
+        if data is None:
+            return None
 
-    if new_task_id is not None:
-        log.info("Created new task ID %d", new_task_id)
-        if task_dates is not None:
-            task_dates["task_id"] = new_task_id
-    return task_dates
+        kb_task = self.task_collection.get_task_by_mr(mr_num)
+
+        if kb_task is not None:
+            await self.update_task(
+                kb_task=kb_task,
+                mr_num=mr_num,
+                checklist_issue=checklist_issue,
+                data=data,
+            )
+            return None
+
+        task_dates = get_dates(checklist_issue)
+        new_task_id = await data.create_task(kb_project=self.kb_project)
+
+        if new_task_id is not None:
+            self.log.info(
+                "Created new task ID %d: %s %s",
+                new_task_id,
+                checklist_issue.title,
+            )
+            if task_dates is not None:
+                task_dates["task_id"] = new_task_id
+        return task_dates
+
+    async def process_all_mrs(self):
+        # TODO stop limiting
+        for issue_ref, mr_num in itertools.islice(
+            self.gl_collection.issue_to_mr.items(), 0, 50
+        ):
+            task_dates = await self.process_mr(
+                mr_num=mr_num,
+            )
+
+            if task_dates is not None:
+                self.dates.append(task_dates)
+
+    def write_datetime_csv(self):
+
+        datestamp = datetime.datetime.now(datetime.UTC).strftime("%Y%m%d-%H.%M.%S")
+        fn = f"dates-{datestamp}.csv"
+        self.log.info("Writing dates to %s", fn)
+        with open(fn, "w") as fp:
+            datafile = csv.DictWriter(
+                fp, ["task_id", "created_on", "started_on", "moved"]
+            )
+            datafile.writeheader()
+            for entry in self.dates:
+                datafile.writerow(entry)
 
 
 async def async_main(
@@ -111,34 +164,13 @@ async def async_main(
     gl_collection: ReleaseChecklistCollection,
     project_name: str,
 ):
-    log = logging.getLogger(__name__)
-    from pprint import pprint
-
-    kb_project, task_collection = await load_kb_ops(project_name)
-
-    dates: list[dict[str, Union[str, int]]] = []
-
-    # TODO stop limiting
-    for issue_ref, mr_num in itertools.islice(gl_collection.issue_to_mr.items(), 0, 50):
-        task_dates = await process_mr(
-            oxr_gitlab=oxr_gitlab,
-            gl_collection=gl_collection,
-            task_collection=task_collection,
-            kb_project=kb_project,
-            mr_num=mr_num,
-        )
-
-        if task_dates is not None:
-            dates.append(task_dates)
-
-    datestamp = datetime.datetime.now(datetime.UTC).strftime("%Y%m%d-%H.%M.%S")
-    fn = f"dates-{datestamp}.csv"
-    log.info("Writing dates to %s", fn)
-    with open(fn, "w") as fp:
-        datafile = csv.DictWriter(fp, ["task_id", "created_on", "started_on", "moved"])
-        datafile.writeheader()
-        for entry in dates:
-            datafile.writerow(entry)
+    obj = OperationsGitLabToKanboard(
+        oxr_gitlab=oxr_gitlab, gl_collection=gl_collection, kb_project_name=project_name
+    )
+    await obj.prepare()
+    await obj.process_all_mrs()
+    if obj.dates:
+        obj.write_datetime_csv()
 
 
 def get_category(checklist_issue: ReleaseChecklistIssue) -> Optional[TaskCategory]:
@@ -294,15 +326,13 @@ def get_description(issue_obj) -> str:
 
 def get_flags(checklist_issue: ReleaseChecklistIssue):
     """Get KB tags from checklist issue labels."""
-    flags = OperationsTaskFlags(
+    return OperationsTaskFlags(
         api_frozen=checklist_issue.unchangeable,
         initial_design_review_complete=checklist_issue.initial_design_review_complete,
         initial_spec_review_complete=checklist_issue.initial_spec_review_complete,
         spec_support_review_comments_pending=False,
         editor_review_requested=checklist_issue.editor_review_requested,
     )
-
-    return flags
 
 
 def make_checklist_issue(
@@ -361,39 +391,6 @@ def populate_data_from_gitlab(
         category=category,
         date_started=started,
     )
-
-
-async def create_equiv_task(
-    oxr_gitlab,
-    gl_collection,
-    kb_project,
-    mr_num,
-    issue_obj: gitlab.v4.objects.ProjectIssue,
-) -> tuple[Optional[int], Optional[dict[str, Union[str, int]]]]:
-    """
-    Create a KB task for a gitlab ops issue.
-
-    Returns task ID and a dict containing a row for the dates CSV.
-    """
-    checklist_issue = make_checklist_issue(
-        oxr_gitlab=oxr_gitlab,
-        gl_collection=gl_collection,
-        mr_num=mr_num,
-        issue_obj=issue_obj,
-    )
-    if checklist_issue is None:
-        return None, None
-
-    data = populate_data_from_gitlab(
-        checklist_issue=checklist_issue,
-        mr_num=mr_num,
-    )
-    if data is None:
-        return None, None
-
-    task_id = await data.create_task(kb_project=kb_project)
-
-    return task_id, get_dates(checklist_issue)
 
 
 async def load_kb_ops(project_name: str):
