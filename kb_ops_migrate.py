@@ -39,6 +39,73 @@ _MR_REF_RE = re.compile(
 )
 
 
+async def update_task(
+    kb_project: kanboard.Client,
+    kb_task,
+    mr_num,
+    checklist_issue,
+    data: OperationsTaskCreationData,
+):
+    log = logging.getLogger(f"{__name__}.update_task")
+    # already created
+    assert kb_task.task_dict is not None
+    log.info("MR !%d: Task already exists - %s", mr_num, kb_task.task_dict["url"])
+    # TODO verify it's fully populated here
+
+
+async def process_mr(
+    oxr_gitlab: OpenXRGitlab,
+    gl_collection: ReleaseChecklistCollection,
+    task_collection,
+    kb_project,
+    mr_num,
+):
+    """
+    Create or update the KB task for a given MR.
+
+    Returns a dict containing a CSV row of timestamps for external application
+    if task is newly created.
+    """
+    log = logging.getLogger(f"{__name__}.process_mr")
+    issue_obj = gl_collection.mr_to_issue_object[mr_num]
+    checklist_issue = make_checklist_issue(
+        oxr_gitlab=oxr_gitlab,
+        gl_collection=gl_collection,
+        mr_num=mr_num,
+        issue_obj=issue_obj,
+    )
+    if checklist_issue is None:
+        return None
+
+    data = populate_data_from_gitlab(
+        checklist_issue=checklist_issue,
+        mr_num=mr_num,
+    )
+    if data is None:
+        return None
+
+    kb_task = task_collection.get_task_by_mr(mr_num)
+
+    if kb_task is not None:
+        await update_task(
+            kb_project=kb_project,
+            kb_task=kb_task,
+            mr_num=mr_num,
+            checklist_issue=checklist_issue,
+            data=data,
+        )
+        return None
+
+    task_dates = get_dates(checklist_issue)
+    new_task_id = await data.create_task(kb_project=kb_project)
+
+    if new_task_id is not None:
+        log.info("Created new task ID %d", new_task_id)
+        if task_dates is not None:
+            task_dates["task_id"] = new_task_id
+    return task_dates
+
+
 async def async_main(
     oxr_gitlab: OpenXRGitlab,
     gl_collection: ReleaseChecklistCollection,
@@ -53,25 +120,16 @@ async def async_main(
 
     # TODO stop limiting
     for issue_ref, mr_num in itertools.islice(gl_collection.issue_to_mr.items(), 0, 50):
-        issue_obj = gl_collection.mr_to_issue_object[mr_num]
-        kb_task = task_collection.get_task_by_mr(mr_num)
-        if kb_task is not None:
-            # already created
-            assert kb_task.task_dict is not None
-            log.info(
-                "MR !%d: Task already exists - %s", mr_num, kb_task.task_dict["url"]
-            )
-            # TODO verify it's fully populated here
-            continue
-
-        new_task_id, task_dates = await create_equiv_task(
-            oxr_gitlab, gl_collection, kb_project, mr_num, issue_obj
+        task_dates = await process_mr(
+            oxr_gitlab=oxr_gitlab,
+            gl_collection=gl_collection,
+            task_collection=task_collection,
+            kb_project=kb_project,
+            mr_num=mr_num,
         )
-        if new_task_id is not None:
-            log.info("Created new task ID %d", new_task_id)
-            if task_dates is not None:
-                task_dates["task_id"] = new_task_id
-                dates.append(task_dates)
+
+        if task_dates is not None:
+            dates.append(task_dates)
 
     datestamp = datetime.datetime.now(datetime.UTC).strftime("%Y%m%d-%H.%M.%S")
     fn = f"dates-{datestamp}.csv"
@@ -247,6 +305,64 @@ def get_flags(checklist_issue: ReleaseChecklistIssue):
     return flags
 
 
+def make_checklist_issue(
+    oxr_gitlab,
+    gl_collection,
+    mr_num,
+    issue_obj: gitlab.v4.objects.ProjectIssue,
+) -> Optional[ReleaseChecklistIssue]:
+    log = logging.getLogger(__name__)
+    if issue_obj.attributes["state"] == "closed":
+        # skip it
+        return None
+    mr_obj = oxr_gitlab.main_proj.mergerequests.get(mr_num)
+    if mr_obj.attributes["state"] in ("closed", "merged"):
+        # skip it
+        return None
+    statuses = [
+        label for label in issue_obj.attributes["labels"] if label.startswith("status:")
+    ]
+    if len(statuses) != 1:
+        log.warning("Wrong status count on %d", mr_num)
+        return None
+    return ReleaseChecklistIssue.create(issue_obj, mr_obj, gl_collection.vendor_names)
+
+
+def populate_data_from_gitlab(
+    checklist_issue: ReleaseChecklistIssue,
+    mr_num,
+) -> Optional[OperationsTaskCreationData]:
+    """
+    Return KB task creation/update data for a gitlab ops issue.
+    """
+
+    swimlane, converted_column = get_swimlane_and_column(checklist_issue)
+
+    category = get_category(checklist_issue)
+
+    flags = get_flags(checklist_issue)
+
+    # clean up description.
+    description = get_description(checklist_issue.issue_obj)
+
+    # Clean up title
+    title = get_title(checklist_issue)
+
+    started = get_latency_date(checklist_issue)
+
+    return OperationsTaskCreationData(
+        main_mr=mr_num,
+        column=converted_column,
+        swimlane=swimlane,
+        title=title,
+        description=description,
+        flags=flags,
+        issue_url=checklist_issue.issue_obj.attributes["web_url"],
+        category=category,
+        date_started=started,
+    )
+
+
 async def create_equiv_task(
     oxr_gitlab,
     gl_collection,
@@ -259,49 +375,22 @@ async def create_equiv_task(
 
     Returns task ID and a dict containing a row for the dates CSV.
     """
-    log = logging.getLogger(__name__)
-    if issue_obj.attributes["state"] == "closed":
-        # skip it
-        return None, None
-    mr_obj = oxr_gitlab.main_proj.mergerequests.get(mr_num)
-    if mr_obj.attributes["state"] in ("closed", "merged"):
-        # skip it
-        return None, None
-    statuses = [
-        label for label in issue_obj.attributes["labels"] if label.startswith("status:")
-    ]
-    if len(statuses) != 1:
-        log.warning("Wrong status count on %d", mr_num)
-        return None, None
-    checklist_issue = ReleaseChecklistIssue.create(
-        issue_obj, mr_obj, gl_collection.vendor_names
+    checklist_issue = make_checklist_issue(
+        oxr_gitlab=oxr_gitlab,
+        gl_collection=gl_collection,
+        mr_num=mr_num,
+        issue_obj=issue_obj,
     )
+    if checklist_issue is None:
+        return None, None
 
-    swimlane, converted_column = get_swimlane_and_column(checklist_issue)
-
-    category = get_category(checklist_issue)
-
-    flags = get_flags(checklist_issue)
-
-    # clean up description.
-    description = get_description(issue_obj)
-
-    # Clean up title
-    title = get_title(checklist_issue)
-
-    started = get_latency_date(checklist_issue)
-
-    data = OperationsTaskCreationData(
-        main_mr=mr_num,
-        column=converted_column,
-        swimlane=swimlane,
-        title=title,
-        description=description,
-        flags=flags,
-        issue_url=issue_obj.attributes["web_url"],
-        category=category,
-        date_started=started,
+    data = populate_data_from_gitlab(
+        checklist_issue=checklist_issue,
+        mr_num=mr_num,
     )
+    if data is None:
+        return None, None
+
     task_id = await data.create_task(kb_project=kb_project)
 
     return task_id, get_dates(checklist_issue)
