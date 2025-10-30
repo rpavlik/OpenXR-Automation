@@ -342,7 +342,7 @@ if __name__ == "__main__":
 
     # jobs = [get_projects(kb)]
 
-    loop = asyncio.get_event_loop()
+    loop = asyncio.new_event_loop()
     if args.project:
 
         async def runner():

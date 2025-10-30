@@ -117,10 +117,8 @@ if __name__ == "__main__":
     from dotenv import load_dotenv
 
     load_dotenv()
-    # main()
 
-    loop = asyncio.get_event_loop()
-    # loop.
+    loop = asyncio.new_event_loop()
     project_id = loop.run_until_complete(
         async_main("Nullboard-1661530413298-OpenXR-CTS.nbx")
     )
