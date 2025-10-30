@@ -83,6 +83,7 @@ class OperationsTaskBase:
     task_id: int
     column: TaskColumn
     swimlane: TaskSwimlane
+    category: Optional[TaskCategory]
     title: str
     description: str
     task_dict: Optional[dict]
@@ -109,10 +110,15 @@ class OperationsTaskBase:
         swimlane: TaskSwimlane = TaskSwimlane.from_swimlane_id(
             kb_project, swimlane_id=int(swimlane_id)
         )
+        category_id = int(task["category_id"])
+        category: Optional[TaskCategory] = TaskCategory.from_category_id_maybe_none(
+            kb_project, category_id
+        )
         return cls(
             task_id=task_id,
             column=column,
             swimlane=swimlane,
+            category=category,
             title=title,
             description=description,
             task_dict=task,
@@ -152,6 +158,7 @@ class OperationsTask(OperationsTaskBase):
             task_id=base.task_id,
             column=base.column,
             swimlane=base.swimlane,
+            category=base.category,
             title=base.title,
             description=base.description,
             task_dict=base.task_dict,
@@ -197,6 +204,7 @@ class OperationsTaskCreationData:
         swimlane_id = self.swimlane.to_swimlane_id(kb_project)
         if swimlane_id is None:
             return None
+
         column_id = self.column.to_column_id(kb_project)
         if column_id is None:
             return None

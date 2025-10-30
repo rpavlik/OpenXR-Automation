@@ -64,10 +64,12 @@ class OperationsGitLabToKanboard:
         # these are populated later in prepare
         self.kb_project: KanboardProject
         self.task_collection: TaskCollection
+        self.kb: kanboard.Client
 
     async def prepare(self):
 
         self.kb_project, self.task_collection = await load_kb_ops(self.kb_project_name)
+        self.kb = self.kb_project.kb
 
     async def update_task(
         self,
@@ -80,7 +82,71 @@ class OperationsGitLabToKanboard:
         # already created
         assert kb_task.task_dict is not None
         log.info("MR !%d: Task already exists - %s", mr_num, kb_task.task_dict["url"])
-        # TODO verify it's fully populated here
+
+        # update_task_params = {"id": kb_task.task_id}
+        # should_update_task: bool = False
+        ## Category
+        if kb_task.category != data.category:
+            log.info(
+                "MR !%d: Mismatch in category %s != %s",
+                mr_num,
+                str(data.category),
+                str(kb_task.category),
+            )
+            cat_id = TaskCategory.optional_to_category_id(
+                kb_project=self.kb_project, category=data.category
+            )
+            if cat_id is not None:
+                # update_task_params["category_id"] = cat_id
+                await self.kb.update_task_async(id=kb_task.task_id, category_id=cat_id)
+
+        ## Title
+        if kb_task.title != data.title:
+            log.info(
+                "MR !%d: Mismatch in title %s != %s",
+                mr_num,
+                str(data.title),
+                str(kb_task.title),
+            )
+            await self.kb.update_task_async(id=kb_task.task_id, title=data.title)
+
+        ## Swimlane or Column
+        must_move = False
+        if kb_task.swimlane != data.swimlane:
+            log.info(
+                "MR !%d: Mismatch in swimlane %s != %s",
+                mr_num,
+                str(data.swimlane),
+                str(kb_task.swimlane),
+            )
+            must_move = True
+
+        if kb_task.column != data.column:
+            log.info(
+                "MR !%d: Mismatch in column %s != %s",
+                mr_num,
+                str(data.column),
+                str(kb_task.column),
+            )
+            must_move = True
+
+        if must_move:
+            column_id = data.column.to_column_id(self.kb_project)
+            if column_id is None:
+                raise RuntimeError("Could not find column ID for " + str(data.column))
+
+            swimlane_id = data.swimlane.to_swimlane_id(self.kb_project)
+            if swimlane_id is None:
+                raise RuntimeError(
+                    "Could not find swimlane ID for " + str(data.swimlane)
+                )
+            await self.kb.move_task_position_async(
+                project_id=self.kb_project.project_id,
+                task_id=kb_task.task_id,
+                column_id=column_id,
+                swimlane_id=swimlane_id,
+                position=1,
+            )
 
     async def process_mr(
         self,
