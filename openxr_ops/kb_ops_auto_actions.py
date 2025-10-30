@@ -10,8 +10,8 @@ import asyncio
 import logging
 from dataclasses import dataclass
 from enum import Enum
-from typing import Any, Literal, Optional, Union
 from pprint import pformat
+from typing import Any, Literal, Optional, Union
 
 import kanboard
 
