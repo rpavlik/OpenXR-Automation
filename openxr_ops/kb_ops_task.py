@@ -5,7 +5,7 @@ from typing import Any, Optional
 
 import kanboard
 
-from .kanboard_helpers import KanboardBoard
+from .kanboard_helpers import KanboardProject
 from .kb_ops_stages import TaskCategory, TaskColumn, TaskSwimlane, TaskTags
 
 _MR_URL_BASE = "https://gitlab.khronos.org/openxr/openxr/-/merge_requests/"
@@ -85,25 +85,25 @@ class OperationsTaskBase:
 
     @classmethod
     def from_task_dict(
-        cls, kb_board: KanboardBoard, task: dict[str, Any]
+        cls, kb_project: KanboardProject, task: dict[str, Any]
     ) -> "OperationsTaskBase":
         """
         Interpret a task dictionary from e.g. get_all_tasks.
 
-        Needs the kb_board to decode the column and swimlane.
+        Needs the kb_project to decode the column and swimlane.
 
         Unable to populate the main MR or any more advanced properties.
         """
 
         task_id = int(task["id"])
         column_id = int(task["column_id"])
-        column: TaskColumn = TaskColumn.from_column_id(kb_board, col_id=column_id)
+        column: TaskColumn = TaskColumn.from_column_id(kb_project, col_id=column_id)
         title: str = task["title"]
         description: str = task["description"]
 
         swimlane_id = int(task["swimlane_id"])
         swimlane: TaskSwimlane = TaskSwimlane.from_swimlane_id(
-            kb_board, swimlane_id=int(swimlane_id)
+            kb_project, swimlane_id=int(swimlane_id)
         )
         return cls(
             task_id=task_id,
@@ -159,18 +159,18 @@ class OperationsTask(OperationsTaskBase):
 
     @classmethod
     async def from_task_dict_with_more_data(
-        cls, kb_board: KanboardBoard, task: dict[str, Any]
+        cls, kb_project: KanboardProject, task: dict[str, Any]
     ) -> "OperationsTask":
-        base = OperationsTaskBase.from_task_dict(kb_board, task)
-        return await cls.from_base_with_more_data(base=base, kb=kb_board.kb)
+        base = OperationsTaskBase.from_task_dict(kb_project, task)
+        return await cls.from_base_with_more_data(base=base, kb=kb_project.kb)
 
     @classmethod
     async def from_task_id(
-        cls, kb_board: KanboardBoard, task_id: int
+        cls, kb_project: KanboardProject, task_id: int
     ) -> "OperationsTask":
-        task_dict = await kb_board.kb.get_task(task_id=task_id)
+        task_dict = await kb_project.kb.get_task(task_id=task_id)
         return await cls.from_task_dict_with_more_data(
-            task=task_dict, kb_board=kb_board
+            task=task_dict, kb_project=kb_project
         )
 
 
@@ -189,16 +189,16 @@ class OperationsTaskCreationData:
 
     date_started: Optional[datetime.datetime] = None
 
-    async def create_task(self, kb_board: KanboardBoard) -> Optional[int]:
-        swimlane_id = self.swimlane.to_swimlane_id(kb_board)
+    async def create_task(self, kb_project: KanboardProject) -> Optional[int]:
+        swimlane_id = self.swimlane.to_swimlane_id(kb_project)
         if swimlane_id is None:
             return None
-        column_id = self.column.to_column_id(kb_board)
+        column_id = self.column.to_column_id(kb_project)
         if column_id is None:
             return None
         extras = dict()
         if self.category is not None:
-            category_id = self.category.to_category_id(kb_board)
+            category_id = self.category.to_category_id(kb_project)
             if category_id is not None:
                 extras["category_id"] = category_id
 
@@ -209,11 +209,11 @@ class OperationsTaskCreationData:
             extras["date_started"] = self.date_started.strftime("%Y-%m-%d %H:%M")
 
         mr_url = f"{_MR_URL_BASE}{self.main_mr}"
-        kb = kb_board.kb
+        kb = kb_project.kb
 
         task_id = await kb.create_task_async(
             title=self.title,
-            project_id=kb_board.project_id,
+            project_id=kb_project.project_id,
             description=self.description,
             swimlane_id=swimlane_id,
             column_id=column_id,

@@ -19,7 +19,7 @@ from openxr_ops.kb_ops_auto_actions import (
 )
 from openxr_ops.kb_ops_subtasks import get_all_subtasks
 
-from .kanboard_helpers import KanboardBoard
+from .kanboard_helpers import KanboardProject
 from .kb_defaults import USERNAME, get_kb_api_token, get_kb_api_url
 from .kb_ops_stages import (
     CATEGORY_COLORS,
@@ -167,7 +167,7 @@ def find_auto_action(action, expected_auto_actions) -> Optional[int]:
 
 
 async def populate_actions(
-    kb: kanboard.Client, kb_board: KanboardBoard, project_id: int
+    kb: kanboard.Client, kb_project: KanboardProject, project_id: int
 ):
     log = logging.getLogger(f"{__name__}.populate_actions")
     subtask_groups = get_all_subtasks()
@@ -175,7 +175,7 @@ async def populate_actions(
     expected_auto_actions = []
     """Actions from config file."""
 
-    current_actions_future = get_and_parse_actions(kb, kb_board, project_id)
+    current_actions_future = get_and_parse_actions(kb, kb_project, project_id)
     for group in subtask_groups:
         action = actions_from_migration_subtasks_group(group)
         if action is not None:
@@ -230,7 +230,7 @@ async def populate_actions(
             continue
         to_create.append(
             kb.create_action_async(
-                project_id=project_id, **expected_action.to_arg_dict(kb_board)
+                project_id=project_id, **expected_action.to_arg_dict(kb_project)
             )
         )
 
@@ -245,7 +245,7 @@ async def populate_project(kb: kanboard.Client, proj_id: int):
     proj = await kb.get_project_by_id_async(project_id=proj_id)
 
     log.info("Project ID is %d", proj_id)
-    log.info("Board: %s", proj["url"]["board"])
+    log.info("Board URL: %s", proj["url"]["board"])
 
     # Apply the setup
     await asyncio.gather(
@@ -255,16 +255,16 @@ async def populate_project(kb: kanboard.Client, proj_id: int):
         populate_tags(kb, proj_id),
     )
 
-    kb_board = KanboardBoard(kb, proj_id)
+    kb_project = KanboardProject(kb, proj_id)
 
     # Repopulate
     await asyncio.gather(
-        kb_board.fetch_columns(),
-        kb_board.fetch_swimlanes(),
-        kb_board.fetch_categories(),
+        kb_project.fetch_columns(),
+        kb_project.fetch_swimlanes(),
+        kb_project.fetch_categories(),
     )
 
-    await populate_actions(kb, kb_board, proj_id)
+    await populate_actions(kb, kb_project, proj_id)
 
 
 async def create_or_populate_project(kb: kanboard.Client, project_name: str):

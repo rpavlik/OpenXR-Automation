@@ -9,7 +9,7 @@ from typing import Optional
 import kanboard
 
 
-class KanboardBoard:
+class KanboardProject:
 
     def __init__(self, kb: kanboard.Client, project_id: int):
         self.kb = kb

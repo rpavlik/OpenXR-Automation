@@ -20,7 +20,7 @@ import kanboard
 
 from openxr_ops.checklists import ReleaseChecklistCollection
 from openxr_ops.gitlab import OpenXRGitlab
-from openxr_ops.kanboard_helpers import KanboardBoard
+from openxr_ops.kanboard_helpers import KanboardProject
 from openxr_ops.kb_defaults import USERNAME, get_kb_api_token, get_kb_api_url
 from openxr_ops.kb_ops_collection import TaskCollection
 from openxr_ops.kb_ops_queue import COLUMN_CONVERSION, COLUMN_TO_SWIMLANE
@@ -47,7 +47,7 @@ async def async_main(
     log = logging.getLogger(__name__)
     from pprint import pprint
 
-    kb_board, task_collection = await load_kb_ops(project_name)
+    kb_project, task_collection = await load_kb_ops(project_name)
 
     dates: list[dict[str, Union[str, int]]] = []
 
@@ -65,7 +65,7 @@ async def async_main(
             continue
 
         new_task_id, task_dates = await create_equiv_task(
-            oxr_gitlab, gl_collection, kb_board, mr_num, issue_obj
+            oxr_gitlab, gl_collection, kb_project, mr_num, issue_obj
         )
         if new_task_id is not None:
             log.info("Created new task ID %d", new_task_id)
@@ -249,7 +249,7 @@ def get_flags(checklist_issue):
 async def create_equiv_task(
     oxr_gitlab,
     gl_collection,
-    kb_board,
+    kb_project,
     mr_num,
     issue_obj: gitlab.v4.objects.ProjectIssue,
     # dates: list[dict[str, Union[str, int]]],
@@ -297,7 +297,7 @@ async def create_equiv_task(
         category=category,
         date_started=started,
     )
-    task_id = await data.create_task(kb_board=kb_board)
+    task_id = await data.create_task(kb_project=kb_project)
 
     return task_id, get_dates(checklist_issue)
 
@@ -323,18 +323,18 @@ async def load_kb_ops(project_name: str):
 
     log.debug("Project data: %s", pformat(proj))
 
-    kb_board = KanboardBoard(kb, int(proj["id"]))
+    kb_project = KanboardProject(kb, int(proj["id"]))
     log.info("Getting columns, swimlanes, and categories")
     await asyncio.gather(
-        kb_board.fetch_columns(),
-        kb_board.fetch_swimlanes(),
-        kb_board.fetch_categories(),
+        kb_project.fetch_columns(),
+        kb_project.fetch_swimlanes(),
+        kb_project.fetch_categories(),
     )
 
     log.info("Loading all active KB tasks")
-    task_collection = TaskCollection(kb_board)
-    await task_collection.load_board()
-    return kb_board, task_collection
+    task_collection = TaskCollection(kb_project)
+    await task_collection.load_project()
+    return kb_project, task_collection
 
 
 def load_gitlab_ops(for_real: bool = True):

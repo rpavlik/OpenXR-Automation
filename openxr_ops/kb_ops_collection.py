@@ -21,25 +21,25 @@ from openxr_ops.kb_ops_task import OperationsTask
 
 from .checklists import ReleaseChecklistFactory
 from .extensions import ExtensionNameGuesser
-from .kanboard_helpers import KanboardBoard
+from .kanboard_helpers import KanboardProject
 from .labels import MainProjectLabels
 from .vendors import VendorNames
 
 
 class TaskCollection:
-    """The object containing the loaded data of the KanBoard ops project."""
+    """The object containing the loaded data of the Kanboard ops project."""
 
     def __init__(
         self,
-        kb_board: KanboardBoard,
+        kb_project: KanboardProject,
         # proj: gitlab.v4.objects.Project,
         # vendor_names: VendorNames,
         # ops_proj: Optional[gitlab.v4.objects.Project] = None,
         # checklist_factory: Optional[ReleaseChecklistFactory] = None,
         # data: Optional[dict] = None,
     ):
-        self.kb_board = kb_board
-        """Object referencing an KanBoard project/board."""
+        self.kb_project = kb_project
+        """Object referencing an Kanboard project."""
 
         # self.proj: gitlab.v4.objects.Project = proj
         # """Main project"""
@@ -61,14 +61,14 @@ class TaskCollection:
     async def _load_task(self, task_data: dict[str, Any]):
         task_id = int(task_data["id"])
         task = await OperationsTask.from_task_dict_with_more_data(
-            self.kb_board, task_data
+            self.kb_project, task_data
         )
         self.tasks[task_id] = task
         if task.main_mr is not None:
             self.mr_to_task_id[task.main_mr] = task_id
 
-    async def load_board(self, only_open: bool = True):
-        tasks = await self.kb_board.get_all_tasks(only_open=only_open)
+    async def load_project(self, only_open: bool = True):
+        tasks = await self.kb_project.get_all_tasks(only_open=only_open)
         await asyncio.gather(*[self._load_task(task) for task in tasks])
 
     def get_task_by_mr(self, mr_num: int) -> Optional[OperationsTask]:

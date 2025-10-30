@@ -9,7 +9,7 @@
 from enum import Enum
 from typing import Iterable, Optional
 
-from .kanboard_helpers import KanboardBoard
+from .kanboard_helpers import KanboardProject
 
 # class QueueStage(Enum):
 #     PREPARATION = "In Preparation"
@@ -20,7 +20,7 @@ from .kanboard_helpers import KanboardBoard
 
 
 class TaskColumn(Enum):
-    """Columns in the KanBoard operations project"""
+    """Columns in the Kanboard operations project"""
 
     INACTIVE = "Inactive"  # not visible on dashboard
     IN_PREPARATION = "In Preparation"
@@ -30,14 +30,14 @@ class TaskColumn(Enum):
     REVISIONS_IN_PROGRESS = "Revisions in Progress"
     PENDING_APPROVALS_AND_MERGE = "Pending Approvals And Merge"
 
-    def to_column_id(self, kb_board) -> Optional[int]:
-        # depends on data cached by kb_board
-        return kb_board.col_titles.get(self.value)
+    def to_column_id(self, kb_project) -> Optional[int]:
+        # depends on data cached by kb_project
+        return kb_project.col_titles.get(self.value)
 
     @classmethod
-    def from_column_id(cls, kb_board: KanboardBoard, col_id: int) -> "TaskColumn":
-        # depends on data cached by kb_board
-        return cls(kb_board.col_ids_to_titles[col_id])
+    def from_column_id(cls, kb_project: KanboardProject, col_id: int) -> "TaskColumn":
+        # depends on data cached by kb_project
+        return cls(kb_project.col_ids_to_titles[col_id])
 
 
 COLUMN_DESCRIPTIONS = {
@@ -52,7 +52,7 @@ COLUMN_DESCRIPTIONS = {
 
 
 class TaskTags(Enum):
-    """Tags in the KanBoard operations project."""
+    """Tags in the Kanboard operations project."""
 
     INITIAL_DESIGN_REVIEW_COMPLETE = "Initial Design Review Complete"
     INITIAL_SPEC_REVIEW_COMPLETE = "Initial Spec Review Complete"
@@ -71,34 +71,34 @@ TAG_COLORS = {
 class TaskCategory(Enum):
     OUTSIDE_IPR_POLICY = "Not Subject to IPR Policy"
 
-    def to_category_id(self, kb_board: KanboardBoard) -> Optional[int]:
-        # depends on data cached by kb_board
-        return kb_board.category_title_to_id.get(self.value)
+    def to_category_id(self, kb_project: KanboardProject) -> Optional[int]:
+        # depends on data cached by kb_project
+        return kb_project.category_title_to_id.get(self.value)
 
     @classmethod
     def optional_to_category_id(
-        cls, kb_board: KanboardBoard, category: Optional["TaskCategory"]
+        cls, kb_project: KanboardProject, category: Optional["TaskCategory"]
     ) -> Optional[int]:
         if category is None:
             return 0
-        # depends on data cached by kb_board
-        return category.to_category_id(kb_board)
+        # depends on data cached by kb_project
+        return category.to_category_id(kb_project)
 
     @classmethod
     def from_category_id(
-        cls, kb_board: KanboardBoard, category_id: int
+        cls, kb_project: KanboardProject, category_id: int
     ) -> "TaskCategory":
-        # depends on data cached by kb_board
-        return cls(kb_board.category_ids_to_titles[category_id])
+        # depends on data cached by kb_project
+        return cls(kb_project.category_ids_to_titles[category_id])
 
     @classmethod
     def from_category_id_maybe_none(
-        cls, kb_board: KanboardBoard, category_id: int
+        cls, kb_project: KanboardProject, category_id: int
     ) -> Optional["TaskCategory"]:
         if category_id == 0:
             return None
-        # depends on data cached by kb_board
-        return cls(kb_board.category_ids_to_titles[category_id])
+        # depends on data cached by kb_project
+        return cls(kb_project.category_ids_to_titles[category_id])
 
 
 CATEGORY_COLORS = {TaskCategory.OUTSIDE_IPR_POLICY: "red"}
@@ -117,16 +117,16 @@ class TaskSwimlane(Enum):
     DESIGN_REVIEW_PHASE = "Design Review phase"
     SPEC_REVIEW_PHASE = "Spec Review phase"
 
-    def to_swimlane_id(self, kb_board: KanboardBoard) -> Optional[int]:
-        # depends on data cached by kb_board
-        return kb_board.swimlane_titles.get(self.value)
+    def to_swimlane_id(self, kb_project: KanboardProject) -> Optional[int]:
+        # depends on data cached by kb_project
+        return kb_project.swimlane_titles.get(self.value)
 
     @classmethod
     def from_swimlane_id(
-        cls, kb_board: KanboardBoard, swimlane_id: int
+        cls, kb_project: KanboardProject, swimlane_id: int
     ) -> "TaskSwimlane":
-        # depends on data cached by kb_board
-        return cls(kb_board.swimlane_ids_to_titles[swimlane_id])
+        # depends on data cached by kb_project
+        return cls(kb_project.swimlane_ids_to_titles[swimlane_id])
 
 
 SWIMLANE_DESCRIPTIONS = {

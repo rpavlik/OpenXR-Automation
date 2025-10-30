@@ -16,7 +16,7 @@ import kanboard
 from cts_workboard_update2 import WorkboardUpdate
 from nullboard_gitlab import extract_refs
 from openxr_ops.gitlab import OpenXRGitlab
-from openxr_ops.kanboard_helpers import KanboardBoard
+from openxr_ops.kanboard_helpers import KanboardProject
 from openxr_ops.labels import MainProjectLabels
 
 _SERVER = "openxr-boards.khronos.org"
@@ -71,13 +71,15 @@ REQUIRED_LABEL_SET = set(
 )
 
 
-async def _handle_item(wbu: WorkboardUpdate, kb_board: KanboardBoard, list_title: str):
+async def _handle_item(
+    wbu: WorkboardUpdate, kb_project: KanboardProject, list_title: str
+):
     pass
 
 
 async def _handle_note(
     wbu: WorkboardUpdate,
-    kb_board: KanboardBoard,
+    kb_project: KanboardProject,
     list_title: str,
     note_dict: dict[str, Any],
 ):
@@ -123,13 +125,13 @@ async def main(in_filename):
     print(kb_proj["url"]["board"])
     kb_proj_id = kb_proj["id"]
 
-    kb_board = KanboardBoard(kb, kb_proj_id)
-    await kb_board.fetch_columns()
+    kb_project = KanboardProject(kb, kb_proj_id)
+    await kb_project.fetch_columns()
 
     # Create all the columns
     await asyncio.gather(
         *[
-            kb_board.get_or_create_column(nb_list_obj["title"])
+            kb_project.get_or_create_column(nb_list_obj["title"])
             for nb_list_obj in wbu.board["lists"]
         ]
     )

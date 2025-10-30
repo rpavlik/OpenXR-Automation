@@ -18,7 +18,7 @@ import kanboard
 from openxr_ops.kb_defaults import USERNAME, get_kb_api_token, get_kb_api_url
 from openxr_ops.kb_ops_subtasks import MigrationSubtasksGroup
 
-from .kanboard_helpers import KanboardBoard
+from .kanboard_helpers import KanboardProject
 from .kb_ops_stages import TaskCategory, TaskColumn, TaskSwimlane
 
 
@@ -148,19 +148,19 @@ class SubtasksFromCategory(AutoSubtasksBase):
     def default_event_name(cls):
         return AutoActionEvents.TASK_CREATE_UPDATE
 
-    def to_arg_dict(self, kb_board: KanboardBoard):
+    def to_arg_dict(self, kb_project: KanboardProject):
         return self.make_args(
             action=self.action_name(),
             event=self.default_event_name(),
             params={
                 "category_id": TaskCategory.optional_to_category_id(
-                    kb_board, self.category
+                    kb_project, self.category
                 )
             },
         )
 
     @classmethod
-    def try_from_json(cls, kb_board, action: dict[str, Any]):
+    def try_from_json(cls, kb_project, action: dict[str, Any]):
         log = logging.getLogger(f"{__name__}.{cls.__name__}")
         if action["action_name"] != cls.action_name().value:
             return None
@@ -173,7 +173,7 @@ class SubtasksFromCategory(AutoSubtasksBase):
 
         params = action["params"]
         category = TaskCategory.from_category_id_maybe_none(
-            kb_board=kb_board, category_id=int(params["category_id"])
+            kb_project=kb_project, category_id=int(params["category_id"])
         )
         return cls(
             subtasks=base.subtasks,
@@ -213,18 +213,18 @@ class SubtasksFromColumn(AutoSubtasksBase):
     def default_event_name(cls):
         return AutoActionEvents.TASK_MOVE_COLUMN
 
-    def to_arg_dict(self, kb_board: KanboardBoard):
+    def to_arg_dict(self, kb_project: KanboardProject):
         return self.make_args(
             action=self.action_name(),
             event=self.default_event_name(),
             params={
-                "column_id": self.column.to_column_id(kb_board),
+                "column_id": self.column.to_column_id(kb_project),
                 "check_box_all_columns": 0,  # unused for now
             },
         )
 
     @classmethod
-    def try_from_json(cls, kb_board, action: dict[str, Any]):
+    def try_from_json(cls, kb_project, action: dict[str, Any]):
         log = logging.getLogger(f"{__name__}.{cls.__name__}")
         if action["action_name"] != cls.action_name().value:
             log.debug("action_name mismatch: %s", action["action_name"])
@@ -238,7 +238,7 @@ class SubtasksFromColumn(AutoSubtasksBase):
             return None
 
         params = action["params"]
-        column = TaskColumn.from_column_id(kb_board, int(params["column_id"]))
+        column = TaskColumn.from_column_id(kb_project, int(params["column_id"]))
         return cls(
             subtasks=base.subtasks,
             allow_duplicate_subtasks=base.allow_duplicate_subtasks,
@@ -280,23 +280,23 @@ class SubtasksFromColumnAndCategory(AutoSubtasksBase):
     def default_event_name(cls):
         return AutoActionEvents.TASK_MOVE_COLUMN
 
-    def to_arg_dict(self, kb_board: KanboardBoard):
+    def to_arg_dict(self, kb_project: KanboardProject):
         cat_id = 0
         if self.category is not None:
-            cat_id = self.category.to_category_id(kb_board)
+            cat_id = self.category.to_category_id(kb_project)
         return self.make_args(
             action=self.action_name(),
             event=self.default_event_name(),
             params={
-                "column_id": self.column.to_column_id(kb_board),
+                "column_id": self.column.to_column_id(kb_project),
                 "category_id": TaskCategory.optional_to_category_id(
-                    kb_board, self.category
+                    kb_project, self.category
                 ),
             },
         )
 
     @classmethod
-    def try_from_json(cls, kb_board, action: dict[str, Any]):
+    def try_from_json(cls, kb_project, action: dict[str, Any]):
         log = logging.getLogger(f"{__name__}.{cls.__name__}")
         if action["action_name"] != cls.action_name().value:
             log.debug("action_name mismatch: %s", action["action_name"])
@@ -310,9 +310,9 @@ class SubtasksFromColumnAndCategory(AutoSubtasksBase):
             return None
 
         params = action["params"]
-        column = TaskColumn.from_column_id(kb_board, int(params["column_id"]))
+        column = TaskColumn.from_column_id(kb_project, int(params["column_id"]))
         category = TaskCategory.from_category_id_maybe_none(
-            kb_board=kb_board, category_id=int(params["category_id"])
+            kb_project=kb_project, category_id=int(params["category_id"])
         )
         return cls(
             subtasks=base.subtasks,
@@ -356,18 +356,18 @@ class SubtasksFromColumnAndSwimlane(AutoSubtasksBase):
     def default_event_name(cls):
         return AutoActionEvents.TASK_MOVE_COLUMN
 
-    def to_arg_dict(self, kb_board: KanboardBoard):
+    def to_arg_dict(self, kb_project: KanboardProject):
         return self.make_args(
             action=self.action_name(),
             event=self.default_event_name(),
             params={
-                "column_id": self.column.to_column_id(kb_board),
-                "swimlane_id": self.swimlane.to_swimlane_id(kb_board),
+                "column_id": self.column.to_column_id(kb_project),
+                "swimlane_id": self.swimlane.to_swimlane_id(kb_project),
             },
         )
 
     @classmethod
-    def try_from_json(cls, kb_board, action: dict[str, Any]):
+    def try_from_json(cls, kb_project, action: dict[str, Any]):
         log = logging.getLogger(f"{__name__}.{cls.__name__}")
         if action["action_name"] != cls.action_name().value:
             log.debug("action_name mismatch: %s", action["action_name"])
@@ -381,9 +381,9 @@ class SubtasksFromColumnAndSwimlane(AutoSubtasksBase):
             return None
 
         params = action["params"]
-        column = TaskColumn.from_column_id(kb_board, int(params["column_id"]))
+        column = TaskColumn.from_column_id(kb_project, int(params["column_id"]))
         swimlane = TaskSwimlane.from_swimlane_id(
-            kb_board=kb_board, swimlane_id=int(params["swimlane_id"])
+            kb_project=kb_project, swimlane_id=int(params["swimlane_id"])
         )
         return cls(
             subtasks=base.subtasks,
@@ -430,21 +430,21 @@ class SubtasksFromColumnAndSwimlaneAndCategory(AutoSubtasksBase):
     def default_event_name(cls):
         return AutoActionEvents.TASK_MOVE_COLUMN
 
-    def to_arg_dict(self, kb_board: KanboardBoard):
+    def to_arg_dict(self, kb_project: KanboardProject):
         return self.make_args(
             action=self.action_name(),
             event=self.default_event_name(),
             params={
-                "column_id": self.column.to_column_id(kb_board),
-                "swimlane_id": self.swimlane.to_swimlane_id(kb_board),
+                "column_id": self.column.to_column_id(kb_project),
+                "swimlane_id": self.swimlane.to_swimlane_id(kb_project),
                 "category_id": TaskCategory.optional_to_category_id(
-                    kb_board, self.category
+                    kb_project, self.category
                 ),
             },
         )
 
     @classmethod
-    def try_from_json(cls, kb_board, action: dict[str, Any]):
+    def try_from_json(cls, kb_project, action: dict[str, Any]):
         log = logging.getLogger(f"{__name__}.{cls.__name__}")
         if action["action_name"] != cls.action_name().value:
             log.debug("action_name mismatch: %s", action["action_name"])
@@ -458,12 +458,12 @@ class SubtasksFromColumnAndSwimlaneAndCategory(AutoSubtasksBase):
             return None
 
         params = action["params"]
-        column = TaskColumn.from_column_id(kb_board, int(params["column_id"]))
+        column = TaskColumn.from_column_id(kb_project, int(params["column_id"]))
         swimlane = TaskSwimlane.from_swimlane_id(
-            kb_board=kb_board, swimlane_id=int(params["swimlane_id"])
+            kb_project=kb_project, swimlane_id=int(params["swimlane_id"])
         )
         category = TaskCategory.from_category_id_maybe_none(
-            kb_board=kb_board, category_id=int(params["category_id"])
+            kb_project=kb_project, category_id=int(params["category_id"])
         )
         return cls(
             subtasks=base.subtasks,
@@ -553,9 +553,9 @@ AUTO_ACTION_TYPES = [
 ]
 
 
-def from_json(kb_board, action: dict[str, Any]):
+def from_json(kb_project, action: dict[str, Any]):
     for t in AUTO_ACTION_TYPES:
-        result = t.try_from_json(kb_board, action)
+        result = t.try_from_json(kb_project, action)
 
         if result is not None:
             return result
@@ -563,13 +563,13 @@ def from_json(kb_board, action: dict[str, Any]):
     return None
 
 
-async def get_and_parse_actions(kb: kanboard.Client, kb_board, proj_id: int):
+async def get_and_parse_actions(kb: kanboard.Client, kb_project, proj_id: int):
     unparsed = []
     all_parsed: dict[int, AutoSubtasksBase] = dict()
 
     actions = await kb.get_actions_async(project_id=proj_id)
     for action in actions:
-        parsed = from_json(kb_board=kb_board, action=action)
+        parsed = from_json(kb_project=kb_project, action=action)
         if parsed is None:
             unparsed.append(action)
         else:
@@ -590,13 +590,13 @@ async def get_and_parse_actions_from_named_project(
         return None, None
 
     proj_id = int(proj["id"])
-    kb_board = KanboardBoard(kb, proj_id)
+    kb_project = KanboardProject(kb, proj_id)
     await asyncio.gather(
-        kb_board.fetch_columns(),
-        kb_board.fetch_swimlanes(),
-        kb_board.fetch_categories(),
+        kb_project.fetch_columns(),
+        kb_project.fetch_swimlanes(),
+        kb_project.fetch_categories(),
     )
-    return await get_and_parse_actions(kb, kb_board=kb_board, proj_id=proj_id)
+    return await get_and_parse_actions(kb, kb_project=kb_project, proj_id=proj_id)
 
 
 if __name__ == "__main__":
@@ -670,13 +670,13 @@ if __name__ == "__main__":
 
         async def runner():
             proj_id = args.project_id[0]
-            kb_board = KanboardBoard(kb, proj_id)
+            kb_project = KanboardProject(kb, proj_id)
             await asyncio.gather(
-                kb_board.fetch_columns(),
-                kb_board.fetch_swimlanes(),
-                kb_board.fetch_categories(),
+                kb_project.fetch_columns(),
+                kb_project.fetch_swimlanes(),
+                kb_project.fetch_categories(),
             )
-            unparsed, all_parsed = await get_and_parse_actions(kb, kb_board, proj_id)
+            unparsed, all_parsed = await get_and_parse_actions(kb, kb_project, proj_id)
             from pprint import pprint
 
             print("Unparsed")
