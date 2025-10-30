@@ -245,7 +245,7 @@ async def populate_project(kb: kanboard.Client, proj_id: int):
     proj = await kb.get_project_by_id_async(project_id=proj_id)
 
     log.info("Project ID is %d", proj_id)
-    log.info("Board URL: %s", proj["url"]["board"])
+    log.info("Project Board URL: %s", proj["url"]["board"])
 
     # Apply the setup
     await asyncio.gather(
