@@ -422,9 +422,7 @@ def get_title(checklist_issue: ReleaseChecklistIssue) -> str:
     return title
 
 
-_KEY_DATA_HEADER = "Key Data"
 _STATUS_AND_DATES_HEADER = "Status and Important Dates, if any"
-_PRECOND_FOR_SPEC_REVIEW_HEADER = "Preconditions for Spec Editor Review"
 
 _CHECKBOX_RE = re.compile(r"- \[(?P<content>[x _])\] .*")
 
@@ -450,13 +448,6 @@ def _bool_to_subtask_status(checked: bool) -> int:
     if checked:
         return 1
     return 0
-
-
-def _get_checkbox(line: str) -> Optional[bool]:
-    m = _CHECKBOX_RE.match(line)
-    if m:
-        return m.group("content") == "x"
-    return None
 
 
 def _find_checkboxes(lines: list[str]):
@@ -492,33 +483,15 @@ def get_description(issue_obj) -> str:
     first_precondition_line = is_line_precondition.index(True)
 
     end_line = first_precondition_line
-    # headers = [_KEY_DATA_HEADER, _STATUS_AND_DATES_HEADER, _PRECOND_FOR_SPEC_REVIEW_HEADER]
     if _STATUS_AND_DATES_HEADER in header_line_indices:
         # We have a status section
         if _BLANK_STATUS_SECTION in full_desc:
             # but it is unmodified
             end_line = header_line_indices[_STATUS_AND_DATES_HEADER]
-        # status_lines = lines[header_line_indices[_STATUS_AND_DATES_HEADER]:first_precondition_line]
-        # check_data = [_get_checkbox(line) for line in status_lines]
-        # checkboxes = [check for check in check_data if check is not None]
-        # has_check = checkboxes and any(checkboxes)
-        # placeholder_lines
-    # if all(header in header_line_indices for header in headers):
-    #     # We can do the smart thing.
-    #     status_lines = lines[header_line_indices[]]
 
-    # key_data_index = header_line_indices[]
-    # status_index = header_line_indices[]
-    # for line in lines:
-    #     if "Preconditions" in line:
-    #         break
-    #     keeper_lines.append(line)
     joined = "\n".join(lines[:end_line]).replace("- [ ]", "- [_]")
     # Format some merge request links
     return _MR_REF_RE.sub(_format_mr, joined, count=10)
-
-    # description = issue_obj.attributes["description"].replace("- [ ]", "- [_]")
-    # return description
 
 
 def get_flags(checklist_issue: ReleaseChecklistIssue):
