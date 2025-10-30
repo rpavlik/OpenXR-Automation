@@ -624,27 +624,25 @@ if __name__ == "__main__":
 
     log = logging.getLogger(__name__)
 
-    token = get_kb_api_token()
+    async def runner():
 
-    url = get_kb_api_url()
+        token = get_kb_api_token()
 
-    kb = kanboard.Client(
-        url=url,
-        username=USERNAME,
-        password=token,
-        # cafile="/path/to/my/cert.pem",
-        ignore_hostname_verification=True,
-        insecure=True,
-    )
+        url = get_kb_api_url()
 
-    log.info("Client created: %s @ %s", USERNAME, url)
+        kb = kanboard.Client(
+            url=url,
+            username=USERNAME,
+            password=token,
+            # cafile="/path/to/my/cert.pem",
+            ignore_hostname_verification=True,
+            insecure=True,
+        )
 
-    # jobs = [get_projects(kb)]
+        log.info("Client created: %s @ %s", USERNAME, url)
 
-    loop = asyncio.new_event_loop()
-    if args.project:
+        if args.project:
 
-        async def runner():
             unparsed, all_parsed = await get_and_parse_actions_from_named_project(
                 kb, args.project
             )
@@ -655,12 +653,8 @@ if __name__ == "__main__":
             print("Parsed")
             pprint(all_parsed)
 
-        loop.run_until_complete(runner())
+        if args.project_id:
 
-    if args.project_id:
-        # jobs.append(populate_project(kb, args.project_id))
-
-        async def runner():
             proj_id = args.project_id[0]
             kb_project = KanboardProject(kb, proj_id)
             await kb_project.fetch_all_id_maps()
@@ -672,6 +666,4 @@ if __name__ == "__main__":
             print("Parsed")
             pprint(all_parsed)
 
-        loop.run_until_complete(runner())
-
-    # loop.run_until_complete(asyncio.gather(*jobs))
+    asyncio.run(runner())

@@ -118,7 +118,4 @@ if __name__ == "__main__":
 
     load_dotenv()
 
-    loop = asyncio.new_event_loop()
-    project_id = loop.run_until_complete(
-        async_main("Nullboard-1661530413298-OpenXR-CTS.nbx")
-    )
+    asyncio.run(async_main("Nullboard-1661530413298-OpenXR-CTS.nbx"))

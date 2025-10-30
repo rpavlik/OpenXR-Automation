@@ -145,9 +145,7 @@ async def main(in_filename):
 
 if __name__ == "__main__":
 
-    loop = asyncio.new_event_loop()
-
-    loop.run_until_complete(
+    asyncio.run(
         main(
             "Nullboard-1661530413298-OpenXR-CTS.nbx",
         )

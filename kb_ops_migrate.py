@@ -385,7 +385,4 @@ if __name__ == "__main__":
     oxr_gitlab, collection = load_gitlab_ops()
     assert collection
 
-    loop = asyncio.new_event_loop()
-    project_id = loop.run_until_complete(
-        async_main(oxr_gitlab, collection, args.project[0])
-    )
+    asyncio.run(async_main(oxr_gitlab, collection, args.project[0]))

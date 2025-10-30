@@ -318,39 +318,29 @@ if __name__ == "__main__":
 
     log = logging.getLogger(__name__)
 
-    token = get_kb_api_token()
+    async def runner():
+        token = get_kb_api_token()
 
-    url = get_kb_api_url()
+        url = get_kb_api_url()
 
-    kb = kanboard.Client(
-        url=url,
-        username=USERNAME,
-        password=token,
-        # cafile="/path/to/my/cert.pem",
-        ignore_hostname_verification=True,
-        insecure=True,
-    )
+        kb = kanboard.Client(
+            url=url,
+            username=USERNAME,
+            password=token,
+            # cafile="/path/to/my/cert.pem",
+            ignore_hostname_verification=True,
+            insecure=True,
+        )
 
-    log.info("Client created: %s @ %s", USERNAME, url)
+        log.info("Client created: %s @ %s", USERNAME, url)
 
-    # jobs = [get_projects(kb)]
-
-    loop = asyncio.new_event_loop()
-    if args.project:
-
-        async def runner():
+        if args.project:
             await get_projects(kb)
             await create_or_populate_project(kb, args.project[0])
 
-        loop.run_until_complete(runner())
+        if args.project_id:
 
-    if args.project_id:
-        # jobs.append(populate_project(kb, args.project_id))
-
-        async def runner():
             await get_projects(kb)
             await populate_project(kb, args.project_id[0])
 
-        loop.run_until_complete(runner())
-
-    # loop.run_until_complete(asyncio.gather(*jobs))
+    asyncio.run(runner())
