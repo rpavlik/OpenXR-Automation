@@ -85,6 +85,12 @@ class ConfigSubtasksGroupCondition:
             return None
         return self.category
 
+    def test_category(self, category: Optional[TaskCategory]):
+        """Determine if the category provided matches this condition."""
+        if not self.has_category_predicate():
+            return True
+        return self.get_category_predicate() == category
+
 
 @dataclass
 class ConfigSubtaskGroup:

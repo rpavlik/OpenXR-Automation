@@ -24,6 +24,7 @@ from openxr_ops.gitlab import OpenXRGitlab
 from openxr_ops.kanboard_helpers import KanboardProject
 from openxr_ops.kb_defaults import USERNAME, get_kb_api_token, get_kb_api_url
 from openxr_ops.kb_ops_collection import TaskCollection
+from openxr_ops.kb_ops_config import ConfigSubtaskGroup, get_all_subtasks
 from openxr_ops.kb_ops_queue import COLUMN_CONVERSION, COLUMN_TO_SWIMLANE
 from openxr_ops.kb_ops_stages import TaskCategory, TaskSwimlane
 from openxr_ops.kb_ops_task import (
@@ -69,6 +70,8 @@ class OperationsGitLabToKanboard:
         self.kb_project_name: str = kb_project_name
         self.update_options: UpdateOptions = update_options
 
+        self.subtask_groups = get_all_subtasks()
+
         self.log = logging.getLogger(f"{__name__}.{self.__class__.__name__}")
         self.dates: list[dict[str, Union[str, int]]] = []
         """Rows for a CSV file."""
@@ -79,9 +82,64 @@ class OperationsGitLabToKanboard:
         self.kb: kanboard.Client
 
     async def prepare(self):
-
         self.kb_project, self.task_collection = await load_kb_ops(self.kb_project_name)
         self.kb = self.kb_project.kb
+
+    async def _process_subtasks(
+        self,
+        task_id: int,
+        description: str,
+        data: OperationsTaskCreationData,
+    ):
+        existing_subtasks = await self.kb.get_all_subtasks_async(task_id=task_id)
+        if existing_subtasks == False:
+            raise RuntimeError("Failed to get subtasks for task ID " + str(task_id))
+
+        existing_subtask_titles = {subtask["title"] for subtask in existing_subtasks}
+        checkbox_state_and_line: list[tuple[bool, str]] = list(
+            _find_checkboxes(description.splitlines())
+        )
+        new_subtask_titles: set[str] = set()
+        new_subtasks: list[tuple[bool, str]] = []
+        new_subtask_futures: list = []
+        for group in self.subtask_groups:
+            if not _should_apply_subtask_group(group, data):
+                continue
+            for entry in group.subtasks:
+                entry_title = entry.get_full_subtask_name(group)
+                if entry_title in new_subtask_titles:
+                    # do not dupe within a single pass
+                    continue
+
+                if (
+                    group.condition
+                    and not group.condition.allow_duplicate_subtasks
+                    and entry_title in existing_subtask_titles
+                ):
+                    # But allow some overall dupes
+                    # TODO really?
+                    continue
+
+                for checkbox_state, line in checkbox_state_and_line:
+                    if entry.migration_prefix in line:
+                        new_subtask_futures.append(
+                            self.kb.create_subtask_async(
+                                task_id=task_id,
+                                title=entry_title,
+                                status=_bool_to_subtask_status(checkbox_state),
+                            )
+                        )
+                        new_subtasks.append((checkbox_state, entry_title))
+                        new_subtask_titles.add(entry_title)
+
+        if new_subtask_futures:
+            self.log.info(
+                "Adding %d new subtasks: %s",
+                len(new_subtask_futures),
+                str(new_subtask_futures),
+            )
+            for new_subtask in new_subtask_futures:
+                await new_subtask
 
     async def update_task(
         self,
@@ -216,10 +274,16 @@ class OperationsGitLabToKanboard:
         kb_task = self.task_collection.get_task_by_mr(mr_num)
 
         if kb_task is not None:
+            # Already existing.
             await self.update_task(
                 kb_task=kb_task,
                 mr_num=mr_num,
                 data=data,
+            )
+            await self._process_subtasks(
+                kb_task.task_id,
+                checklist_issue.issue_obj.attributes["description"],
+                data,
             )
             return None
 
@@ -232,6 +296,13 @@ class OperationsGitLabToKanboard:
                 new_task_id,
                 checklist_issue.title,
             )
+
+            await self._process_subtasks(
+                new_task_id,
+                checklist_issue.issue_obj.attributes["description"],
+                data,
+            )
+
             if task_dates is not None:
                 task_dates["task_id"] = new_task_id
         return task_dates
@@ -277,6 +348,22 @@ async def async_main(
     await obj.process_all_mrs()
     if obj.dates:
         obj.write_datetime_csv()
+
+
+def _should_apply_subtask_group(
+    group: ConfigSubtaskGroup, data: OperationsTaskCreationData
+):
+    if not group.condition:
+        # always apply these for now
+        return True
+
+    if not group.condition.test_category(data.category):
+        return False
+
+    if group.condition.swimlane and group.condition.swimlane != data.swimlane:
+        return False
+
+    return True
 
 
 def get_category(checklist_issue: ReleaseChecklistIssue) -> Optional[TaskCategory]:
@@ -357,6 +444,12 @@ _BLANK_STATUS_SECTION = """
   - Do not release before: (_N/A or date_)
   - Preferred time range for release: (_N/A or date range_)
 """.strip()
+
+
+def _bool_to_subtask_status(checked: bool) -> int:
+    if checked:
+        return 1
+    return 0
 
 
 def _get_checkbox(line: str) -> Optional[bool]:
