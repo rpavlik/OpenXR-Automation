@@ -292,7 +292,7 @@ class OperationsGitLabToKanboard:
 
         if new_task_id is not None:
             self.log.info(
-                "Created new task ID %d: %s %s",
+                "Created new task ID %d: %s",
                 new_task_id,
                 checklist_issue.title,
             )
