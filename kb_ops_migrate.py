@@ -446,7 +446,7 @@ _BLANK_STATUS_SECTION = """
 
 def _bool_to_subtask_status(checked: bool) -> int:
     if checked:
-        return 1
+        return 2
     return 0
 
 
