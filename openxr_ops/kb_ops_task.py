@@ -110,10 +110,11 @@ class OperationsTaskBase:
         swimlane: TaskSwimlane = TaskSwimlane.from_swimlane_id(
             kb_project, swimlane_id=int(swimlane_id)
         )
-        category_id = int(task["category_id"])
-        category: Optional[TaskCategory] = TaskCategory.from_category_id_maybe_none(
-            kb_project, category_id
-        )
+        category_id: Optional[int] = None
+        category: Optional[TaskCategory] = None
+        if task["category_id"] is not None:
+            category_id = int(task["category_id"])
+            category = TaskCategory.from_category_id_maybe_none(kb_project, category_id)
         return cls(
             task_id=task_id,
             column=column,
