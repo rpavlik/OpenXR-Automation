@@ -187,13 +187,11 @@ class OperationsGitLabToKanboard:
         self,
         oxr_gitlab: OpenXRGitlab,
         gl_collection: ReleaseChecklistCollection,
-        # kb: kanboard.Client,
         kb_project_name: str,
         update_options: UpdateOptions,
     ):
         self.oxr_gitlab: OpenXRGitlab = oxr_gitlab
         self.gl_collection: ReleaseChecklistCollection = gl_collection
-        # self.kb: kanboard.Client = kb
         self.kb_project_name: str = kb_project_name
         self.update_options: UpdateOptions = update_options
 
@@ -205,6 +203,8 @@ class OperationsGitLabToKanboard:
 
         self.mr_to_task_id: dict[int, int] = {}
         """MR number to kanboard task id"""
+
+        self.update_subtask_futures: list = []
 
         # these are populated later in prepare
         self.kb_project: KanboardProject
@@ -396,10 +396,12 @@ class OperationsGitLabToKanboard:
 
         self.mr_to_task_id[mr_num] = task_id
 
-        await self._process_subtasks(
-            task_id,
-            checklist_issue.issue_obj.attributes["description"],
-            data,
+        self.update_subtask_futures.append(
+            self._process_subtasks(
+                task_id,
+                checklist_issue.issue_obj.attributes["description"],
+                data,
+            )
         )
 
         task_dates = get_dates(checklist_issue)
@@ -429,6 +431,12 @@ class OperationsGitLabToKanboard:
             if task_dates is not None:
                 self.dates.append(task_dates)
 
+        # we deferred subtask updating to parallelize better
+        # do it now
+        await asyncio.gather(*self.update_subtask_futures)
+        self.update_subtask_futures = []
+
+        # Now update gitlab, synchronously
         for mr_num in self.gl_collection.issue_to_mr.values():
             task_id = self.mr_to_task_id.get(mr_num)
             if task_id is None:
