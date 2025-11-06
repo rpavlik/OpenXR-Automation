@@ -1096,7 +1096,7 @@ class Client:
         *,
         id: int,
         task_id: int,
-        title: Optional[int] = None,
+        title: Optional[str] = None,
         user_id: Optional[int] = None,
         time_estimated: Optional[int] = None,
         time_spent: Optional[int] = None,
