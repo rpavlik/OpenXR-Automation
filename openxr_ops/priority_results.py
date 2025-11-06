@@ -33,6 +33,17 @@ _IGNORE_PUSH_USERS = ("rpavlik", "safarimonkey", "haagch", "khrbot")
 _PUSH_NOTE_RE = re.compile(r"added \d+ commit(s?)\n\n.*")
 
 
+def compute_vendor_name_and_tag(title, vendors) -> tuple[Optional[str], Optional[str]]:
+    m = _EXT_DECOMP_RE.match(title)
+    vendor: Optional[str] = None
+    tag: Optional[str] = None
+    if m is not None:
+        tag = m.group("tag")
+        assert tag is not None
+        vendor = vendors.get_vendor_name(tag)
+    return vendor, tag
+
+
 def _is_note_a_push(note: gitlab.v4.objects.ProjectMergeRequestNote):
     if not note.system:
         return False
@@ -58,14 +69,103 @@ def _created_date(n):
 
 
 @dataclass
-class ReleaseChecklistIssue:
+class ReleaseChecklistMRData:
+
+    mr: gitlab.v4.objects.ProjectMergeRequest
+
+    @cached_property
+    def mr_age(self):
+        """Time since merge request creation in days"""
+        created_at = datetime.datetime.fromisoformat(self.mr.attributes["created_at"])
+        age = NOW - created_at
+        return age.days
+
+    @cached_property
+    def has_conflicts(self):
+        """If the MR has merge conflicts."""
+        return self.mr.attributes.get("has_conflicts", False)
+
+    @property
+    def needs_author_action(self):
+        return MainProjectLabels.NEEDS_AUTHOR_ACTION in self.mr.attributes["labels"]
+
+    @cached_property
+    def _last_author_revision_push_with_date(
+        self,
+    ) -> tuple[
+        Optional[gitlab.v4.objects.ProjectMergeRequestNote], Optional[datetime.datetime]
+    ]:
+        """The system note and date for the last non-bot, non-spec-editor/contractor push to the MR."""
+
+        # def format_user(n):
+        #     return f'  ({n.attributes["author"]["username"]})'
+        pushes_by_create_date = {
+            _created_date(n): cast(gitlab.v4.objects.ProjectMergeRequestNote, n)
+            for n in self.mr_notes
+            if _is_note_an_author_push(
+                cast(gitlab.v4.objects.ProjectMergeRequestNote, n)
+            )
+        }
+        latest_date = max(pushes_by_create_date.keys(), default=None)
+        if not latest_date:
+            return None, None
+        return (
+            pushes_by_create_date[latest_date],
+            latest_date,
+        )
+
+    @cached_property
+    def last_push(
+        self,
+    ) -> Optional[gitlab.v4.objects.ProjectMergeRequestNote]:
+        """The system note for the last push to the MR."""
+        pushes = [
+            cast(gitlab.v4.objects.ProjectMergeRequestNote, n)
+            for n in self.mr_notes
+            if _is_note_a_push(cast(gitlab.v4.objects.ProjectMergeRequestNote, n))
+        ]
+        if not pushes:
+            return None
+        return pushes[-1]
+
+    @cached_property
+    def last_author_revision_push_age(
+        self,
+    ) -> int:
+        """Days since the last non-bot, non-spec-editor/contractor push to the MR."""
+        _, last_push_date = self._last_author_revision_push_with_date
+        if not last_push_date:
+            log.info(
+                "No last push date for %s, using MR create date",
+                self.mr.attributes["title"],
+            )
+            last_push_date = datetime.datetime.fromisoformat(
+                self.mr.attributes["created_at"]
+            )
+        return (NOW - last_push_date).days
+
+    @cached_property
+    def mr_notes(self):
+        return list(self.mr.notes.list(iterator=True))
+
+    @property
+    def mr_ref(self) -> str:
+        return self.mr.references["short"]
+
+    @property
+    def mr_url(self) -> str:
+        return self.mr.web_url
+
+
+@dataclass
+class ReleaseChecklistIssue(ReleaseChecklistMRData):
     issue_obj: gitlab.v4.objects.ProjectIssue
 
     status: str
 
     latest_status_label_event: gitlab.v4.objects.ProjectIssueResourceLabelEvent
 
-    mr: gitlab.v4.objects.ProjectMergeRequest
+    # mr: gitlab.v4.objects.ProjectMergeRequest
 
     vendor_name: Optional[str] = None
     vendor_tag: Optional[str] = None
@@ -133,22 +233,6 @@ class ReleaseChecklistIssue:
         age = NOW - created_at
         return age.days
 
-    @cached_property
-    def mr_age(self):
-        """Time since merge request creation in days"""
-        created_at = datetime.datetime.fromisoformat(self.mr.attributes["created_at"])
-        age = NOW - created_at
-        return age.days
-
-    @cached_property
-    def has_conflicts(self):
-        """If the MR has merge conflicts."""
-        return self.mr.attributes.get("has_conflicts", False)
-
-    @property
-    def needs_author_action(self):
-        return MainProjectLabels.NEEDS_AUTHOR_ACTION in self.mr.attributes["labels"]
-
     @property
     def unchangeable(self):
         # TODO should not see this on the MR but...
@@ -156,62 +240,6 @@ class ReleaseChecklistIssue:
             OpsProjectLabels.UNCHANGEABLE in self.mr.attributes["labels"]
             or OpsProjectLabels.UNCHANGEABLE in self.issue_obj.attributes["labels"]
         )
-
-    @cached_property
-    def _last_author_revision_push_with_date(
-        self,
-    ) -> tuple[
-        Optional[gitlab.v4.objects.ProjectMergeRequestNote], Optional[datetime.datetime]
-    ]:
-        """The system note and date for the last non-bot, non-spec-editor/contractor push to the MR."""
-
-        # def format_user(n):
-        #     return f'  ({n.attributes["author"]["username"]})'
-        pushes_by_create_date = {
-            _created_date(n): cast(gitlab.v4.objects.ProjectMergeRequestNote, n)
-            for n in self.mr_notes
-            if _is_note_an_author_push(
-                cast(gitlab.v4.objects.ProjectMergeRequestNote, n)
-            )
-        }
-        latest_date = max(pushes_by_create_date.keys(), default=None)
-        if not latest_date:
-            return None, None
-        return (
-            pushes_by_create_date[latest_date],
-            latest_date,
-        )
-
-    @cached_property
-    def last_push(
-        self,
-    ) -> Optional[gitlab.v4.objects.ProjectMergeRequestNote]:
-        """The system note for the last push to the MR."""
-        pushes = [
-            cast(gitlab.v4.objects.ProjectMergeRequestNote, n)
-            for n in self.mr_notes
-            if _is_note_a_push(cast(gitlab.v4.objects.ProjectMergeRequestNote, n))
-        ]
-        if not pushes:
-            return None
-        return pushes[-1]
-
-    @cached_property
-    def last_author_revision_push_age(
-        self,
-    ) -> int:
-        """Days since the last non-bot, non-spec-editor/contractor push to the MR."""
-        _, last_push_date = self._last_author_revision_push_with_date
-        if not last_push_date:
-            log.info("No last push date for %s, using MR create date", self.title)
-            last_push_date = datetime.datetime.fromisoformat(
-                self.mr.attributes["created_at"]
-            )
-        return (NOW - last_push_date).days
-
-    @cached_property
-    def mr_notes(self):
-        return list(self.mr.notes.list(iterator=True))
 
     @property
     def author_category_priority(self):
@@ -241,14 +269,6 @@ class ReleaseChecklistIssue:
     @property
     def url(self) -> str:
         return self.issue_obj.web_url
-
-    @property
-    def mr_ref(self) -> str:
-        return self.mr.references["short"]
-
-    @property
-    def mr_url(self) -> str:
-        return self.mr.web_url
 
     def to_markdown(self, slot: int):
         # Think this does nothing because we do not block merges on
@@ -292,13 +312,7 @@ class ReleaseChecklistIssue:
         assert status_events
         latest_event = status_events[-1]
 
-        m = _EXT_DECOMP_RE.match(issue.title)
-        vendor: Optional[str] = None
-        tag: Optional[str] = None
-        if m is not None:
-            tag = m.group("tag")
-            assert tag is not None
-            vendor = vendors.get_vendor_name(tag)
+        vendor, tag = compute_vendor_name_and_tag(issue.title, vendors)
 
         return cls(
             issue_obj=issue,
