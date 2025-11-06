@@ -6,11 +6,12 @@
 #
 # Author: Rylie Pavlik <rylie.pavlik@collabora.com>
 
+import abc
 import asyncio
 import logging
 from dataclasses import dataclass
 from pprint import pformat
-from typing import Any, Literal, Optional, Union
+from typing import Any, Literal, Optional, Sequence, Union
 
 import kanboard
 
@@ -29,6 +30,20 @@ def _to_check_box_no_duplicates(allow_duplicate_subtasks: bool):
 
 def _to_multitasktitles(tasks: list[str]):
     return "\r\n".join(tasks)
+
+
+class AutoActionABC(abc.ABC):
+
+    @abc.abstractmethod
+    def to_arg_dict(self, kb_project: KanboardProject) -> dict[str, Any]:
+        pass
+
+    @classmethod
+    @abc.abstractmethod
+    def try_from_json(
+        cls, kb_project, action: dict[str, Any]
+    ) -> Optional["AutoActionABC"]:
+        pass
 
 
 @dataclass
@@ -90,7 +105,7 @@ class AutoSubtasksBase:
 
 
 @dataclass
-class SubtasksFromCategory(AutoSubtasksBase):
+class SubtasksFromCategory(AutoSubtasksBase, AutoActionABC):
     """
     Automatic action to create subtasks on creation or update of a task.
 
@@ -177,7 +192,7 @@ class SubtasksFromCategory(AutoSubtasksBase):
 
 
 @dataclass
-class SubtasksFromColumn(AutoSubtasksBase):
+class SubtasksFromColumn(AutoSubtasksBase, AutoActionABC):
     """
     Automatic action to create subtasks on moving a task to a column.
 
@@ -261,7 +276,7 @@ class SubtasksFromColumn(AutoSubtasksBase):
 
 
 @dataclass
-class SubtasksFromColumnAndCategory(AutoSubtasksBase):
+class SubtasksFromColumnAndCategory(AutoSubtasksBase, AutoActionABC):
     """
     Automatic action to create subtasks on moving a task to a column if in a category.
 
@@ -356,7 +371,7 @@ class SubtasksFromColumnAndCategory(AutoSubtasksBase):
 
 
 @dataclass
-class SubtasksFromColumnAndSwimlane(AutoSubtasksBase):
+class SubtasksFromColumnAndSwimlane(AutoSubtasksBase, AutoActionABC):
     """
     Automatic action to create subtasks on moving a task to a column if in a swimlane.
 
@@ -449,7 +464,7 @@ class SubtasksFromColumnAndSwimlane(AutoSubtasksBase):
 
 
 @dataclass
-class SubtasksFromColumnAndSwimlaneAndCategory(AutoSubtasksBase):
+class SubtasksFromColumnAndSwimlaneAndCategory(AutoSubtasksBase, AutoActionABC):
     """
     Automatic action to create subtasks on moving a task to a column if in a swimlane and category.
 
@@ -554,9 +569,15 @@ class SubtasksFromColumnAndSwimlaneAndCategory(AutoSubtasksBase):
         )
 
 
-def actions_from_subtask_group(group: ConfigSubtaskGroup):
+def actions_from_subtask_group(
+    group: ConfigSubtaskGroup,
+) -> Optional[Sequence[AutoActionABC]]:
     log = logging.getLogger(f"{__name__}.from_migration_subtasks_group")
     subtask_names = [subtask.get_full_subtask_name(group) for subtask in group.subtasks]
+
+    if not group.condition:
+        log.warning("No condition provided for %s", group.group_name)
+        return None
 
     if group.condition:
         if (
@@ -658,9 +679,11 @@ def from_json(kb_project, action: dict[str, Any]):
     return None
 
 
-async def get_and_parse_actions(kb: kanboard.Client, kb_project, proj_id: int):
+async def get_and_parse_actions(
+    kb: kanboard.Client, kb_project, proj_id: int
+) -> tuple[list, dict[int, AutoActionABC]]:
     unparsed = []
-    all_parsed: dict[int, AutoSubtasksBase] = dict()
+    all_parsed: dict[int, AutoActionABC] = dict()
 
     actions = await kb.get_actions_async(project_id=proj_id)
     for action in actions:

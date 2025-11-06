@@ -173,9 +173,9 @@ async def populate_actions(
 
     current_actions_future = get_and_parse_actions(kb, kb_project, project_id)
     for group in subtask_groups:
-        action = actions_from_subtask_group(group)
-        if action is not None:
-            expected_auto_actions.append(action)
+        actions = actions_from_subtask_group(group)
+        if actions is not None:
+            expected_auto_actions.extend(actions)
 
     unparsed, existing_dict = await current_actions_future
     existing_action_ids_to_drop: list[int] = []
