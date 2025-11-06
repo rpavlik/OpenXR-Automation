@@ -55,6 +55,7 @@ def _to_multitasktitles(tasks: list[str]):
 
 
 class AutoActionEvents(Enum):
+    TASK_CREATE = "task.create"
     TASK_CREATE_UPDATE = "task.create_update"
     TASK_MOVE_COLUMN = "task.move.column"
 
