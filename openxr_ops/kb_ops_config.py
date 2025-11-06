@@ -12,6 +12,7 @@ import tomllib
 from dataclasses import dataclass
 from typing import Optional
 
+from .kb_enums import AutoActionEvents
 from .kb_ops_stages import TaskCategory, TaskColumn, TaskSwimlane
 
 
@@ -108,6 +109,9 @@ class ConfigSubtaskGroup:
     condition: Optional[ConfigSubtasksGroupCondition] = None
     """Condition to evaluate to auto-create the subtasks in the group."""
 
+    events: Optional[list[AutoActionEvents]] = None
+    """Events to create an auto action for."""
+
     @classmethod
     def from_dict(cls, d: dict):
         """Contruct a group from a dict (generally from TOML)."""
@@ -118,11 +122,17 @@ class ConfigSubtaskGroup:
         cond_dict = d.get("condition")
         if cond_dict:
             condition = ConfigSubtasksGroupCondition.from_dict(cond_dict)
+
+        events = None
+        events_raw = d.get("events")
+        if events_raw:
+            events = [AutoActionEvents[event] for event in events_raw]
         return cls(
             group_name=group_name,
             subtasks=subtasks,
             prefix=prefix,
             condition=condition,
+            events=events,
         )
 
 

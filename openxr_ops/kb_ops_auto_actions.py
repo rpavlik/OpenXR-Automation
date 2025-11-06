@@ -9,7 +9,6 @@
 import asyncio
 import logging
 from dataclasses import dataclass
-from enum import Enum
 from pprint import pformat
 from typing import Any, Literal, Optional, Union
 
@@ -17,31 +16,9 @@ import kanboard
 
 from .kanboard_helpers import KanboardProject
 from .kb_defaults import USERNAME, get_kb_api_token, get_kb_api_url
+from .kb_enums import ACTION_NAME, EVENT_NAME, AutoActionEvents, AutoActionTypes
 from .kb_ops_config import ConfigSubtaskGroup
 from .kb_ops_stages import TaskCategory, TaskColumn, TaskSwimlane
-
-
-class AutoActionTypes(Enum):
-    SUBTASKS_FROM_CATEGORY = (
-        "\\Kanboard\\Plugin\\AutoSubtasks\\Action\\CategoryAutoSubtaskVanilla"
-    )
-    SUBTASKS_FROM_COLUMN = (
-        "\\Kanboard\\Plugin\\AutoSubtasks\\Action\\AutoCreateSubtaskVanilla"
-    )
-    SUBTASKS_FROM_COLUMN_AND_CATEGORY = (
-        "\\Kanboard\\Plugin\\AutoSubtasks\\Action\\CategoryColAutoSubtaskVanilla"
-    )
-    SUBTASKS_FROM_COLUMN_AND_SWIMLANE = (
-        "\\Kanboard\\Plugin\\AutoSubtasks\\Action\\SwimlaneAutoCreateSubtaskVanilla"
-    )
-
-    SUBTASKS_FROM_COLUMN_AND_SWIMLANE_AND_CATEGORY = "\\Kanboard\\Plugin\\AutoSubtasks\\Action\\SwimlaneCategoryColAutoSubtaskVanilla"
-
-    ASSIGN_CURRENT_USER_ON_COLUMN = "\\Kanboard\\Action\\TaskAssignCurrentUserColumn"
-
-
-EVENT_NAME = "event_name"
-ACTION_NAME = "action_name"
 
 
 def _to_check_box_no_duplicates(allow_duplicate_subtasks: bool):
@@ -52,12 +29,6 @@ def _to_check_box_no_duplicates(allow_duplicate_subtasks: bool):
 
 def _to_multitasktitles(tasks: list[str]):
     return "\r\n".join(tasks)
-
-
-class AutoActionEvents(Enum):
-    TASK_CREATE = "task.create"
-    TASK_CREATE_UPDATE = "task.create_update"
-    TASK_MOVE_COLUMN = "task.move.column"
 
 
 @dataclass
@@ -126,20 +97,41 @@ class SubtasksFromCategory(AutoSubtasksBase):
     In AutoSubtasks plugin.
     """
 
+    event: AutoActionEvents
     category: Optional[TaskCategory]
 
     @classmethod
     def create(
         cls,
+        event: AutoActionEvents,
         category: Optional[TaskCategory],
         subtasks: list[str],
         allow_duplicate_subtasks: bool = False,
     ):
         return SubtasksFromCategory(
+            event=event,
             subtasks=subtasks,
             allow_duplicate_subtasks=allow_duplicate_subtasks,
             category=category,
         )
+
+    @classmethod
+    def yield_for_events(
+        cls,
+        category: Optional[TaskCategory],
+        subtasks: list[str],
+        events: Optional[list[AutoActionEvents]],
+        allow_duplicate_subtasks: bool = False,
+    ):
+        if not events:
+            events = [cls.default_event_name()]
+        for event in events:
+            yield cls.create(
+                event=event,
+                category=category,
+                subtasks=subtasks,
+                allow_duplicate_subtasks=allow_duplicate_subtasks,
+            )
 
     @classmethod
     def action_name(cls):
@@ -152,7 +144,7 @@ class SubtasksFromCategory(AutoSubtasksBase):
     def to_arg_dict(self, kb_project: KanboardProject):
         return self.make_args(
             action=self.action_name(),
-            event=self.default_event_name(),
+            event=self.event,
             params={
                 "category_id": TaskCategory.optional_to_category_id(
                     kb_project, self.category
@@ -162,11 +154,11 @@ class SubtasksFromCategory(AutoSubtasksBase):
 
     @classmethod
     def try_from_json(cls, kb_project, action: dict[str, Any]):
+        """Create from API return value."""
         log = logging.getLogger(f"{__name__}.{cls.__name__}")
         if action["action_name"] != cls.action_name().value:
             return None
-        if action["event_name"] != cls.default_event_name().value:
-            return None
+        event = AutoActionEvents(action["event_name"])
 
         base = AutoSubtasksBase.base_try_from_json(action)
         if base is None:
@@ -177,6 +169,7 @@ class SubtasksFromCategory(AutoSubtasksBase):
             kb_project=kb_project, category_id=int(params["category_id"])
         )
         return cls(
+            event=event,
             subtasks=base.subtasks,
             allow_duplicate_subtasks=base.allow_duplicate_subtasks,
             category=category,
@@ -191,20 +184,41 @@ class SubtasksFromColumn(AutoSubtasksBase):
     In AutoSubtasks plugin.
     """
 
+    event: AutoActionEvents
     column: TaskColumn
 
     @classmethod
     def create(
         cls,
+        event: AutoActionEvents,
         column: TaskColumn,
         subtasks: list[str],
         allow_duplicate_subtasks: bool = False,
     ):
         return cls(
+            event=event,
             subtasks=subtasks,
             allow_duplicate_subtasks=allow_duplicate_subtasks,
             column=column,
         )
+
+    @classmethod
+    def yield_for_events(
+        cls,
+        column: TaskColumn,
+        subtasks: list[str],
+        events: Optional[list[AutoActionEvents]],
+        allow_duplicate_subtasks: bool = False,
+    ):
+        if not events:
+            events = [cls.default_event_name()]
+        for event in events:
+            yield cls.create(
+                event=event,
+                column=column,
+                subtasks=subtasks,
+                allow_duplicate_subtasks=allow_duplicate_subtasks,
+            )
 
     @classmethod
     def action_name(cls):
@@ -217,7 +231,7 @@ class SubtasksFromColumn(AutoSubtasksBase):
     def to_arg_dict(self, kb_project: KanboardProject):
         return self.make_args(
             action=self.action_name(),
-            event=self.default_event_name(),
+            event=self.event,
             params={
                 "column_id": self.column.to_column_id(kb_project),
                 "check_box_all_columns": 0,  # unused for now
@@ -230,9 +244,7 @@ class SubtasksFromColumn(AutoSubtasksBase):
         if action["action_name"] != cls.action_name().value:
             log.debug("action_name mismatch: %s", action["action_name"])
             return None
-        if action["event_name"] != cls.default_event_name().value:
-            log.debug("event_name mismatch: %s", action["event_name"])
-            return None
+        event = AutoActionEvents(action["event_name"])
 
         base = AutoSubtasksBase.base_try_from_json(action)
         if base is None:
@@ -241,6 +253,7 @@ class SubtasksFromColumn(AutoSubtasksBase):
         params = action["params"]
         column = TaskColumn.from_column_id(kb_project, int(params["column_id"]))
         return cls(
+            event=event,
             subtasks=base.subtasks,
             allow_duplicate_subtasks=base.allow_duplicate_subtasks,
             column=column,
@@ -255,23 +268,46 @@ class SubtasksFromColumnAndCategory(AutoSubtasksBase):
     In AutoSubtasks plugin fork.
     """
 
+    event: AutoActionEvents
     column: TaskColumn
     category: Optional[TaskCategory]
 
     @classmethod
     def create(
         cls,
+        event: AutoActionEvents,
         column: TaskColumn,
         category: Optional[TaskCategory],
         subtasks: list[str],
         allow_duplicate_subtasks: bool = False,
     ):
         return cls(
+            event=event,
             subtasks=subtasks,
             allow_duplicate_subtasks=allow_duplicate_subtasks,
             column=column,
             category=category,
         )
+
+    @classmethod
+    def yield_for_events(
+        cls,
+        events: Optional[list[AutoActionEvents]],
+        column: TaskColumn,
+        category: Optional[TaskCategory],
+        subtasks: list[str],
+        allow_duplicate_subtasks: bool = False,
+    ):
+        if not events:
+            events = [cls.default_event_name()]
+        for event in events:
+            yield cls.create(
+                event=event,
+                column=column,
+                category=category,
+                subtasks=subtasks,
+                allow_duplicate_subtasks=allow_duplicate_subtasks,
+            )
 
     @classmethod
     def action_name(cls):
@@ -284,7 +320,7 @@ class SubtasksFromColumnAndCategory(AutoSubtasksBase):
     def to_arg_dict(self, kb_project: KanboardProject):
         return self.make_args(
             action=self.action_name(),
-            event=self.default_event_name(),
+            event=self.event,
             params={
                 "column_id": self.column.to_column_id(kb_project),
                 "category_id": TaskCategory.optional_to_category_id(
@@ -299,9 +335,7 @@ class SubtasksFromColumnAndCategory(AutoSubtasksBase):
         if action["action_name"] != cls.action_name().value:
             log.debug("action_name mismatch: %s", action["action_name"])
             return None
-        if action["event_name"] != cls.default_event_name().value:
-            log.debug("event_name mismatch: %s", action["event_name"])
-            return None
+        event = AutoActionEvents(action["event_name"])
 
         base = AutoSubtasksBase.base_try_from_json(action)
         if base is None:
@@ -313,6 +347,7 @@ class SubtasksFromColumnAndCategory(AutoSubtasksBase):
             kb_project=kb_project, category_id=int(params["category_id"])
         )
         return cls(
+            event=event,
             subtasks=base.subtasks,
             allow_duplicate_subtasks=base.allow_duplicate_subtasks,
             column=column,
@@ -328,23 +363,46 @@ class SubtasksFromColumnAndSwimlane(AutoSubtasksBase):
     In AutoSubtasks plugin fork.
     """
 
+    event: AutoActionEvents
     column: TaskColumn
     swimlane: TaskSwimlane
 
     @classmethod
     def create(
         cls,
+        event: AutoActionEvents,
         column: TaskColumn,
         swimlane: TaskSwimlane,
         subtasks: list[str],
         allow_duplicate_subtasks: bool = False,
     ):
         return cls(
+            event=event,
             subtasks=subtasks,
             allow_duplicate_subtasks=allow_duplicate_subtasks,
             column=column,
             swimlane=swimlane,
         )
+
+    @classmethod
+    def yield_for_events(
+        cls,
+        column: TaskColumn,
+        swimlane: TaskSwimlane,
+        subtasks: list[str],
+        events: Optional[list[AutoActionEvents]],
+        allow_duplicate_subtasks: bool = False,
+    ):
+        if not events:
+            events = [cls.default_event_name()]
+        for event in events:
+            yield cls.create(
+                event=event,
+                column=column,
+                swimlane=swimlane,
+                subtasks=subtasks,
+                allow_duplicate_subtasks=allow_duplicate_subtasks,
+            )
 
     @classmethod
     def action_name(cls):
@@ -357,7 +415,7 @@ class SubtasksFromColumnAndSwimlane(AutoSubtasksBase):
     def to_arg_dict(self, kb_project: KanboardProject):
         return self.make_args(
             action=self.action_name(),
-            event=self.default_event_name(),
+            event=self.event,
             params={
                 "column_id": self.column.to_column_id(kb_project),
                 "swimlane_id": self.swimlane.to_swimlane_id(kb_project),
@@ -370,9 +428,7 @@ class SubtasksFromColumnAndSwimlane(AutoSubtasksBase):
         if action["action_name"] != cls.action_name().value:
             log.debug("action_name mismatch: %s", action["action_name"])
             return None
-        if action["event_name"] != cls.default_event_name().value:
-            log.debug("event_name mismatch: %s", action["event_name"])
-            return None
+        event = AutoActionEvents(action["event_name"])
 
         base = AutoSubtasksBase.base_try_from_json(action)
         if base is None:
@@ -384,6 +440,7 @@ class SubtasksFromColumnAndSwimlane(AutoSubtasksBase):
             kb_project=kb_project, swimlane_id=int(params["swimlane_id"])
         )
         return cls(
+            event=event,
             subtasks=base.subtasks,
             allow_duplicate_subtasks=base.allow_duplicate_subtasks,
             column=column,
@@ -399,6 +456,7 @@ class SubtasksFromColumnAndSwimlaneAndCategory(AutoSubtasksBase):
     In AutoSubtasks plugin fork.
     """
 
+    event: AutoActionEvents
     column: TaskColumn
     swimlane: TaskSwimlane
     category: Optional[TaskCategory]
@@ -406,6 +464,7 @@ class SubtasksFromColumnAndSwimlaneAndCategory(AutoSubtasksBase):
     @classmethod
     def create(
         cls,
+        event: AutoActionEvents,
         column: TaskColumn,
         swimlane: TaskSwimlane,
         category: Optional[TaskCategory],
@@ -413,12 +472,35 @@ class SubtasksFromColumnAndSwimlaneAndCategory(AutoSubtasksBase):
         allow_duplicate_subtasks: bool = False,
     ):
         return cls(
+            event=event,
             subtasks=subtasks,
             allow_duplicate_subtasks=allow_duplicate_subtasks,
             column=column,
             swimlane=swimlane,
             category=category,
         )
+
+    @classmethod
+    def yield_for_events(
+        cls,
+        column: TaskColumn,
+        swimlane: TaskSwimlane,
+        category: Optional[TaskCategory],
+        subtasks: list[str],
+        events: Optional[list[AutoActionEvents]],
+        allow_duplicate_subtasks: bool = False,
+    ):
+        if not events:
+            events = [cls.default_event_name()]
+        for event in events:
+            yield cls.create(
+                event=event,
+                column=column,
+                swimlane=swimlane,
+                category=category,
+                subtasks=subtasks,
+                allow_duplicate_subtasks=allow_duplicate_subtasks,
+            )
 
     @classmethod
     def action_name(cls):
@@ -431,7 +513,7 @@ class SubtasksFromColumnAndSwimlaneAndCategory(AutoSubtasksBase):
     def to_arg_dict(self, kb_project: KanboardProject):
         return self.make_args(
             action=self.action_name(),
-            event=self.default_event_name(),
+            event=self.event,
             params={
                 "column_id": self.column.to_column_id(kb_project),
                 "swimlane_id": self.swimlane.to_swimlane_id(kb_project),
@@ -443,13 +525,12 @@ class SubtasksFromColumnAndSwimlaneAndCategory(AutoSubtasksBase):
 
     @classmethod
     def try_from_json(cls, kb_project, action: dict[str, Any]):
+        """Create from API return value."""
         log = logging.getLogger(f"{__name__}.{cls.__name__}")
         if action["action_name"] != cls.action_name().value:
             log.debug("action_name mismatch: %s", action["action_name"])
             return None
-        if action["event_name"] != cls.default_event_name().value:
-            log.debug("event_name mismatch: %s", action["event_name"])
-            return None
+        event = AutoActionEvents(action["event_name"])
 
         base = AutoSubtasksBase.base_try_from_json(action)
         if base is None:
@@ -464,6 +545,7 @@ class SubtasksFromColumnAndSwimlaneAndCategory(AutoSubtasksBase):
             kb_project=kb_project, category_id=int(params["category_id"])
         )
         return cls(
+            event=event,
             subtasks=base.subtasks,
             allow_duplicate_subtasks=base.allow_duplicate_subtasks,
             column=column,
@@ -482,12 +564,15 @@ def actions_from_subtask_group(group: ConfigSubtaskGroup):
             and group.condition.swimlane
             and group.condition.has_category_predicate()
         ):
-            return SubtasksFromColumnAndSwimlaneAndCategory.create(
-                column=group.condition.column,
-                swimlane=group.condition.swimlane,
-                category=group.condition.get_category_predicate(),
-                subtasks=subtask_names,
-                allow_duplicate_subtasks=group.condition.allow_duplicate_subtasks,
+            return list(
+                SubtasksFromColumnAndSwimlaneAndCategory.yield_for_events(
+                    events=group.events,
+                    column=group.condition.column,
+                    swimlane=group.condition.swimlane,
+                    category=group.condition.get_category_predicate(),
+                    subtasks=subtask_names,
+                    allow_duplicate_subtasks=group.condition.allow_duplicate_subtasks,
+                )
             )
 
         if (
@@ -495,11 +580,14 @@ def actions_from_subtask_group(group: ConfigSubtaskGroup):
             and group.condition.swimlane
             and not group.condition.has_category_predicate()
         ):
-            return SubtasksFromColumnAndSwimlane.create(
-                column=group.condition.column,
-                swimlane=group.condition.swimlane,
-                subtasks=subtask_names,
-                allow_duplicate_subtasks=group.condition.allow_duplicate_subtasks,
+            return list(
+                SubtasksFromColumnAndSwimlane.yield_for_events(
+                    events=group.events,
+                    column=group.condition.column,
+                    swimlane=group.condition.swimlane,
+                    subtasks=subtask_names,
+                    allow_duplicate_subtasks=group.condition.allow_duplicate_subtasks,
+                )
             )
 
         if (
@@ -507,11 +595,14 @@ def actions_from_subtask_group(group: ConfigSubtaskGroup):
             and group.condition.has_category_predicate()
             and not group.condition.swimlane
         ):
-            return SubtasksFromColumnAndCategory.create(
-                column=group.condition.column,
-                category=group.condition.get_category_predicate(),
-                subtasks=subtask_names,
-                allow_duplicate_subtasks=group.condition.allow_duplicate_subtasks,
+            return list(
+                SubtasksFromColumnAndCategory.yield_for_events(
+                    events=group.events,
+                    column=group.condition.column,
+                    category=group.condition.get_category_predicate(),
+                    subtasks=subtask_names,
+                    allow_duplicate_subtasks=group.condition.allow_duplicate_subtasks,
+                )
             )
 
         if (
@@ -519,10 +610,13 @@ def actions_from_subtask_group(group: ConfigSubtaskGroup):
             and not group.condition.has_category_predicate()
             and not group.condition.swimlane
         ):
-            return SubtasksFromColumn.create(
-                column=group.condition.column,
-                subtasks=subtask_names,
-                allow_duplicate_subtasks=group.condition.allow_duplicate_subtasks,
+            return list(
+                SubtasksFromColumn.yield_for_events(
+                    events=group.events,
+                    column=group.condition.column,
+                    subtasks=subtask_names,
+                    allow_duplicate_subtasks=group.condition.allow_duplicate_subtasks,
+                )
             )
 
         if (
@@ -530,10 +624,13 @@ def actions_from_subtask_group(group: ConfigSubtaskGroup):
             and not group.condition.column
             and not group.condition.swimlane
         ):
-            return SubtasksFromCategory.create(
-                category=group.condition.get_category_predicate(),
-                subtasks=subtask_names,
-                allow_duplicate_subtasks=group.condition.allow_duplicate_subtasks,
+            return list(
+                SubtasksFromCategory.yield_for_events(
+                    events=group.events,
+                    category=group.condition.get_category_predicate(),
+                    subtasks=subtask_names,
+                    allow_duplicate_subtasks=group.condition.allow_duplicate_subtasks,
+                )
             )
         log.warning(
             "Condition does not match any known combo: %s", pformat(group.condition)
