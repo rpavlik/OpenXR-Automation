@@ -58,7 +58,7 @@ class UpdateOptions:
     update_category: bool = True
     update_tags: bool = True
 
-    update_mr_desc: bool = False
+    update_mr_desc: bool = True
     mark_old_links_obsolete: bool = False
 
 
