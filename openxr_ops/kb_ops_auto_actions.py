@@ -860,6 +860,8 @@ AUTO_ACTION_TYPES = [
     SubtasksFromColumnAndCategory,
     SubtasksFromCategory,
     SubtasksFromColumn,
+    TagFromColumnAndSwimlane,
+    TagFromColumn,
 ]
 
 
