@@ -19,7 +19,7 @@ import gitlab
 import gitlab.v4.objects
 import kanboard
 
-from openxr_ops.checklists import ReleaseChecklistCollection
+from openxr_ops.checklists import CHECKLIST_RE, ReleaseChecklistCollection
 from openxr_ops.gitlab import OpenXRGitlab
 from openxr_ops.kanboard_helpers import KanboardProject
 from openxr_ops.kb_defaults import USERNAME, get_kb_api_token, get_kb_api_url
@@ -44,6 +44,17 @@ _MR_REF_RE = re.compile(
     r"(openxr/openxr!|openxr!|!|https://gitlab.khronos.org/openxr/openxr/-/merge_requests/)(?P<mrnum>[0-9]+)"
 )
 
+_TASK_BASE_URL = "https://openxr-boards.khronos.org/task/"
+
+
+_OPS_BOARD_LINK = re.compile(
+    r"Operations Tracking Task: " + re.escape(_TASK_BASE_URL) + r"(?P<task_id>[0-9]+)"
+)
+
+
+def _make_ops_board_link(task_id):
+    return f"Operations Tracking Task: {_TASK_BASE_URL}{task_id}"
+
 
 @dataclass
 class UpdateOptions:
@@ -52,6 +63,9 @@ class UpdateOptions:
     update_column_and_swimlane: bool = True
     update_category: bool = True
     update_tags: bool = True
+
+    update_mr_desc: bool = True
+    mark_old_links_obsolete: bool = False
 
 
 class OperationsGitLabToKanboard:
@@ -308,17 +322,83 @@ class OperationsGitLabToKanboard:
             task_dates["task_id"] = task_id
         return task_dates
 
+    def _update_mr_desc(self, mr_num: int, task_id: int):
+        # issue_obj = self.gl_collection.mr_to_issue_object[mr_num]
+        merge_request: gitlab.v4.objects.ProjectMergeRequest = (
+            self.gl_collection.proj.mergerequests.get(mr_num)
+        )
+
+        new_front = _make_ops_board_link(task_id)
+        prepend = f"{new_front}\n\n"
+
+        if merge_request.description.strip() == new_front:
+            # minimal MR desc
+            return
+        desc: str = merge_request.description
+        new_desc: str = desc
+        m = _OPS_BOARD_LINK.search(desc)
+        if m:
+
+            new_desc = prepend + _OPS_BOARD_LINK.sub("", desc, 1).strip()
+            if not m.group(0).startswith(new_front):
+                self.log.info(f"Updating MR {merge_request.get_id()} description")
+                if self.update_options.update_mr_desc:
+                    merge_request.description = new_desc
+
+            if m.group("task_id") != str(task_id):
+                self.log.warning(
+                    "Mismatch between current task ID %d and the one in the description: %s",
+                    task_id,
+                    m.group("task_id"),
+                )
+        else:
+
+            new_desc = prepend + desc
+            self.log.info("New desc for %s: %s", str(merge_request.get_id()), new_desc)
+
+        checklist_link_match = CHECKLIST_RE.search(new_desc)
+        if checklist_link_match:
+            matching_text = checklist_link_match.group(0)
+            if "Obsolete" not in matching_text:
+                obsolete_desc = new_desc.replace(
+                    matching_text, f"Obsolete {matching_text}", count=1
+                )
+                if self.update_options.mark_old_links_obsolete:
+                    self.log.info(
+                        "Updating old checklist link in MR %s to mark it as obsolete:\n%s",
+                        str(merge_request.get_id()),
+                        obsolete_desc,
+                    )
+                    new_desc = obsolete_desc
+
+        if self.update_options.update_mr_desc:
+            self.log.info("Saving change.")
+            merge_request.description = new_desc
+            merge_request.save()
+        elif new_desc != desc:
+            self.log.info(
+                "Would have made changes to MR %s description but skipping that by request.\n%s",
+                str(merge_request.get_id()),
+                new_desc,
+            )
+
     async def process_all_mrs(self):
         # TODO stop limiting
-        for issue_ref, mr_num in itertools.islice(
-            self.gl_collection.issue_to_mr.items(), 0, 50
-        ):
+        for mr_num in itertools.islice(self.gl_collection.issue_to_mr.values(), 0, 5):
+            # for mr_num in self.gl_collection.issue_to_mr.values():
             task_dates = await self.process_mr(
                 mr_num=mr_num,
             )
 
             if task_dates is not None:
                 self.dates.append(task_dates)
+
+        for mr_num in self.gl_collection.issue_to_mr.values():
+            task_id = self.mr_to_task_id.get(mr_num)
+            if task_id is None:
+                continue
+
+            self._update_mr_desc(mr_num=mr_num, task_id=task_id)
 
     def write_datetime_csv(self):
 
@@ -332,6 +412,12 @@ class OperationsGitLabToKanboard:
             datafile.writeheader()
             for entry in self.dates:
                 datafile.writerow(entry)
+
+    def get_task_url_for_mr_num(self, mr_num) -> Optional[str]:
+        task_id = self.mr_to_task_id.get(mr_num)
+        if task_id is None:
+            return None
+        return _make_ops_board_link(task_id)
 
 
 async def async_main(
