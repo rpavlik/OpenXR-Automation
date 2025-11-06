@@ -111,13 +111,8 @@ class OperationsGitLabToKanboard:
                     # do not dupe within a single pass
                     continue
 
-                if (
-                    group.condition
-                    and not group.condition.allow_duplicate_subtasks
-                    and entry_title in existing_subtask_titles
-                ):
-                    # But allow some overall dupes
-                    # TODO really?
+                if group.condition and entry_title in existing_subtask_titles:
+                    # Do not dupe with pre-existing subtasks
                     continue
 
                 for checkbox_state, line in checkbox_state_and_line:
