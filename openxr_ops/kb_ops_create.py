@@ -17,8 +17,7 @@ from .kanboard_helpers import KanboardProject
 from .kb_defaults import USERNAME, get_kb_api_token, get_kb_api_url
 from .kb_ops_auto_actions import (
     AutoActionABC,
-    actions_from_auto_tag,
-    actions_from_subtask_group,
+    auto_actions_from_config,
     get_and_parse_actions,
 )
 from .kb_ops_config import get_config_data
@@ -172,18 +171,9 @@ async def populate_actions(
 ):
     log = logging.getLogger(f"{__name__}.populate_actions")
     config = get_config_data()
-
-    expected_auto_actions: list[AutoActionABC] = []
-    """Actions from config file."""
-
     current_actions_future = get_and_parse_actions(kb, kb_project, project_id)
-    for group in config.subtask_groups:
-        actions = actions_from_subtask_group(group)
-        if actions is not None:
-            expected_auto_actions.extend(actions)
 
-    for auto_tag in config.auto_tags:
-        expected_auto_actions.extend(actions_from_auto_tag(auto_tag))
+    expected_auto_actions: list[AutoActionABC] = auto_actions_from_config(config)
 
     unparsed, existing_dict = await current_actions_future
     existing_action_ids_to_drop: list[int] = []
@@ -218,6 +208,7 @@ async def populate_actions(
         len(existing_dict),
         len(unparsed),
     )
+    log.warning("Unparsed auto actions: %s", pformat(unparsed))
 
     log.info("Matched %d automatic actions", len(discovered_expected_indices))
 

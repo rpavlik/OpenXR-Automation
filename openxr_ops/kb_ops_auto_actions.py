@@ -985,3 +985,18 @@ if __name__ == "__main__":
             pprint(all_parsed)
 
     asyncio.run(runner())
+
+
+def auto_actions_from_config(config: ConfigData) -> list[AutoActionABC]:
+    """Get a list of expected auto actions from the config."""
+    expected_auto_actions: list[AutoActionABC] = []
+    """Actions from config file."""
+
+    for group in config.subtask_groups:
+        actions = actions_from_subtask_group(group)
+        if actions is not None:
+            expected_auto_actions.extend(actions)
+
+    for auto_tag in config.auto_tags:
+        expected_auto_actions.extend(actions_from_auto_tag(auto_tag))
+    return expected_auto_actions
