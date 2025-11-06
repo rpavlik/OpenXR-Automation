@@ -13,7 +13,7 @@ import itertools
 import logging
 import re
 from dataclasses import dataclass
-from typing import Literal, Optional, Union
+from typing import Any, Literal, Optional, Union
 
 import gitlab
 import gitlab.v4.objects
@@ -24,7 +24,11 @@ from openxr_ops.gitlab import OpenXRGitlab
 from openxr_ops.kanboard_helpers import KanboardProject
 from openxr_ops.kb_defaults import USERNAME, get_kb_api_token, get_kb_api_url
 from openxr_ops.kb_ops_collection import TaskCollection
-from openxr_ops.kb_ops_config import ConfigSubtaskGroup, get_config_data
+from openxr_ops.kb_ops_config import (
+    ConfigSubtaskEntry,
+    ConfigSubtaskGroup,
+    get_config_data,
+)
 from openxr_ops.kb_ops_gitlab import update_mr_desc
 from openxr_ops.kb_ops_queue import COLUMN_CONVERSION, COLUMN_TO_SWIMLANE
 from openxr_ops.kb_ops_stages import TaskCategory, TaskSwimlane
@@ -54,8 +58,127 @@ class UpdateOptions:
     update_category: bool = True
     update_tags: bool = True
 
-    update_mr_desc: bool = True
+    update_mr_desc: bool = False
     mark_old_links_obsolete: bool = False
+
+
+class MigrateChecklistToSubtasks:
+    def __init__(
+        self,
+        kb: kanboard.Client,
+        task_id: int,
+        existing_subtasks: list[dict[str, Any]],
+        description: str,
+    ):
+        self.kb = kb
+        self.task_id = task_id
+        self.existing_subtask_titles_and_ids: dict[str, int] = {
+            subtask["title"]: subtask["id"] for subtask in existing_subtasks
+        }
+        self.existing_by_id: dict[int, dict[str, Any]] = {
+            int(subtask["id"]): subtask for subtask in existing_subtasks
+        }
+        self.checkbox_state_and_line: list[tuple[bool, str]] = list(
+            _find_checkboxes(description.splitlines())
+        )
+        self.new_subtask_titles: set[str] = set()
+        self.new_subtasks: list[tuple[bool, str]] = []
+        self.futures: list = []
+        self.log = logging.getLogger(f"{__name__}.{self.__class__.__name__}")
+
+    async def perform_queued_operations(self):
+        if self.futures:
+            self.log.info(
+                "Performing %d operations on subtasks",
+                len(self.futures),
+            )
+            for subtask_future in self.futures:
+                await subtask_future
+        self.futures = []
+
+    def queue_for_group(self, group: ConfigSubtaskGroup):
+
+        for entry in group.subtasks:
+            self.queue_for_group_entry(group, entry)
+
+    def queue_for_group_entry(
+        self, group: ConfigSubtaskGroup, entry: ConfigSubtaskEntry
+    ):
+        entry_title = entry.get_full_subtask_name(group)
+        if entry_title in self.new_subtask_titles:
+            # do not dupe within a single pass
+            return
+
+        existing_id_full = self.existing_subtask_titles_and_ids.get(entry_title)
+        existing_id_for_partial_title = self.existing_subtask_titles_and_ids.get(
+            entry.name
+        )
+        existing_ids: list[int] = [
+            x
+            for x in [existing_id_for_partial_title, existing_id_full]
+            if x is not None
+        ]
+
+        if len(existing_ids) > 1 and not group.allow_duplicate_subtasks:
+            self.log.debug("Dropping %d subtasks", len(existing_ids) - 1)
+            self.futures.extend(
+                self.kb.remove_subtask_async(subtask_id=sub_id)
+                for sub_id in existing_ids[1:]
+            )
+
+        matching_state_and_line = [
+            (checkbox_state, line)
+            for checkbox_state, line in self.checkbox_state_and_line
+            if entry.migration_prefix in line
+        ]
+        if not matching_state_and_line:
+            # no checklist lines matched this entry
+            return
+
+        # Take only the first match
+        checkbox_state, _ = matching_state_and_line[0]
+        new_status = _bool_to_subtask_status(checkbox_state)
+
+        if existing_ids:
+            if group.allow_duplicate_subtasks:
+                # do not update if we're allowing dupes
+                return
+            existing_id = existing_ids[0]
+
+            existing = self.existing_by_id[existing_id]
+
+            orig_title = existing["title"].strip()
+            orig_status = int(existing["status"])
+            if orig_title != entry_title or orig_status != new_status:
+                self.log.debug(
+                    "Updating subtask:\n%s -- %d\nfrom:\n%s -- %d",
+                    entry_title,
+                    new_status,
+                    orig_title,
+                    orig_status,
+                )
+                self.futures.append(
+                    self.kb.update_subtask_async(
+                        id=existing_id,
+                        task_id=self.task_id,
+                        title=entry_title,
+                        status=new_status,
+                    )
+                )
+
+            # Either way, we already have an entry here
+            return
+
+        # Make a new subtask
+        self.futures.append(
+            self.kb.create_subtask_async(
+                task_id=self.task_id,
+                title=entry_title,
+                status=new_status,
+            )
+        )
+        self.new_subtasks.append((checkbox_state, entry_title))
+        self.new_subtask_titles.add(entry_title)
 
 
 class OperationsGitLabToKanboard:
@@ -102,46 +225,18 @@ class OperationsGitLabToKanboard:
         if existing_subtasks == False:
             raise RuntimeError("Failed to get subtasks for task ID " + str(task_id))
 
-        existing_subtask_titles = {subtask["title"] for subtask in existing_subtasks}
-        checkbox_state_and_line: list[tuple[bool, str]] = list(
-            _find_checkboxes(description.splitlines())
+        subtask_migration = MigrateChecklistToSubtasks(
+            self.kb,
+            task_id=task_id,
+            existing_subtasks=existing_subtasks,
+            description=description,
         )
-        new_subtask_titles: set[str] = set()
-        new_subtasks: list[tuple[bool, str]] = []
-        new_subtask_futures: list = []
         for group in self.config.subtask_groups:
             if not _should_apply_subtask_group(group, data):
                 continue
-            for entry in group.subtasks:
-                entry_title = entry.get_full_subtask_name(group)
-                if entry_title in new_subtask_titles:
-                    # do not dupe within a single pass
-                    continue
+            subtask_migration.queue_for_group(group)
 
-                if group.condition and entry_title in existing_subtask_titles:
-                    # Do not dupe with pre-existing subtasks
-                    continue
-
-                for checkbox_state, line in checkbox_state_and_line:
-                    if entry.migration_prefix in line:
-                        new_subtask_futures.append(
-                            self.kb.create_subtask_async(
-                                task_id=task_id,
-                                title=entry_title,
-                                status=_bool_to_subtask_status(checkbox_state),
-                            )
-                        )
-                        new_subtasks.append((checkbox_state, entry_title))
-                        new_subtask_titles.add(entry_title)
-
-        if new_subtask_futures:
-            self.log.info(
-                "Adding %d new subtasks: %s",
-                len(new_subtask_futures),
-                str(new_subtask_futures),
-            )
-            for new_subtask in new_subtask_futures:
-                await new_subtask
+        await subtask_migration.perform_queued_operations()
 
     async def update_task(
         self,
