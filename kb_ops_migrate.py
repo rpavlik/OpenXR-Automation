@@ -455,11 +455,15 @@ async def async_main(
     gl_collection: ReleaseChecklistCollection,
     project_name: str,
 ):
+    options = UpdateOptions()
+    if options.update_mr_desc:
+        # for safety, only update MRs when the project name is the real project.
+        options.update_mr_desc = project_name == "OpenXRExtensions"
     obj = OperationsGitLabToKanboard(
         oxr_gitlab=oxr_gitlab,
         gl_collection=gl_collection,
         kb_project_name=project_name,
-        update_options=UpdateOptions(),
+        update_options=options,
     )
     await obj.prepare()
     await obj.process_all_mrs()
