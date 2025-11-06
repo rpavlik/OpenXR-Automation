@@ -579,85 +579,83 @@ def actions_from_subtask_group(
         log.warning("No condition provided for %s", group.group_name)
         return None
 
-    if group.condition:
-        if (
-            group.condition.column
-            and group.condition.swimlane
-            and group.condition.has_category_predicate()
-        ):
-            return list(
-                SubtasksFromColumnAndSwimlaneAndCategory.yield_for_events(
-                    events=group.events,
-                    column=group.condition.column,
-                    swimlane=group.condition.swimlane,
-                    category=group.condition.get_category_predicate(),
-                    subtasks=subtask_names,
-                    allow_duplicate_subtasks=group.condition.allow_duplicate_subtasks,
-                )
+    if (
+        group.condition.column
+        and group.condition.swimlane
+        and group.condition.has_category_predicate()
+    ):
+        return list(
+            SubtasksFromColumnAndSwimlaneAndCategory.yield_for_events(
+                events=group.events,
+                column=group.condition.column,
+                swimlane=group.condition.swimlane,
+                category=group.condition.get_category_predicate(),
+                subtasks=subtask_names,
+                allow_duplicate_subtasks=group.condition.allow_duplicate_subtasks,
             )
-
-        if (
-            group.condition.column
-            and group.condition.swimlane
-            and not group.condition.has_category_predicate()
-        ):
-            return list(
-                SubtasksFromColumnAndSwimlane.yield_for_events(
-                    events=group.events,
-                    column=group.condition.column,
-                    swimlane=group.condition.swimlane,
-                    subtasks=subtask_names,
-                    allow_duplicate_subtasks=group.condition.allow_duplicate_subtasks,
-                )
-            )
-
-        if (
-            group.condition.column
-            and group.condition.has_category_predicate()
-            and not group.condition.swimlane
-        ):
-            return list(
-                SubtasksFromColumnAndCategory.yield_for_events(
-                    events=group.events,
-                    column=group.condition.column,
-                    category=group.condition.get_category_predicate(),
-                    subtasks=subtask_names,
-                    allow_duplicate_subtasks=group.condition.allow_duplicate_subtasks,
-                )
-            )
-
-        if (
-            group.condition.column
-            and not group.condition.has_category_predicate()
-            and not group.condition.swimlane
-        ):
-            return list(
-                SubtasksFromColumn.yield_for_events(
-                    events=group.events,
-                    column=group.condition.column,
-                    subtasks=subtask_names,
-                    allow_duplicate_subtasks=group.condition.allow_duplicate_subtasks,
-                )
-            )
-
-        if (
-            group.condition.has_category_predicate()
-            and not group.condition.column
-            and not group.condition.swimlane
-        ):
-            return list(
-                SubtasksFromCategory.yield_for_events(
-                    events=group.events,
-                    category=group.condition.get_category_predicate(),
-                    subtasks=subtask_names,
-                    allow_duplicate_subtasks=group.condition.allow_duplicate_subtasks,
-                )
-            )
-        log.warning(
-            "Condition does not match any known combo: %s", pformat(group.condition)
         )
-        return
-    log.warning("No condition provided for %s", group.group_name)
+
+    if (
+        group.condition.column
+        and group.condition.swimlane
+        and not group.condition.has_category_predicate()
+    ):
+        return list(
+            SubtasksFromColumnAndSwimlane.yield_for_events(
+                events=group.events,
+                column=group.condition.column,
+                swimlane=group.condition.swimlane,
+                subtasks=subtask_names,
+                allow_duplicate_subtasks=group.condition.allow_duplicate_subtasks,
+            )
+        )
+
+    if (
+        group.condition.column
+        and group.condition.has_category_predicate()
+        and not group.condition.swimlane
+    ):
+        return list(
+            SubtasksFromColumnAndCategory.yield_for_events(
+                events=group.events,
+                column=group.condition.column,
+                category=group.condition.get_category_predicate(),
+                subtasks=subtask_names,
+                allow_duplicate_subtasks=group.condition.allow_duplicate_subtasks,
+            )
+        )
+
+    if (
+        group.condition.column
+        and not group.condition.has_category_predicate()
+        and not group.condition.swimlane
+    ):
+        return list(
+            SubtasksFromColumn.yield_for_events(
+                events=group.events,
+                column=group.condition.column,
+                subtasks=subtask_names,
+                allow_duplicate_subtasks=group.condition.allow_duplicate_subtasks,
+            )
+        )
+
+    if (
+        group.condition.has_category_predicate()
+        and not group.condition.column
+        and not group.condition.swimlane
+    ):
+        return list(
+            SubtasksFromCategory.yield_for_events(
+                events=group.events,
+                category=group.condition.get_category_predicate(),
+                subtasks=subtask_names,
+                allow_duplicate_subtasks=group.condition.allow_duplicate_subtasks,
+            )
+        )
+    log.warning(
+        "Condition does not match any known combo: %s", pformat(group.condition)
+    )
+    return None
 
 
 AUTO_ACTION_TYPES = [
