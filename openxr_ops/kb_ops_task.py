@@ -88,6 +88,12 @@ class OperationsTaskBase:
     description: str
     task_dict: Optional[dict]
 
+    @property
+    def url(self) -> Optional[str]:
+        if self.task_dict:
+            return self.task_dict["url"]
+        return None
+
     @classmethod
     def from_task_dict(
         cls, kb_project: KanboardProject, task: dict[str, Any]
