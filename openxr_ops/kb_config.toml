@@ -18,6 +18,13 @@ events = ["TASK_CREATE", "TASK_MOVE_COLUMN"]
 swimlane = "Spec Review phase"
 column = "Needs Revisions"
 
+[[auto_tag]]
+# Moving it into the Awaiting Review column is requesting a review.
+tag = "Editor Review Requested"
+events = ["TASK_MOVE_COLUMN"]
+[auto_tag.condition]
+column = "Awaiting Review"
+
 # Each group of subtasks has a (mostly unused) name,
 # a possible "condition" (for auto creation),
 # and then the subtasks themselves.
