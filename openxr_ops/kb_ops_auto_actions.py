@@ -591,7 +591,7 @@ def actions_from_subtask_group(
                 swimlane=group.condition.swimlane,
                 category=group.condition.get_category_predicate(),
                 subtasks=subtask_names,
-                allow_duplicate_subtasks=group.condition.allow_duplicate_subtasks,
+                allow_duplicate_subtasks=group.allow_duplicate_subtasks,
             )
         )
 
@@ -606,7 +606,7 @@ def actions_from_subtask_group(
                 column=group.condition.column,
                 swimlane=group.condition.swimlane,
                 subtasks=subtask_names,
-                allow_duplicate_subtasks=group.condition.allow_duplicate_subtasks,
+                allow_duplicate_subtasks=group.allow_duplicate_subtasks,
             )
         )
 
@@ -621,7 +621,7 @@ def actions_from_subtask_group(
                 column=group.condition.column,
                 category=group.condition.get_category_predicate(),
                 subtasks=subtask_names,
-                allow_duplicate_subtasks=group.condition.allow_duplicate_subtasks,
+                allow_duplicate_subtasks=group.allow_duplicate_subtasks,
             )
         )
 
@@ -635,7 +635,7 @@ def actions_from_subtask_group(
                 events=group.events,
                 column=group.condition.column,
                 subtasks=subtask_names,
-                allow_duplicate_subtasks=group.condition.allow_duplicate_subtasks,
+                allow_duplicate_subtasks=group.allow_duplicate_subtasks,
             )
         )
 
@@ -649,7 +649,7 @@ def actions_from_subtask_group(
                 events=group.events,
                 category=group.condition.get_category_predicate(),
                 subtasks=subtask_names,
-                allow_duplicate_subtasks=group.condition.allow_duplicate_subtasks,
+                allow_duplicate_subtasks=group.allow_duplicate_subtasks,
             )
         )
     log.warning(

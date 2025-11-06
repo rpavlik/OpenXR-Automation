@@ -45,9 +45,9 @@ def parse_into(enum_type, s: Optional[str]):
 
 
 @dataclass
-class ConfigSubtasksGroupCondition:
+class ConfigActionCondition:
     """
-    Conditions to automatically add a group of subtasks.
+    Conditions to automatically apply an action (add a group of subtasks, add a tag).
 
     All populated condition fields must match to be true.
     """
@@ -56,9 +56,6 @@ class ConfigSubtasksGroupCondition:
     column: Optional[TaskColumn]
     category: Optional[TaskCategory]
     exclude_categories: bool = False
-
-    allow_duplicate_subtasks: bool = False
-    """Whether to add these subtasks even if they already exist."""
 
     @classmethod
     def from_dict(cls, d: dict):
@@ -73,7 +70,6 @@ class ConfigSubtasksGroupCondition:
             column=column,
             category=category,
             exclude_categories=d.get("exclude_categories", False),
-            allow_duplicate_subtasks=d.get("allow_duplicate_subtasks", False),
         )
 
     def has_category_predicate(self):
@@ -106,11 +102,14 @@ class ConfigSubtaskGroup:
     prefix: Optional[str]
     """A name prefix to apply to all these subtasks."""
 
-    condition: Optional[ConfigSubtasksGroupCondition] = None
+    condition: Optional[ConfigActionCondition] = None
     """Condition to evaluate to auto-create the subtasks in the group."""
 
     events: Optional[list[AutoActionEvents]] = None
     """Events to create an auto action for."""
+
+    allow_duplicate_subtasks: bool = False
+    """Whether to add these subtasks even if they already exist."""
 
     @classmethod
     def from_dict(cls, d: dict):
@@ -121,7 +120,7 @@ class ConfigSubtaskGroup:
         condition = None
         cond_dict = d.get("condition")
         if cond_dict:
-            condition = ConfigSubtasksGroupCondition.from_dict(cond_dict)
+            condition = ConfigActionCondition.from_dict(cond_dict)
 
         events = None
         events_raw = d.get("events")
@@ -133,13 +132,14 @@ class ConfigSubtaskGroup:
             prefix=prefix,
             condition=condition,
             events=events,
+            allow_duplicate_subtasks=d.get("allow_duplicate_subtasks", False),
         )
 
 
 @dataclass
 class ConfigAutoTag:
     tag: str
-    condition: ConfigSubtasksGroupCondition
+    condition: ConfigActionCondition
 
     events: Optional[list[AutoActionEvents]] = None
     """Events to create an auto action for."""
@@ -149,7 +149,7 @@ class ConfigAutoTag:
         """Contruct an auto-tag entry from a dict (generally from TOML)."""
         tag = d["tag"]
 
-        condition = ConfigSubtasksGroupCondition.from_dict(d["condition"])
+        condition = ConfigActionCondition.from_dict(d["condition"])
 
         events = None
         events_raw = d.get("events")

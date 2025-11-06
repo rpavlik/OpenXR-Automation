@@ -52,10 +52,10 @@ migration_prefix = "ADOC written"
 
 [[subtask_group]]
 group_name = "handle design review"
+allow_duplicate_subtasks = true
 [subtask_group.condition]
 swimlane = "Design Review phase"
 column = "Needs Revisions"
-allow_duplicate_subtasks = true
 [[subtask_group.subtask]]
 name = "Design review comments addressed, threads resolved"
 
@@ -86,10 +86,10 @@ migration_prefix = "Champion performed self-review"
 
 [[subtask_group]]
 group_name = "handle spec review"
+allow_duplicate_subtasks = true
 [subtask_group.condition]
 swimlane = "Spec Review phase"
 column = "Needs Revisions"
-allow_duplicate_subtasks = true
 [[subtask_group.subtask]]
 name = "Spec review comments addressed, threads resolved"
 
