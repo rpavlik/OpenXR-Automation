@@ -11,6 +11,7 @@
 [[subtask_group]]
 group_name = "universal"
 prefix = "Before Requesting Review:"
+events = ["TASK_CREATE", "TASK_MOVE_COLUMN"]
 [subtask_group.condition]
 column = "In Preparation"
 [[subtask_group.subtask]]
@@ -21,6 +22,7 @@ name = "XML changes made"
 [[subtask_group]]
 group_name = "before design review"
 prefix = "Before Requesting Design Review:"
+events = ["TASK_CREATE", "TASK_MOVE_COLUMN"]
 [subtask_group.condition]
 swimlane = "Design Review phase"
 column = "In Preparation"
@@ -40,6 +42,7 @@ name = "Design review comments addressed, threads resolved"
 [[subtask_group]]
 group_name = "before spec review"
 prefix = "Before Requesting Review:"
+events = ["TASK_CREATE", "TASK_MOVE_COLUMN"]
 [subtask_group.condition]
 swimlane = "Spec Review phase"
 column = "In Preparation"
@@ -73,6 +76,7 @@ name = "Spec review comments addressed, threads resolved"
 [[subtask_group]]
 group_name = "before release - ratification track"
 prefix = "Before CfV:"
+events = ["TASK_CREATE", "TASK_MOVE_COLUMN"]
 [subtask_group.condition]
 swimlane = "Spec Review phase"
 column = "In Preparation"
@@ -89,6 +93,7 @@ name = "Second conformant implementation"
 [[subtask_group]]
 group_name = "before release - non-ratification track"
 prefix = "Before Release:"
+events = ["TASK_CREATE", "TASK_MOVE_COLUMN"]
 [subtask_group.condition]
 swimlane = "Spec Review phase"
 column = "In Preparation"
@@ -100,6 +105,7 @@ migration_prefix = "CTS tests written"
 [[subtask_group]]
 group_name = "ratification submission"
 prefix = "Before Board Submission:"
+events = ["TASK_CREATE", "TASK_MOVE_COLUMN"]
 [subtask_group.condition]
 swimlane = "Spec Review phase"
 column = "Pending Approvals And Merge"
@@ -113,6 +119,7 @@ name = "Submission package available for Promoter review"
 [[subtask_group]]
 group_name = "ratification"
 prefix = "Before Release:"
+events = ["TASK_CREATE", "TASK_MOVE_COLUMN"]
 [subtask_group.condition]
 swimlane = "Spec Review phase"
 column = "Pending Approvals And Merge"
