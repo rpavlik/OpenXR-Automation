@@ -13,16 +13,16 @@ import itertools
 import logging
 import re
 from dataclasses import dataclass
-from typing import Any, Literal, Optional, Union
+from typing import Any, Optional, Union
 
 import gitlab
 import gitlab.v4.objects
 import kanboard
 
-from openxr_ops.checklists import CHECKLIST_RE, ReleaseChecklistCollection
+from openxr_ops.checklists import ReleaseChecklistCollection
 from openxr_ops.gitlab import OpenXRGitlab
 from openxr_ops.kanboard_helpers import KanboardProject
-from openxr_ops.kb_defaults import USERNAME, get_kb_api_token, get_kb_api_url
+from openxr_ops.kb_defaults import REAL_PROJ_NAME, connect_and_get_project
 from openxr_ops.kb_ops_collection import TaskCollection
 from openxr_ops.kb_ops_config import (
     ConfigSubtaskEntry,
@@ -692,26 +692,10 @@ def populate_data_from_gitlab(
     )
 
 
-async def load_kb_ops(project_name: str):
+async def load_kb_ops(project_name: str = REAL_PROJ_NAME):
     log = logging.getLogger(__name__)
-    token = get_kb_api_token()
-    url = get_kb_api_url()
-    kb = kanboard.Client(
-        url=url,
-        username=USERNAME,
-        password=token,
-        # cafile="/path/to/my/cert.pem",
-        ignore_hostname_verification=True,
-        insecure=True,
-    )
-    log.info("Getting project by name")
-    from pprint import pformat
 
-    proj = await kb.get_project_by_name_async(name=project_name)
-    if proj == False:
-        raise RuntimeError("No project named " + project_name)
-
-    log.debug("Project data: %s", pformat(proj))
+    kb, proj = await connect_and_get_project(project_name)
 
     kb_project = KanboardProject(kb, int(proj["id"]))
     log.info("Getting columns, swimlanes, and categories")

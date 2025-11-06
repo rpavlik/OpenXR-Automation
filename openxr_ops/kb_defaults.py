@@ -6,10 +6,16 @@
 #
 # Author: Rylie Pavlik <rylie.pavlik@collabora.com>
 
+import logging
 import os
+from typing import Any
+
+import kanboard
 
 SERVER = "openxr-boards.khronos.org"
 USERNAME = "khronos-bot"
+
+REAL_PROJ_NAME = "OpenXRExtensions"
 
 
 def get_kb_api_url():
@@ -19,3 +25,28 @@ def get_kb_api_url():
 
 def get_kb_api_token():
     return os.environ.get("KANBOARD_API_TOKEN", default="")
+
+
+async def connect_and_get_project(
+    project_name: str = REAL_PROJ_NAME,
+) -> tuple[kanboard.Client, dict[str, Any]]:
+    log = logging.getLogger(__name__)
+    token = get_kb_api_token()
+    url = get_kb_api_url()
+    kb = kanboard.Client(
+        url=url,
+        username=USERNAME,
+        password=token,
+        # cafile="/path/to/my/cert.pem",
+        ignore_hostname_verification=True,
+        insecure=True,
+    )
+    log.info("Getting project by name")
+    from pprint import pformat
+
+    proj = await kb.get_project_by_name_async(name=project_name)
+    if proj == False:
+        raise RuntimeError("No project named " + project_name)
+
+    log.debug("Project data: %s", pformat(proj))
+    return kb, proj
