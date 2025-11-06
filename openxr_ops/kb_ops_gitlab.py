@@ -51,13 +51,6 @@ def update_mr_desc(
                 f"MR {merge_request.get_id()} description starts with the wrong link"
             )
             new_desc = replaced_desc
-
-        if m.group("task_id") != str(task_id):
-            log.warning(
-                "Mismatch between current task ID %d and the one in the description: %s",
-                task_id,
-                m.group("task_id"),
-            )
     else:
 
         new_desc = prepend + desc
@@ -72,9 +65,8 @@ def update_mr_desc(
             )
             if mark_old_as_obsolete:
                 log.info(
-                    "Old checklist link in MR %s needs to be marked as obsolete:\n%s",
+                    "Old checklist link in MR %s needs to be marked as obsolete.",
                     str(merge_request.get_id()),
-                    obsolete_desc,
                 )
                 new_desc = obsolete_desc
 
@@ -84,7 +76,10 @@ def update_mr_desc(
         merge_request.save()
     elif new_desc != desc:
         log.info(
-            "Would have made changes to MR %s description but skipping that by request.\n%s",
+            "Would have made changes to MR %s description but skipping that by request.",
             str(merge_request.get_id()),
+        )
+        log.debug(
+            "Updated description would have been:\n%s",
             new_desc,
         )
