@@ -71,7 +71,7 @@ def update_mr_desc(
                 new_desc = obsolete_desc
 
     if save_changes:
-        log.info("Saving change.")
+        log.info("Saving change to MR %s", str(merge_request.get_id()))
         merge_request.description = new_desc
         merge_request.save()
     elif new_desc != desc:
