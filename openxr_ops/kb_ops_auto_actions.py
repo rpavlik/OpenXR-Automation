@@ -18,7 +18,7 @@ import kanboard
 from .kanboard_helpers import KanboardProject
 from .kb_defaults import USERNAME, get_kb_api_token, get_kb_api_url
 from .kb_enums import ACTION_NAME, EVENT_NAME, AutoActionEvents, AutoActionTypes
-from .kb_ops_config import ConfigSubtaskGroup
+from .kb_ops_config import ConfigAutoTag, ConfigData, ConfigSubtaskGroup
 from .kb_ops_stages import TaskCategory, TaskColumn, TaskSwimlane
 
 
@@ -656,6 +656,202 @@ def actions_from_subtask_group(
         "Condition does not match any known combo: %s", pformat(group.condition)
     )
     return None
+
+
+@dataclass
+class TagFromColumnAndSwimlane(AutoActionABC):
+    """
+    Automatic action to apply a tag on moving a task to a column if in a swimlane.
+
+    In TagAutoActions plugin.
+    """
+
+    event: AutoActionEvents
+    tag: str
+    column: TaskColumn
+    swimlane: TaskSwimlane
+
+    @classmethod
+    def create(
+        cls,
+        event: AutoActionEvents,
+        tag: str,
+        column: TaskColumn,
+        swimlane: TaskSwimlane,
+    ):
+        return cls(
+            event=event,
+            tag=tag,
+            column=column,
+            swimlane=swimlane,
+        )
+
+    @classmethod
+    def yield_for_events(
+        cls,
+        tag: str,
+        column: TaskColumn,
+        swimlane: TaskSwimlane,
+        events: Optional[list[AutoActionEvents]],
+    ):
+        if not events:
+            events = [cls.default_event_name()]
+        for event in events:
+            yield cls.create(
+                event=event,
+                tag=tag,
+                column=column,
+                swimlane=swimlane,
+            )
+
+    @classmethod
+    def action_name(cls):
+        return AutoActionTypes.TAG_FROM_COLUMN_AND_SWIMLANE
+
+    @classmethod
+    def default_event_name(cls):
+        return AutoActionEvents.TASK_MOVE_COLUMN
+
+    def to_arg_dict(self, kb_project: KanboardProject):
+        return {
+            EVENT_NAME: self.event.value,
+            ACTION_NAME: self.action_name().value,
+            "params": {
+                "column_id": self.column.to_column_id(kb_project),
+                "swimlane_id": self.swimlane.to_swimlane_id(kb_project),
+                "tag": self.tag,
+            },
+        }
+
+    @classmethod
+    def try_from_json(cls, kb_project, action: dict[str, Any]):
+        """Create from API return value."""
+        log = logging.getLogger(f"{__name__}.{cls.__name__}")
+        if action["action_name"] != cls.action_name().value:
+            log.debug("action_name mismatch: %s", action["action_name"])
+            return None
+        event = AutoActionEvents(action["event_name"])
+
+        params = action["params"]
+        tag = params["tag"]
+        column = TaskColumn.from_column_id(kb_project, int(params["column_id"]))
+        swimlane = TaskSwimlane.from_swimlane_id(
+            kb_project=kb_project, swimlane_id=int(params["swimlane_id"])
+        )
+        return cls(
+            event=event,
+            tag=tag,
+            column=column,
+            swimlane=swimlane,
+        )
+
+
+@dataclass
+class TagFromColumn(AutoActionABC):
+    """
+    Automatic action to apply a tag on moving a task to a column.
+
+    In TagAutoActions plugin.
+    """
+
+    event: AutoActionEvents
+    tag: str
+    column: TaskColumn
+
+    @classmethod
+    def create(
+        cls,
+        event: AutoActionEvents,
+        tag: str,
+        column: TaskColumn,
+    ):
+        return cls(
+            event=event,
+            tag=tag,
+            column=column,
+        )
+
+    @classmethod
+    def yield_for_events(
+        cls,
+        tag: str,
+        column: TaskColumn,
+        events: Optional[list[AutoActionEvents]],
+    ):
+        if not events:
+            events = [cls.default_event_name()]
+        for event in events:
+            yield cls.create(
+                event=event,
+                tag=tag,
+                column=column,
+            )
+
+    @classmethod
+    def action_name(cls):
+        return AutoActionTypes.TAG_FROM_COLUMN
+
+    @classmethod
+    def default_event_name(cls):
+        return AutoActionEvents.TASK_MOVE_COLUMN
+
+    def to_arg_dict(self, kb_project: KanboardProject):
+        return {
+            EVENT_NAME: self.event.value,
+            ACTION_NAME: self.action_name().value,
+            "params": {
+                "column_id": self.column.to_column_id(kb_project),
+                "tag": self.tag,
+            },
+        }
+
+    @classmethod
+    def try_from_json(cls, kb_project, action: dict[str, Any]):
+        """Create from API return value."""
+        log = logging.getLogger(f"{__name__}.{cls.__name__}")
+        if action["action_name"] != cls.action_name().value:
+            log.debug("action_name mismatch: %s", action["action_name"])
+            return None
+        event = AutoActionEvents(action["event_name"])
+
+        params = action["params"]
+        tag = params["tag"]
+        column = TaskColumn.from_column_id(kb_project, int(params["column_id"]))
+        return cls(
+            event=event,
+            tag=tag,
+            column=column,
+        )
+
+
+def actions_from_auto_tag(autotag: ConfigAutoTag) -> Sequence[AutoActionABC]:
+    log = logging.getLogger(f"{__name__}.actions_from_auto_tag")
+    if not autotag.condition:
+        log.warning("No condition provided for %s", autotag.tag)
+        return []
+    if autotag.condition.column and autotag.condition.swimlane:
+        return list(
+            TagFromColumnAndSwimlane.yield_for_events(
+                tag=autotag.tag,
+                column=autotag.condition.column,
+                swimlane=autotag.condition.swimlane,
+                events=autotag.events,
+            )
+        )
+    if autotag.condition.column and not autotag.condition.swimlane:
+        return list(
+            TagFromColumn.yield_for_events(
+                tag=autotag.tag,
+                column=autotag.condition.column,
+                events=autotag.events,
+            )
+        )
+    log.warning(
+        "Condition for %s does not match any known combo: %s",
+        autotag.tag,
+        pformat(autotag.condition),
+    )
+    return []
 
 
 AUTO_ACTION_TYPES = [

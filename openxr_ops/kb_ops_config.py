@@ -137,7 +137,35 @@ class ConfigSubtaskGroup:
 
 
 @dataclass
+class ConfigAutoTag:
+    tag: str
+    condition: ConfigSubtasksGroupCondition
+
+    events: Optional[list[AutoActionEvents]] = None
+    """Events to create an auto action for."""
+
+    @classmethod
+    def from_dict(cls, d: dict):
+        """Contruct an auto-tag entry from a dict (generally from TOML)."""
+        tag = d["tag"]
+
+        condition = ConfigSubtasksGroupCondition.from_dict(d["condition"])
+
+        events = None
+        events_raw = d.get("events")
+        if events_raw:
+            events = [AutoActionEvents[event] for event in events_raw]
+
+        return cls(
+            tag=tag,
+            condition=condition,
+            events=events,
+        )
+
+
+@dataclass
 class ConfigData:
+    auto_tags: list[ConfigAutoTag]
     subtask_groups: list[ConfigSubtaskGroup]
 
 
@@ -150,10 +178,13 @@ def get_config_data() -> ConfigData:
     )
     parsed = tomllib.loads(data)
     return ConfigData(
+        auto_tags=[
+            ConfigAutoTag.from_dict(tag_dict) for tag_dict in parsed.get("auto_tag", [])
+        ],
         subtask_groups=[
             ConfigSubtaskGroup.from_dict(subtask_group)
             for subtask_group in parsed["subtask_group"]
-        ]
+        ],
     )
 
 

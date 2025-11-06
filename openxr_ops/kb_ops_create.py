@@ -17,6 +17,7 @@ from .kanboard_helpers import KanboardProject
 from .kb_defaults import USERNAME, get_kb_api_token, get_kb_api_url
 from .kb_ops_auto_actions import (
     AutoActionABC,
+    actions_from_auto_tag,
     actions_from_subtask_group,
     get_and_parse_actions,
 )
@@ -180,6 +181,9 @@ async def populate_actions(
         actions = actions_from_subtask_group(group)
         if actions is not None:
             expected_auto_actions.extend(actions)
+
+    for auto_tag in config.auto_tags:
+        expected_auto_actions.extend(actions_from_auto_tag(auto_tag))
 
     unparsed, existing_dict = await current_actions_future
     existing_action_ids_to_drop: list[int] = []

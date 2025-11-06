@@ -33,6 +33,12 @@ class AutoActionTypes(Enum):
 
     ASSIGN_CURRENT_USER_ON_COLUMN = "\\Kanboard\\Action\\TaskAssignCurrentUserColumn"
 
+    TAG_FROM_COLUMN = "\\Kanboard\\Plugin\\TagAutomaticAction\\Action\\TaskAssignTagCol"
+
+    TAG_FROM_COLUMN_AND_SWIMLANE = (
+        "\\Kanboard\\Plugin\\TagAutomaticAction\\Action\\TaskAssignTagColSwimlane"
+    )
+
 
 EVENT_NAME = "event_name"
 ACTION_NAME = "action_name"
