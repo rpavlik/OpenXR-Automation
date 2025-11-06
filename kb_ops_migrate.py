@@ -76,6 +76,9 @@ class OperationsGitLabToKanboard:
         self.dates: list[dict[str, Union[str, int]]] = []
         """Rows for a CSV file."""
 
+        self.mr_to_task_id: dict[int, int] = {}
+        """MR number to kanboard task id"""
+
         # these are populated later in prepare
         self.kb_project: KanboardProject
         self.task_collection: TaskCollection
@@ -266,40 +269,43 @@ class OperationsGitLabToKanboard:
         if data is None:
             return None
 
+        task_id: Optional[int] = None
         kb_task = self.task_collection.get_task_by_mr(mr_num)
 
         if kb_task is not None:
-            # Already existing.
+            # Existing task
             await self.update_task(
                 kb_task=kb_task,
                 mr_num=mr_num,
                 data=data,
             )
-            await self._process_subtasks(
-                kb_task.task_id,
-                checklist_issue.issue_obj.attributes["description"],
-                data,
-            )
+            task_id = kb_task.task_id
+        else:
+            # New task
+            new_task_id = await data.create_task(kb_project=self.kb_project)
+
+            if new_task_id is not None:
+                self.log.info(
+                    "Created new task ID %d: %s",
+                    new_task_id,
+                    checklist_issue.title,
+                )
+                task_id = new_task_id
+
+        if task_id is None:
             return None
 
+        self.mr_to_task_id[mr_num] = task_id
+
+        await self._process_subtasks(
+            task_id,
+            checklist_issue.issue_obj.attributes["description"],
+            data,
+        )
+
         task_dates = get_dates(checklist_issue)
-        new_task_id = await data.create_task(kb_project=self.kb_project)
-
-        if new_task_id is not None:
-            self.log.info(
-                "Created new task ID %d: %s",
-                new_task_id,
-                checklist_issue.title,
-            )
-
-            await self._process_subtasks(
-                new_task_id,
-                checklist_issue.issue_obj.attributes["description"],
-                data,
-            )
-
-            if task_dates is not None:
-                task_dates["task_id"] = new_task_id
+        if task_dates is not None:
+            task_dates["task_id"] = task_id
         return task_dates
 
     async def process_all_mrs(self):
