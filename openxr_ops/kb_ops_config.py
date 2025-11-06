@@ -136,22 +136,29 @@ class ConfigSubtaskGroup:
         )
 
 
-def get_all_subtasks() -> list[ConfigSubtaskGroup]:
-    """Load all subtasks from the data file."""
+@dataclass
+class ConfigData:
+    subtask_groups: list[ConfigSubtaskGroup]
+
+
+def get_config_data() -> ConfigData:
+    """Load the integrated data file."""
     data = (
         importlib.resources.files("openxr_ops")
         .joinpath("kb_config.toml")
         .read_text(encoding="utf-8")
     )
     parsed = tomllib.loads(data)
-    return [
-        ConfigSubtaskGroup.from_dict(subtask_group)
-        for subtask_group in parsed["subtask_group"]
-    ]
+    return ConfigData(
+        subtask_groups=[
+            ConfigSubtaskGroup.from_dict(subtask_group)
+            for subtask_group in parsed["subtask_group"]
+        ]
+    )
 
 
 if __name__ == "__main__":
-    subtasks = get_all_subtasks()
+    subtasks = get_config_data()
     import pprint
 
     pprint.pprint(subtasks)

@@ -24,7 +24,7 @@ from openxr_ops.gitlab import OpenXRGitlab
 from openxr_ops.kanboard_helpers import KanboardProject
 from openxr_ops.kb_defaults import USERNAME, get_kb_api_token, get_kb_api_url
 from openxr_ops.kb_ops_collection import TaskCollection
-from openxr_ops.kb_ops_config import ConfigSubtaskGroup, get_all_subtasks
+from openxr_ops.kb_ops_config import ConfigSubtaskGroup, get_config_data
 from openxr_ops.kb_ops_queue import COLUMN_CONVERSION, COLUMN_TO_SWIMLANE
 from openxr_ops.kb_ops_stages import TaskCategory, TaskSwimlane
 from openxr_ops.kb_ops_task import (
@@ -70,7 +70,7 @@ class OperationsGitLabToKanboard:
         self.kb_project_name: str = kb_project_name
         self.update_options: UpdateOptions = update_options
 
-        self.subtask_groups = get_all_subtasks()
+        self.config = get_config_data()
 
         self.log = logging.getLogger(f"{__name__}.{self.__class__.__name__}")
         self.dates: list[dict[str, Union[str, int]]] = []
@@ -102,7 +102,7 @@ class OperationsGitLabToKanboard:
         new_subtask_titles: set[str] = set()
         new_subtasks: list[tuple[bool, str]] = []
         new_subtask_futures: list = []
-        for group in self.subtask_groups:
+        for group in self.config.subtask_groups:
             if not _should_apply_subtask_group(group, data):
                 continue
             for entry in group.subtasks:

@@ -20,7 +20,7 @@ from .kb_ops_auto_actions import (
     actions_from_subtask_group,
     get_and_parse_actions,
 )
-from .kb_ops_config import get_all_subtasks
+from .kb_ops_config import get_config_data
 from .kb_ops_stages import (
     CATEGORY_COLORS,
     COLUMN_DESCRIPTIONS,
@@ -170,13 +170,13 @@ async def populate_actions(
     kb: kanboard.Client, kb_project: KanboardProject, project_id: int
 ):
     log = logging.getLogger(f"{__name__}.populate_actions")
-    subtask_groups = get_all_subtasks()
+    config = get_config_data()
 
     expected_auto_actions: list[AutoActionABC] = []
     """Actions from config file."""
 
     current_actions_future = get_and_parse_actions(kb, kb_project, project_id)
-    for group in subtask_groups:
+    for group in config.subtask_groups:
         actions = actions_from_subtask_group(group)
         if actions is not None:
             expected_auto_actions.extend(actions)
