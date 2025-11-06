@@ -6,12 +6,14 @@
 
 [[auto_tag]]
 tag = "Initial Design Review Complete"
+events = ["TASK_CREATE", "TASK_MOVE_COLUMN"]
 [auto_tag.condition]
 swimlane = "Design Review phase"
 column = "Needs Revisions"
 
 [[auto_tag]]
 tag = "Initial Spec Review Complete"
+events = ["TASK_CREATE", "TASK_MOVE_COLUMN"]
 [auto_tag.condition]
 swimlane = "Spec Review phase"
 column = "Needs Revisions"
