@@ -31,7 +31,7 @@ from openxr_ops.kb_ops_config import (
 )
 from openxr_ops.kb_ops_gitlab import update_mr_desc
 from openxr_ops.kb_ops_queue import COLUMN_CONVERSION, COLUMN_TO_SWIMLANE
-from openxr_ops.kb_ops_stages import TaskCategory, TaskSwimlane
+from openxr_ops.kb_ops_stages import TaskCategory
 from openxr_ops.kb_ops_task import (
     OperationsTask,
     OperationsTaskCreationData,
