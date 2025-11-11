@@ -70,16 +70,17 @@ def update_mr_desc(
                 )
                 new_desc = obsolete_desc
 
-    if save_changes:
-        log.info("Saving change to MR %s", str(merge_request.get_id()))
-        merge_request.description = new_desc
-        merge_request.save()
-    elif new_desc != desc:
-        log.info(
-            "Would have made changes to MR %s description but skipping that by request.",
-            str(merge_request.get_id()),
-        )
-        log.debug(
-            "Updated description would have been:\n%s",
-            new_desc,
-        )
+    if new_desc != desc:
+        if save_changes:
+            log.info("Saving change to MR %s", str(merge_request.get_id()))
+            merge_request.description = new_desc
+            merge_request.save()
+        else:
+            log.info(
+                "Would have made changes to MR %s description but skipping that by request.",
+                str(merge_request.get_id()),
+            )
+            log.debug(
+                "Updated description would have been:\n%s",
+                new_desc,
+            )

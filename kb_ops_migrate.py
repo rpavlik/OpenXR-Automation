@@ -441,6 +441,7 @@ class OperationsGitLabToKanboard:
         self.update_subtask_futures = []
 
         # Now update gitlab, synchronously
+        self.log.info("Checking GitLab MR descriptions")
         for mr_num in self.gl_collection.issue_to_mr.values():
             task_id = self.mr_to_task_id.get(mr_num)
             if task_id is None:
