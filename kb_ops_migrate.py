@@ -13,6 +13,7 @@ import itertools
 import logging
 import re
 from dataclasses import dataclass
+from pprint import pformat
 from typing import Any, Iterable, Optional, Union
 
 import gitlab
@@ -52,14 +53,28 @@ _MR_REF_RE = re.compile(
 
 @dataclass
 class UpdateOptions:
+    # Changes affecting Kanboard
+    create_task: bool = True
     update_title: bool = True
     update_description: bool = True
     update_column_and_swimlane: bool = True
     update_category: bool = True
     update_tags: bool = True
 
+    # Changes affecting GitLab MRs
     update_mr_desc: bool = True
     mark_old_links_obsolete: bool = False
+
+    def make_dry_run(self):
+        self.create_task = False
+        self.update_title = False
+        self.update_description = False
+        self.update_column_and_swimlane = False
+        self.update_category = False
+        self.update_tags = False
+
+        self.update_mr_desc = False
+        self.mark_old_links_obsolete = False
 
 
 class MigrateChecklistToSubtasks:
@@ -381,6 +396,13 @@ class OperationsGitLabToKanboard:
             task_id = kb_task.task_id
         else:
             # New task
+            if not self.update_options.create_task:
+                self.log.info(
+                    "Would create a new task here for %s: %s",
+                    checklist_issue.title,
+                    pformat(data),
+                )
+                return None
             new_task_id = await data.create_task(kb_project=self.kb_project)
 
             if new_task_id is not None:
@@ -468,11 +490,17 @@ async def async_main(
     gl_collection: ReleaseChecklistCollection,
     project_name: str,
     limit: Optional[int],
+    dry_run: bool,
 ):
     options = UpdateOptions()
     if options.update_mr_desc:
         # for safety, only update MRs when the project name is the real project.
         options.update_mr_desc = project_name == "OpenXRExtensions"
+
+    if dry_run:
+        logging.info("Dry run - no changes will be made!")
+        options.make_dry_run()
+
     obj = OperationsGitLabToKanboard(
         oxr_gitlab=oxr_gitlab,
         gl_collection=gl_collection,
@@ -760,6 +788,11 @@ if __name__ == "__main__":
         type=int,
         help="Only process a limited number of elements",
     )
+    parser.add_argument(
+        "-n",
+        "--dry-run",
+        action="store_true",
+    )
 
     args = parser.parse_args()
 
@@ -771,4 +804,12 @@ if __name__ == "__main__":
     oxr_gitlab, collection = load_gitlab_ops()
     assert collection
 
-    asyncio.run(async_main(oxr_gitlab, collection, args.project, limit=limit))
+    asyncio.run(
+        async_main(
+            oxr_gitlab,
+            collection,
+            args.project,
+            limit=limit,
+            dry_run=args.dry_run,
+        )
+    )
