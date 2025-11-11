@@ -13,7 +13,7 @@ import itertools
 import logging
 import re
 from dataclasses import dataclass
-from typing import Any, Optional, Union
+from typing import Any, Iterable, Optional, Union
 
 import gitlab
 import gitlab.v4.objects
@@ -420,10 +420,14 @@ class OperationsGitLabToKanboard:
             mark_old_as_obsolete=self.update_options.mark_old_links_obsolete,
         )
 
-    async def process_all_mrs(self):
-        # TODO stop limiting
-        for mr_num in itertools.islice(self.gl_collection.issue_to_mr.values(), 0, 5):
-            # for mr_num in self.gl_collection.issue_to_mr.values():
+    async def process_all_mrs(self, limit: Optional[int] = None):
+        collection: Iterable[int] = self.gl_collection.issue_to_mr.values()
+        if limit is not None:
+            collection = itertools.islice(
+                self.gl_collection.issue_to_mr.values(), 0, limit
+            )
+
+        for mr_num in collection:
             task_dates = await self.process_mr(
                 mr_num=mr_num,
             )
@@ -462,6 +466,7 @@ async def async_main(
     oxr_gitlab: OpenXRGitlab,
     gl_collection: ReleaseChecklistCollection,
     project_name: str,
+    limit: Optional[int],
 ):
     options = UpdateOptions()
     if options.update_mr_desc:
@@ -474,7 +479,7 @@ async def async_main(
         update_options=options,
     )
     await obj.prepare()
-    await obj.process_all_mrs()
+    await obj.process_all_mrs(limit=limit)
     if obj.dates:
         obj.write_datetime_csv()
 
@@ -745,14 +750,24 @@ if __name__ == "__main__":
     parser.add_argument(
         "--project",
         type=str,
-        nargs=1,
         help="Migrate to the named project",
         default=_PROJ_NAME,
         required=True,
     )
+    parser.add_argument(
+        "--limit",
+        type=int,
+        help="Only process a limited number of elements",
+    )
 
     args = parser.parse_args()
+
+    limit: Optional[int] = None
+    if args.limit:
+        limit = args.limit
+        logging.info("got a limit %s %d", type(args.limit), args.limit)
+
     oxr_gitlab, collection = load_gitlab_ops()
     assert collection
 
-    asyncio.run(async_main(oxr_gitlab, collection, args.project[0]))
+    asyncio.run(async_main(oxr_gitlab, collection, args.project, limit=limit))
