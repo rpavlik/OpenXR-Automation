@@ -35,6 +35,10 @@ class OperationsTaskFlags:
     spec_support_review_comments_pending: bool
     editor_review_requested: bool
 
+    khr_extension: bool
+    multivendor_extension: bool
+    single_vendor_extension: bool
+
     @classmethod
     def from_task_tags_result(cls, task_tags: dict[str, str]) -> "OperationsTaskFlags":
         tags = set(task_tags.values())
@@ -51,6 +55,9 @@ class OperationsTaskFlags:
                 TaskTags.SPEC_SUPPORT_REVIEW_COMMENTS_PENDING.value in tags
             ),
             editor_review_requested=(TaskTags.EDITOR_REVIEW_REQUESTED.value in tags),
+            khr_extension=(TaskTags.KHR_EXTENSION.value in tags),
+            multivendor_extension=(TaskTags.MULTIVENDOR_EXTENSION.value in tags),
+            single_vendor_extension=(TaskTags.SINGLE_VENDOR_EXTENSION.value in tags),
         )
 
     @classmethod
@@ -72,6 +79,12 @@ class OperationsTaskFlags:
             ret.append(TaskTags.SPEC_SUPPORT_REVIEW_COMMENTS_PENDING)
         if self.editor_review_requested:
             ret.append(TaskTags.EDITOR_REVIEW_REQUESTED)
+        if self.khr_extension:
+            ret.append(TaskTags.KHR_EXTENSION)
+        if self.multivendor_extension:
+            ret.append(TaskTags.MULTIVENDOR_EXTENSION)
+        if self.single_vendor_extension:
+            ret.append(TaskTags.SINGLE_VENDOR_EXTENSION)
         return ret
 
     def to_string_list(self) -> list[str]:

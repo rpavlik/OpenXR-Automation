@@ -666,6 +666,9 @@ def get_flags(checklist_issue: ReleaseChecklistIssue):
         initial_spec_review_complete=checklist_issue.initial_spec_review_complete,
         spec_support_review_comments_pending=False,
         editor_review_requested=checklist_issue.editor_review_requested,
+        khr_extension=checklist_issue.is_khr,
+        multivendor_extension=checklist_issue.is_multivendor,
+        single_vendor_extension=checklist_issue.is_vendor,
     )
 
 
