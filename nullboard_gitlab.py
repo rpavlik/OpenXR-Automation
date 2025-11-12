@@ -242,6 +242,11 @@ def remove_marked_for_deletion(board: Dict[str, Any]):
             notelist["notes"] = newlist
 
 
+def extract_refs(note_dict: dict[str, Any]) -> list[str]:
+
+    return _REF_RE.findall(note_dict["text"])
+
+
 def update_board(
     work: WorkUnitCollection,
     board: Dict[str, Any],
@@ -274,7 +279,7 @@ def update_board(
 
         # For each item in those lists, extract the ref, and update the text if we can
         for note in notelist["notes"]:
-            refs = _REF_RE.findall(note["text"])
+            refs = extract_refs(note)
             log.debug("Extracted refs: %s", str(refs))
             if not refs:
                 # Can't find a reference to an item in the text

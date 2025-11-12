@@ -33,6 +33,17 @@ _IGNORE_PUSH_USERS = ("rpavlik", "safarimonkey", "haagch", "khrbot")
 _PUSH_NOTE_RE = re.compile(r"added \d+ commit(s?)\n\n.*")
 
 
+def compute_vendor_name_and_tag(title, vendors) -> tuple[Optional[str], Optional[str]]:
+    m = _EXT_DECOMP_RE.match(title)
+    vendor: Optional[str] = None
+    tag: Optional[str] = None
+    if m is not None:
+        tag = m.group("tag")
+        assert tag is not None
+        vendor = vendors.get_vendor_name(tag)
+    return vendor, tag
+
+
 def _is_note_a_push(note: gitlab.v4.objects.ProjectMergeRequestNote):
     if not note.system:
         return False
@@ -58,73 +69,9 @@ def _created_date(n):
 
 
 @dataclass
-class ReleaseChecklistIssue:
-    issue_obj: gitlab.v4.objects.ProjectIssue
-
-    status: str
-
-    latest_status_label_event: gitlab.v4.objects.ProjectIssueResourceLabelEvent
+class ReleaseChecklistMRData:
 
     mr: gitlab.v4.objects.ProjectMergeRequest
-
-    vendor_name: Optional[str] = None
-    vendor_tag: Optional[str] = None
-
-    offset: int = 0
-    """Corrective latency offset"""
-
-    @property
-    def initial_design_review_complete(self) -> bool:
-        return (
-            OpsProjectLabels.INITIAL_DESIGN_REVIEW_COMPLETE
-            in self.issue_obj.attributes["labels"]
-        )
-
-    @property
-    def initial_spec_review_complete(self) -> bool:
-        return (
-            OpsProjectLabels.INITIAL_SPEC_REVIEW_COMPLETE
-            in self.issue_obj.attributes["labels"]
-        )
-
-    @property
-    def editor_review_requested(self) -> bool:
-        return (
-            OpsProjectLabels.EDITOR_REVIEW_REQUESTED
-            in self.issue_obj.attributes["labels"]
-        )
-
-    @property
-    def is_khr(self) -> bool:
-        return GroupLabels.KHR_EXT in self.issue_obj.attributes["labels"]
-
-    @property
-    def is_vendor(self) -> bool:
-        return GroupLabels.VENDOR_EXT in self.issue_obj.attributes["labels"]
-
-    @property
-    def is_multivendor(self) -> bool:
-        return "_EXT_" in self.issue_obj.title
-
-    @cached_property
-    def latency(self):
-        """Time since last status change in days"""
-        # TODO choose the more recent of this date or the MR update date?
-        # or latest push to MR?
-        pending_since = datetime.datetime.fromisoformat(
-            self.latest_status_label_event.attributes["created_at"]
-        )
-        age = NOW - pending_since
-        return age.days + self.offset
-
-    @cached_property
-    def ops_issue_age(self):
-        """Time since ops issue creation in days"""
-        created_at = datetime.datetime.fromisoformat(
-            self.issue_obj.attributes["created_at"]
-        )
-        age = NOW - created_at
-        return age.days
 
     @cached_property
     def mr_age(self):
@@ -141,14 +88,6 @@ class ReleaseChecklistIssue:
     @property
     def needs_author_action(self):
         return MainProjectLabels.NEEDS_AUTHOR_ACTION in self.mr.attributes["labels"]
-
-    @property
-    def unchangeable(self):
-        # TODO should not see this on the MR but...
-        return (
-            OpsProjectLabels.UNCHANGEABLE in self.mr.attributes["labels"]
-            or OpsProjectLabels.UNCHANGEABLE in self.issue_obj.attributes["labels"]
-        )
 
     @cached_property
     def _last_author_revision_push_with_date(
@@ -196,7 +135,10 @@ class ReleaseChecklistIssue:
         """Days since the last non-bot, non-spec-editor/contractor push to the MR."""
         _, last_push_date = self._last_author_revision_push_with_date
         if not last_push_date:
-            log.info("No last push date for %s, using MR create date", self.title)
+            log.info(
+                "No last push date for %s, using MR create date",
+                self.mr.attributes["title"],
+            )
             last_push_date = datetime.datetime.fromisoformat(
                 self.mr.attributes["created_at"]
             )
@@ -205,6 +147,99 @@ class ReleaseChecklistIssue:
     @cached_property
     def mr_notes(self):
         return list(self.mr.notes.list(iterator=True))
+
+    @property
+    def mr_ref(self) -> str:
+        return self.mr.references["short"]
+
+    @property
+    def mr_url(self) -> str:
+        return self.mr.web_url
+
+
+@dataclass
+class ReleaseChecklistIssue(ReleaseChecklistMRData):
+    issue_obj: gitlab.v4.objects.ProjectIssue
+
+    status: str
+
+    latest_status_label_event: gitlab.v4.objects.ProjectIssueResourceLabelEvent
+
+    # mr: gitlab.v4.objects.ProjectMergeRequest
+
+    vendor_name: Optional[str] = None
+    vendor_tag: Optional[str] = None
+
+    offset: int = 0
+    """Corrective latency offset"""
+
+    @property
+    def initial_design_review_complete(self) -> bool:
+        return (
+            OpsProjectLabels.INITIAL_DESIGN_REVIEW_COMPLETE
+            in self.issue_obj.attributes["labels"]
+        )
+
+    @property
+    def initial_spec_review_complete(self) -> bool:
+        return (
+            OpsProjectLabels.INITIAL_SPEC_REVIEW_COMPLETE
+            in self.issue_obj.attributes["labels"]
+        )
+
+    @property
+    def editor_review_requested(self) -> bool:
+        return (
+            OpsProjectLabels.EDITOR_REVIEW_REQUESTED
+            in self.issue_obj.attributes["labels"]
+        )
+
+    @property
+    def is_khr(self) -> bool:
+        return GroupLabels.KHR_EXT in self.issue_obj.attributes["labels"]
+
+    @property
+    def is_vendor(self) -> bool:
+        return GroupLabels.VENDOR_EXT in self.issue_obj.attributes["labels"]
+
+    @property
+    def is_outside_ipr_framework(self) -> bool:
+        return (
+            GroupLabels.OUTSIDE_IPR_FRAMEWORK in self.issue_obj.attributes["labels"]
+            or GroupLabels.OUTSIDE_IPR_FRAMEWORK in self.mr.attributes["labels"]
+        )
+
+    @property
+    def is_multivendor(self) -> bool:
+        return "_EXT_" in self.issue_obj.title
+
+    @cached_property
+    def latency(self):
+        """Time since last status change in days"""
+        # TODO choose the more recent of this date or the MR update date?
+        # or latest push to MR?
+        pending_since = datetime.datetime.fromisoformat(
+            self.latest_status_label_event.attributes["created_at"]
+        )
+        age = NOW - pending_since
+        return age.days + self.offset
+
+    @cached_property
+    def ops_issue_age(self):
+        """Time since ops issue creation in days"""
+        created_at = datetime.datetime.fromisoformat(
+            self.issue_obj.attributes["created_at"]
+        )
+        age = NOW - created_at
+        return age.days
+
+    @property
+    def unchangeable(self):
+        # TODO should not see this on the MR but...
+        return (
+            OpsProjectLabels.UNCHANGEABLE in self.mr.attributes["labels"]
+            or OpsProjectLabels.UNCHANGEABLE in self.issue_obj.attributes["labels"]
+        )
 
     @property
     def author_category_priority(self):
@@ -234,14 +269,6 @@ class ReleaseChecklistIssue:
     @property
     def url(self) -> str:
         return self.issue_obj.web_url
-
-    @property
-    def mr_ref(self) -> str:
-        return self.mr.references["short"]
-
-    @property
-    def mr_url(self) -> str:
-        return self.mr.web_url
 
     def to_markdown(self, slot: int):
         # Think this does nothing because we do not block merges on
@@ -285,13 +312,7 @@ class ReleaseChecklistIssue:
         assert status_events
         latest_event = status_events[-1]
 
-        m = _EXT_DECOMP_RE.match(issue.title)
-        vendor: Optional[str] = None
-        tag: Optional[str] = None
-        if m is not None:
-            tag = m.group("tag")
-            assert tag is not None
-            vendor = vendors.get_vendor_name(tag)
+        vendor, tag = compute_vendor_name_and_tag(issue.title, vendors)
 
         return cls(
             issue_obj=issue,

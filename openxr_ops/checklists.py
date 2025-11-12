@@ -8,13 +8,13 @@
 import itertools
 import logging
 import re
+import tomllib
 from dataclasses import dataclass
 from functools import cached_property
 from typing import Dict, Iterable, List, Optional, Set, cast
 
 import gitlab
 import gitlab.v4.objects
-import tomllib
 
 from .extensions import ExtensionNameGuesser
 from .labels import ColumnName, GroupLabels, MainProjectLabels
@@ -24,9 +24,7 @@ _MAIN_MR_RE = re.compile(
     r"Main extension MR:\s*(openxr/openxr!|openxr!|!|https://gitlab.khronos.org/openxr/openxr/-/merge_requests/)(?P<mrnum>[0-9]+)"
 )
 
-_CHECKLIST_RE = re.compile(
-    r"^(?P<line>Release [Cc]hecklist:([^\n]+))\n\n", re.MULTILINE
-)
+CHECKLIST_RE = re.compile(r"^(?P<line>Release [Cc]hecklist:([^\n]+))\n\n", re.MULTILINE)
 
 _log = logging.getLogger(__name__)
 
@@ -450,7 +448,7 @@ class ReleaseChecklistCollection:
             if merge_request.description.strip() == new_front:
                 # minimal MR desc
                 continue
-            match = _CHECKLIST_RE.search(merge_request.description)
+            match = CHECKLIST_RE.search(merge_request.description)
             if not match:
                 url = merge_request.attributes["web_url"]
                 _log.info(f"MR does not mention its issue: {url}")
@@ -461,8 +459,7 @@ class ReleaseChecklistCollection:
                     merge_request.save()
             else:
                 new_desc = (
-                    prepend
-                    + _CHECKLIST_RE.sub("", merge_request.description, 1).strip()
+                    prepend + CHECKLIST_RE.sub("", merge_request.description, 1).strip()
                 )
 
                 if not match.group("line").startswith(new_front):
