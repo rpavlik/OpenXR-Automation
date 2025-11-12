@@ -491,6 +491,7 @@ async def async_main(
     project_name: str,
     limit: Optional[int],
     dry_run: bool,
+    write_dates: bool,
 ):
     options = UpdateOptions()
     if options.update_mr_desc:
@@ -509,7 +510,7 @@ async def async_main(
     )
     await obj.prepare()
     await obj.process_all_mrs(limit=limit)
-    if obj.dates:
+    if obj.dates and write_dates:
         obj.write_datetime_csv()
 
 
@@ -792,6 +793,15 @@ if __name__ == "__main__":
         "-n",
         "--dry-run",
         action="store_true",
+        help="Do not actually make any changes",
+        default=False,
+    )
+    parser.add_argument(
+        "-w",
+        "--write-dates",
+        action="store_true",
+        help="Write CSV file containing date/timestamps to update the tasks in the database directly",
+        default=False,
     )
 
     args = parser.parse_args()
@@ -811,5 +821,6 @@ if __name__ == "__main__":
             args.project,
             limit=limit,
             dry_run=args.dry_run,
+            write_dates=args.write_dates,
         )
     )
