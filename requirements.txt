@@ -13,3 +13,6 @@ typing_extensions
 
 # For HTML output
 jinja2
+
+# Kanboard
+kanboard
