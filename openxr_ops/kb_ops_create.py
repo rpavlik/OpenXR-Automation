@@ -151,7 +151,14 @@ async def populate_tags(kb: kanboard.Client, project_id: int):
             color_id=TAG_COLORS[tag],
         )
         for tag in TaskTags
-        if tag.value not in tag_names
+        if tag.value not in tag_names and tag in TAG_COLORS
+    ] + [
+        kb.create_tag_async(
+            project_id=project_id,
+            tag=tag.value,
+        )
+        for tag in TaskTags
+        if tag.value not in tag_names and tag not in TAG_COLORS
     ]
 
     if futures:
