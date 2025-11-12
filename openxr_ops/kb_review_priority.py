@@ -6,6 +6,9 @@
 #
 # Author: Rylie Pavlik <rylie.pavlik@collabora.com>
 
+import asyncio
+import datetime
+from functools import cached_property
 import logging
 import tomllib
 from dataclasses import dataclass
@@ -71,17 +74,49 @@ class KBChecklistItem(ReleaseChecklistMRData):
 
     @property
     def is_khr(self) -> bool:
-        # TODO do better
-        return "KHR_" in self.task.title
+        if not self.task.flags:
+            raise RuntimeError("Somehow did not load flags for this one?")
+        return self.task.flags.khr_extension
 
     @property
     def is_multivendor(self) -> bool:
-        return "EXT_" in self.task.title
+        if not self.task.flags:
+            raise RuntimeError("Somehow did not load flags for this one?")
+        return self.task.flags.multivendor_extension
 
     @property
     def is_vendor(self) -> bool:
-        # TODO do better
-        return not (self.is_khr or self.is_multivendor)
+        if not self.task.flags:
+            raise RuntimeError("Somehow did not load flags for this one?")
+        return self.task.flags.single_vendor_extension
+
+    @cached_property
+    def latency(self):
+        """Time since last status change in days"""
+        if not self.task.task_dict:
+            raise RuntimeError("No task dict?")
+        date_moved = datetime.datetime.fromtimestamp(
+            self.task.task_dict["date_moved"], datetime.UTC
+        )
+        date_started = datetime.datetime.fromtimestamp(
+            self.task.task_dict["date_started"], datetime.UTC
+        )
+        # TODO choose the more recent of this date or the MR update date?
+        # or latest push to MR?
+        pending_since = max(date_moved, date_started)
+        age = NOW - pending_since
+        return age.days + self.offset
+
+    @cached_property
+    def task_issue_age(self):
+        """Time since task creation in days"""
+        if not self.task.task_dict:
+            raise RuntimeError("No task dict?")
+        date_creation = datetime.datetime.fromtimestamp(
+            self.task.task_dict["date_creation"], datetime.UTC
+        )
+        age = NOW - date_creation
+        return age.days
 
     @property
     def title(self) -> str:
@@ -115,6 +150,10 @@ class KBChecklistItem(ReleaseChecklistMRData):
             # bump up ratification-track EXT
             author_category -= 1
         return author_category
+
+    def to_markdown(self, slot):
+        # stub
+        return ""
 
     @classmethod
     def create(
@@ -280,3 +319,5 @@ if __name__ == "__main__":
         #     for vendor, slots in spec_review_results.vendor_name_to_slots.items():
         #         print(f"* {vendor} - slots {slots}")
         #     print(f"* Unknown: {spec_review_results.unknown_slots}")
+
+    asyncio.run(async_main())
