@@ -140,19 +140,3 @@ Prerequisites to enter "Awaiting Review" with the intent of moving onward:
 - ADOC must contain at least the boilerplate for all XML-defined entities, as well as member/parameter descriptions where it is not self explanatory.""",
     TaskSwimlane.SPEC_REVIEW_PHASE: """The main, final review cycle. Ideally all major issues were fixed in the design review phase, and only fine details of the spec language remain to find and resolve. Typically the API is considered frozen or nearly so.""",
 }
-
-
-class TaskDefnOfDoneKeys(Enum):
-    """
-    Titles for 'Definition of Done' entries.
-
-    Not sure we can add these programmatically, may need to be subtasks instead.
-    """
-
-    # These two get cleared on pushes.
-    SPEC_EDITOR_APPROVAL = "Spec Editor Approval"
-    CHAMPION_APPROVAL = "Champion Approval"
-
-    # These two only for "in IPR policy"
-    WG_VOTE = "Working Group Vote to Submit for Ratification"
-    BOARD_RATIFICATION = "Board Ratification"
