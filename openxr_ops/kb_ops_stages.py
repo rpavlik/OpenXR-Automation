@@ -60,6 +60,10 @@ class TaskTags(Enum):
     API_FROZEN = "API Frozen"
     EDITOR_REVIEW_REQUESTED = "Editor Review Requested"
 
+    KHR_EXTENSION = "KHR Extension"
+    MULTIVENDOR_EXTENSION = "Multivendor Extension"
+    SINGLE_VENDOR_EXTENSION = "Single Vendor Extension"
+
 
 TAG_COLORS = {
     TaskTags.INITIAL_DESIGN_REVIEW_COMPLETE: "purple",
@@ -67,6 +71,9 @@ TAG_COLORS = {
     TaskTags.SPEC_SUPPORT_REVIEW_COMMENTS_PENDING: "cyan",
     TaskTags.API_FROZEN: "blue",
     # TaskTags.EDITOR_REVIEW_REQUESTED: "green",
+    TaskTags.KHR_EXTENSION: "grey",
+    TaskTags.MULTIVENDOR_EXTENSION: "grey",
+    TaskTags.SINGLE_VENDOR_EXTENSION: "grey",
 }
 
 
