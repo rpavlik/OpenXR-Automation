@@ -18,42 +18,35 @@ class TaskCollection:
     def __init__(
         self,
         kb_project: KanboardProject,
-        # proj: gitlab.v4.objects.Project,
-        # vendor_names: VendorNames,
-        # ops_proj: Optional[gitlab.v4.objects.Project] = None,
-        # checklist_factory: Optional[ReleaseChecklistFactory] = None,
-        # data: Optional[dict] = None,
     ):
         self.kb_project = kb_project
         """Object referencing an Kanboard project."""
 
-        # self.proj: gitlab.v4.objects.Project = proj
-        # """Main project"""
-
-        # self.ops_proj: Optional[gitlab.v4.objects.Project] = ops_proj
-        """Operations project containing (some) release checklists"""
-
-        # self.checklist_factory: Optional[ReleaseChecklistFactory] = checklist_factory
-        # self.vendor_names: VendorNames = vendor_names
-
-        # self.issue_to_mr: Dict[str, int] = {}
-        # self.mr_to_issue_object: Dict[int, gitlab.v4.objects.ProjectIssue] = {}
-        # self.mr_to_issue: Dict[int, str] = {}
         # self.ignore_issues: Set[str] = set()
         # self.include_issues: List[int] = []
         self.mr_to_task_id: Dict[int, int] = dict()
         self.tasks: Dict[int, OperationsTask] = dict()
 
+    def _update_task_maps(self, task: OperationsTask):
+        self.tasks[task.task_id] = task
+
+        if task.main_mr is not None:
+            self.mr_to_task_id[task.main_mr] = task.task_id
+
     async def _load_task(self, task_data: dict[str, Any]):
-        task_id = int(task_data["id"])
         task = await OperationsTask.from_task_dict_with_more_data(
             self.kb_project, task_data
         )
-        self.tasks[task_id] = task
-        if task.main_mr is not None:
-            self.mr_to_task_id[task.main_mr] = task_id
+
+        self._update_task_maps(task)
+
+    async def load_task_id(self, task_id: int):
+        """Load full data on only one task from Kanboard."""
+        task = await OperationsTask.from_task_id(self.kb_project, task_id)
+        self._update_task_maps(task)
 
     async def load_project(self, only_open: bool = True):
+        """Load full data on all tasks from Kanboard."""
         tasks = await self.kb_project.get_all_tasks(only_open=only_open)
         await asyncio.gather(*[self._load_task(task) for task in tasks])
 
