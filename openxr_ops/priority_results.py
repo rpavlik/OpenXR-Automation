@@ -17,31 +17,18 @@ from typing import Iterable, Optional, cast
 import gitlab
 import gitlab.v4.objects
 
+from .extensions import compute_vendor_name_and_tag
 from .labels import GroupLabels, MainProjectLabels, OpsProjectLabels
 from .vendors import VendorNames
 
 NOW = datetime.datetime.now(datetime.UTC)
 log = logging.getLogger(__name__)
 
-_EXT_DECOMP_RE = re.compile(r"XR_(?P<tag>[A-Z]+)(?P<experiment>X[0-9]*)?_.*")
-
-
 _IGNORE_PUSH_USERS = ("rpavlik", "safarimonkey", "haagch", "khrbot")
 """Do not consider pushes from these users when determining latency"""
 
 
 _PUSH_NOTE_RE = re.compile(r"added \d+ commit(s?)\n\n.*")
-
-
-def compute_vendor_name_and_tag(title, vendors) -> tuple[Optional[str], Optional[str]]:
-    m = _EXT_DECOMP_RE.match(title)
-    vendor: Optional[str] = None
-    tag: Optional[str] = None
-    if m is not None:
-        tag = m.group("tag")
-        assert tag is not None
-        vendor = vendors.get_vendor_name(tag)
-    return vendor, tag
 
 
 def _is_note_a_push(note: gitlab.v4.objects.ProjectMergeRequestNote):

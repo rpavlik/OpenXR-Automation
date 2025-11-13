@@ -8,10 +8,10 @@
 
 import asyncio
 import datetime
-from functools import cached_property
 import logging
 import tomllib
 from dataclasses import dataclass
+from functools import cached_property
 from typing import Iterable, List, Optional, Sequence, Union
 
 import gitlab
@@ -19,6 +19,7 @@ import gitlab.v4.objects
 
 from .checklists import ColumnName, ReleaseChecklistCollection
 from .custom_sort import SORTERS, BasicDesignReviewSort, BasicSpecReviewSort, SorterBase
+from .extensions import compute_vendor_name_and_tag
 from .gitlab import OpenXRGitlab
 from .kanboard_helpers import KanboardProject
 from .kb_defaults import connect_and_get_project
@@ -32,7 +33,6 @@ from .priority_results import (
     ReleaseChecklistIssue,
     ReleaseChecklistMRData,
     apply_offsets,
-    compute_vendor_name_and_tag,
 )
 from .review_priority import ReviewPriorityConfig
 from .vendors import VendorNames
