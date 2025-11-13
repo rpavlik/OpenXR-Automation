@@ -17,6 +17,11 @@ USERNAME = "khronos-bot"
 
 REAL_PROJ_NAME = "OpenXRExtensions"
 
+REAL_PROJ_NUMBER = 29
+
+REAL_HUMAN_BOARD_URL = f"https://{SERVER}/board/{REAL_PROJ_NUMBER}"
+REAL_HUMAN_OVERVIEW_URL = f"https://{SERVER}/project/{REAL_PROJ_NUMBER}/overview/"
+
 
 def get_kb_api_url():
     url = os.environ.get("KANBOARD_URL", default=f"https://{SERVER}/jsonrpc.php")
