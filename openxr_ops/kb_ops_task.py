@@ -5,6 +5,7 @@ from typing import Any, Optional
 
 import kanboard
 
+from .ext_author_kind import CanonicalExtensionAuthorKind
 from .kanboard_helpers import KanboardProject
 from .kb_ops_stages import TaskCategory, TaskColumn, TaskSwimlane, TaskTags
 
@@ -38,6 +39,26 @@ class OperationsTaskFlags:
     khr_extension: bool
     multivendor_extension: bool
     single_vendor_extension: bool
+
+    @classmethod
+    def from_author_kind(
+        cls,
+        author_kind: CanonicalExtensionAuthorKind,
+    ) -> "OperationsTaskFlags":
+
+        return OperationsTaskFlags(
+            api_frozen=False,
+            initial_design_review_complete=False,
+            initial_spec_review_complete=False,
+            spec_support_review_comments_pending=False,
+            editor_review_requested=(
+                author_kind != CanonicalExtensionAuthorKind.SINGLE_VENDOR
+            ),
+            khr_extension=author_kind == CanonicalExtensionAuthorKind.KHR,
+            multivendor_extension=author_kind == CanonicalExtensionAuthorKind.EXT,
+            single_vendor_extension=author_kind
+            == CanonicalExtensionAuthorKind.SINGLE_VENDOR,
+        )
 
     @classmethod
     def from_task_tags_result(cls, task_tags: dict[str, str]) -> "OperationsTaskFlags":

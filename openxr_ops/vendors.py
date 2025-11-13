@@ -5,20 +5,14 @@
 #
 # Author: Rylie Pavlik <rylie.pavlik@collabora.com>
 
-import enum
 import xml.etree.ElementTree as ElementTree
 from typing import Optional
 
 import gitlab
 import gitlab.v4.objects
 
-from openxr_ops.extensions import split_experimental_suffix
-
-
-class CanonicalExtensionAuthorKind(enum.Enum):
-    KHR = "KHR"
-    EXT = "EXT"
-    SINGLE_VENDOR = "SINGLE_VENDOR"
+from .ext_author_kind import CanonicalExtensionAuthorKind
+from .extensions import split_experimental_suffix
 
 
 class VendorNames:
