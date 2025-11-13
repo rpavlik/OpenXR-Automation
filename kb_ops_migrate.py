@@ -730,7 +730,7 @@ def populate_data_from_gitlab(
     )
 
 
-async def load_kb_ops(project_name: str = REAL_PROJ_NAME):
+async def load_kb_ops(project_name: str = REAL_PROJ_NAME, only_open: bool = True):
     log = logging.getLogger(__name__)
 
     kb, proj = await connect_and_get_project(project_name)
@@ -739,9 +739,9 @@ async def load_kb_ops(project_name: str = REAL_PROJ_NAME):
     log.info("Getting columns, swimlanes, and categories")
     await kb_project.fetch_all_id_maps()
 
-    log.info("Loading all active KB tasks")
+    log.info("Loading KB tasks")
     task_collection = TaskCollection(kb_project)
-    await task_collection.load_project()
+    await task_collection.load_project(only_open=only_open)
     return kb_project, task_collection
 
 
