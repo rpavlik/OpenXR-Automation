@@ -14,12 +14,12 @@ from typing import Literal, Optional, Union
 import kanboard
 
 from .kanboard_helpers import KanboardProject
-from .kb_defaults import USERNAME, get_kb_api_token, get_kb_api_url
-from .kb_ops_auto_actions import (
+from .kb_auto_actions import (
     AutoActionABC,
     auto_actions_from_config,
     get_and_parse_actions,
 )
+from .kb_defaults import USERNAME, get_kb_api_token, get_kb_api_url
 from .kb_ops_config import get_config_data
 from .kb_ops_stages import (
     CATEGORY_COLORS,
