@@ -38,7 +38,8 @@ async def populate_columns_general(
     ]
     if futures:
         log.info("Adding %d columns", len(futures))
-        await asyncio.gather(*futures)
+        for future in futures:
+            await future
 
     desired = {col.value for col in enum}
 
