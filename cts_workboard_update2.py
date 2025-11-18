@@ -179,7 +179,7 @@ class WorkboardUpdate:
         self.oxr_gitlab = oxr_gitlab
         self.proj = oxr_gitlab.main_proj
         self._log = logging.getLogger("WorkboardUpdate")
-        self.board: dict[str, Union[str, dict]] = dict()
+        self.board: dict[str, Union[str, dict, list]] = dict()
 
     def load_board(self, in_filename):
         self._log.info("Reading %s", in_filename)
