@@ -1,29 +1,14 @@
 import datetime
-import re
 from dataclasses import dataclass
 from typing import Any, Optional
 
 import kanboard
 
 from .ext_author_kind import CanonicalExtensionAuthorKind
+from .gitlab import MR_URL_BASE
 from .kanboard_helpers import KanboardProject
 from .kb_ops_stages import TaskCategory, TaskColumn, TaskSwimlane, TaskTags
-
-_MR_URL_BASE = "https://gitlab.khronos.org/openxr/openxr/-/merge_requests/"
-
-_MR_URL_RE = re.compile(_MR_URL_BASE + r"(?P<mrnum>[0-9]+)")
-
-
-def extract_mr_number(uri: Optional[str]) -> Optional[int]:
-    """Pull out the merge request number from a URI."""
-    if not uri:
-        return None
-
-    m = _MR_URL_RE.match(uri)
-    if not m:
-        return None
-
-    return int(m.group("mrnum"))
+from .parse import extract_mr_number
 
 
 @dataclass
@@ -262,7 +247,7 @@ class OperationsTaskCreationData:
         if self.date_started is not None:
             date_started = self.date_started.strftime("%Y-%m-%d %H:%M")
 
-        mr_url = f"{_MR_URL_BASE}{self.main_mr}"
+        mr_url = f"{MR_URL_BASE}{self.main_mr}"
         kb = kb_project.kb
 
         task_id = await kb.create_task_async(

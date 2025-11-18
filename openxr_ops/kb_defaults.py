@@ -23,6 +23,7 @@ REAL_HUMAN_OVERVIEW_URL = f"https://{SERVER}/project/{REAL_PROJ_NUMBER}/overview
 
 CTS_PROJ_NAME = "CTS Contractor"
 
+
 def get_kb_api_url():
     url = os.environ.get("KANBOARD_URL", default=f"https://{SERVER}/jsonrpc.php")
     return url

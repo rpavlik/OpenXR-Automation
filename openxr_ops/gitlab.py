@@ -13,7 +13,11 @@ import gitlab
 import gitlab.v4.objects
 from requests_cache import Optional
 
+GITLAB_SERVER = "https://gitlab.khronos.org"
+
 MAIN_PROJECT_NAME = "openxr/openxr"
+MR_URL_BASE = f"{GITLAB_SERVER}/{MAIN_PROJECT_NAME}/-/merge_requests/"
+ISSUE_URL_BASE = f"{GITLAB_SERVER}/{MAIN_PROJECT_NAME}/-/issues/"
 
 OPERATIONS_PROJECT_NAME = "openxr/openxr-operations"
 
