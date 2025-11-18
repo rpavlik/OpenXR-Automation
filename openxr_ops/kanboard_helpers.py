@@ -5,8 +5,40 @@
 #
 # Author: Rylie Pavlik <rylie.pavlik@collabora.com>
 import asyncio
+from dataclasses import dataclass
+from typing import Literal, Union
 
 import kanboard
+
+
+@dataclass
+class LinkIdData:
+    link_id: int
+    label: str
+    opposite_id: int
+
+
+class LinkIdMapping:
+
+    def __init__(self, kb: kanboard.Client) -> None:
+        self.kb = kb
+        self.link_label_to_id: dict[str, int] = dict()
+        self.link_id_to_label: dict[int, str] = dict()
+
+    async def fetch_link_types(self) -> None:
+        """Retrieve names and IDs for link types."""
+
+        links: Union[Literal[False], list[dict[str, str]]] = (
+            await self.kb.get_all_links_async()  # type: ignore
+        )
+        if not links:
+            raise RuntimeError("Could not get all links!")
+
+        for link_data in links:
+            link_id = int(link_data["id"])
+            label = link_data["label"]
+            self.link_id_to_label[link_id] = label
+            self.link_label_to_id[label] = link_id
 
 
 class KanboardProject:
@@ -23,12 +55,15 @@ class KanboardProject:
         self.category_title_to_id: dict[str, int] = dict()
         self.category_ids_to_titles: dict[int, str] = dict()
 
+        self.link_manager = LinkIdMapping(kb)
+
     async def fetch_all_id_maps(self):
-        """Retrieve names and IDs for categories, swimlands, and columns."""
+        """Retrieve names and IDs for categories, swimlands, columns, and links."""
         await asyncio.gather(
             self.fetch_categories(),
             self.fetch_columns(),
             self.fetch_swimlanes(),
+            self.link_manager.fetch_link_types(),
         )
 
     async def fetch_categories(self):
