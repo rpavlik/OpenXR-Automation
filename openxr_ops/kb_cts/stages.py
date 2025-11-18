@@ -17,7 +17,7 @@ class TaskColumn(Enum):
 
     BACKLOG = "Backlog"
     ON_HOLD = "On Hold"
-    WORK_IN_PROGRESS = "Work in Progress"
+    IN_PROGRESS = "In Progress"
     NEEDS_REVIEW = "Needs Review"
     DONE = "Done"
 
@@ -34,7 +34,7 @@ class TaskColumn(Enum):
 COLUMN_DESCRIPTIONS = {
     TaskColumn.BACKLOG: "Champion moves item to the next step, 'Awaiting Review', once all required prerequisites have been completed",
     TaskColumn.ON_HOLD: "Not currently in progress, see tags for reason.",
-    TaskColumn.WORK_IN_PROGRESS: "Currently in development or revision.",
+    TaskColumn.IN_PROGRESS: "Currently in development or revision.",
     TaskColumn.NEEDS_REVIEW: "Needs review from the group and/or contractor.",
     TaskColumn.DONE: "Complete and merged. Will be closed when shipped in a release.",
 }
@@ -45,25 +45,11 @@ class TaskTags(Enum):
 
     BLOCKED_ON_SPEC = "Blocked on Spec"
     CONTRACTOR_REVIEWED = "Reviewed by Contractor"
-    # INITIAL_SPEC_REVIEW_COMPLETE = "Initial Spec Review Complete"
-    # SPEC_SUPPORT_REVIEW_COMMENTS_PENDING = "Spec Support Review Comments Pending"
-    # API_FROZEN = "API Frozen"
-    # EDITOR_REVIEW_REQUESTED = "Editor Review Requested"
-
-    # KHR_EXTENSION = "KHR Extension"
-    # MULTIVENDOR_EXTENSION = "Multivendor Extension"
-    # SINGLE_VENDOR_EXTENSION = "Single Vendor Extension"
 
 
 TAG_COLORS = {
-    TaskTags.BLOCKED_ON_SPEC: "purple",
+    TaskTags.BLOCKED_ON_SPEC: "orange",
     TaskTags.CONTRACTOR_REVIEWED: "purple",
-    # TaskTags.SPEC_SUPPORT_REVIEW_COMMENTS_PENDING: "cyan",
-    # TaskTags.API_FROZEN: "blue",
-    # # TaskTags.EDITOR_REVIEW_REQUESTED: "green",
-    # TaskTags.KHR_EXTENSION: "grey",
-    # TaskTags.MULTIVENDOR_EXTENSION: "grey",
-    # TaskTags.SINGLE_VENDOR_EXTENSION: "grey",
 }
 
 
@@ -106,8 +92,8 @@ CATEGORY_COLORS = {TaskCategory.CONTRACTOR: "green"}
 class TaskSwimlane(Enum):
     """Swimlane titles for the contractor vs others."""
 
+    GENERAL = "General CTS Work"
     CTS_CONTRACTOR = "Approved CTS Contractor Work"
-    OTHER = "Other Contributions"
 
     def to_swimlane_id(self, kb_project: KanboardProject) -> Optional[int]:
         # depends on data cached by kb_project
@@ -123,5 +109,5 @@ class TaskSwimlane(Enum):
 
 SWIMLANE_DESCRIPTIONS = {
     TaskSwimlane.CTS_CONTRACTOR: """Items here have been approved by the WG (or CTS subgroup) for work by the CTS contractor.""",
-    TaskSwimlane.OTHER: """Issues raised but not approved for contractor work, or non-contractor MR contributions.""",
+    TaskSwimlane.GENERAL: """Issues raised but not approved for contractor work, and non-contractor MR contributions.""",
 }

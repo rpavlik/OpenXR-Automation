@@ -6,7 +6,8 @@ from typing import Any, Optional
 import kanboard
 
 from ..gitlab import ISSUE_URL_BASE, MR_URL_BASE
-from ..kanboard_helpers import KanboardProject
+from ..kanboard_helpers import KanboardProject, LinkIdMapping
+from ..kb_enums import InternalLinkRelation
 from ..parse import extract_issue_number, extract_mr_number
 from .stages import TaskCategory, TaskColumn, TaskSwimlane, TaskTags
 
@@ -17,10 +18,6 @@ class CTSTaskFlags:
 
     blocked_on_spec: bool
     contractor_reviewed: bool
-
-    # khr_extension: bool
-    # multivendor_extension: bool
-    # single_vendor_extension: bool
 
     @classmethod
     def from_default(
@@ -283,3 +280,17 @@ class CTSTaskCreationData:
             )
 
         return task_id
+
+
+async def create_internal_task_link_by_task_id(
+    kb: kanboard.Client,
+    link_mapping: LinkIdMapping,
+    task_id: int,
+    relation: InternalLinkRelation,
+    opposite_task_id: int,
+):
+    await kb.create_task_link_async(
+        task_id=task_id,
+        opposite_task_id=opposite_task_id,
+        link_id=relation.to_link_id(link_mapping),
+    )
