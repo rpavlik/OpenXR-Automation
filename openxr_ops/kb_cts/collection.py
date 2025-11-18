@@ -77,3 +77,7 @@ class TaskCollection:
     def get_task_by_id(self, task_id: int) -> Optional[CTSTask]:
         """Get task object from a task ID number."""
         return self.tasks.get(task_id)
+
+    def add_task_data(self, task: CTSTask):
+        """Add a new task to our internal data structures"""
+        self._update_task_maps(task)

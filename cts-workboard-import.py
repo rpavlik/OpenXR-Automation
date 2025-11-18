@@ -7,21 +7,24 @@
 """This updates a CTS workboard, but starting with the board, rather than GitLab."""
 
 import asyncio
+import dataclasses
+import itertools
 import logging
-import os
-from typing import Any
+from dataclasses import dataclass
+from enum import Enum
+from typing import Any, Generator, Iterable, Optional, Union, cast
 
 import kanboard
 
 from cts_workboard_update2 import WorkboardUpdate
-from nullboard_gitlab import extract_refs
-from openxr_ops.gitlab import OpenXRGitlab
+from nullboard_gitlab import extract_refs, extract_refs_from_str
+from openxr_ops.gitlab import OpenXRGitlab, ReferenceType
 from openxr_ops.kanboard_helpers import KanboardProject
+from openxr_ops.kb_cts.collection import TaskCollection
+from openxr_ops.kb_cts.stages import TaskColumn, TaskSwimlane
+from openxr_ops.kb_cts.task import CTSTaskCreationData, CTSTaskFlags
+from openxr_ops.kb_defaults import CTS_PROJ_NAME, connect_and_get_project
 from openxr_ops.labels import MainProjectLabels
-
-_SERVER = "openxr-boards.khronos.org"
-_USERNAME = "khronos-bot"
-_PROJ_NAME = "CTS Test"
 
 # List stuff that causes undesired merging here
 # Anything on this list will be excluded from the board
@@ -77,6 +80,30 @@ async def _handle_item(
     pass
 
 
+@dataclass
+class NoteData:
+    list_title: str
+    subhead: Optional[str]
+    note_text: str
+
+    @classmethod
+    def iterate_notes(cls, board) -> Generator["NoteData", None, None]:
+        log = logging.getLogger(f"{__name__}.{cls.__name__}.iterate_notes")
+        for notelist in board["lists"]:
+            list_title = notelist["title"]
+            log.info("In list %s", list_title)
+            subhead: Optional[str] = None
+            for note in notelist["notes"]:
+                if note.get("raw"):
+                    subhead = note["text"]
+                    continue
+                yield NoteData(
+                    list_title=list_title,
+                    subhead=subhead,
+                    note_text=note["text"],
+                )
+
+
 async def _handle_note(
     wbu: WorkboardUpdate,
     kb_project: KanboardProject,
@@ -100,41 +127,266 @@ async def _handle_note(
     top_item = items[0]
 
 
-async def main(in_filename):
+NBNote = dict[str, Union[str, bool]]
+NBNotes = list[NBNote]
+
+
+class CTSNullboardToKanboard:
+
+    def __init__(
+        self,
+        oxr_gitlab: OpenXRGitlab,
+        # gl_collection: ReleaseChecklistCollection,
+        kb_project_name: str,
+        wbu: WorkboardUpdate,
+        limit: Optional[int],
+        # update_options: UpdateOptions,
+    ):
+        self.oxr_gitlab: OpenXRGitlab = oxr_gitlab
+        # self.gl_collection: ReleaseChecklistCollection = gl_collection
+        self.kb_project_name: str = kb_project_name
+        # self.update_options: UpdateOptions = update_options
+        self.wbu: WorkboardUpdate = wbu
+        self.limit: Optional[int] = limit
+
+        # self.config = get_config_data()
+
+        self.log = logging.getLogger(f"{__name__}.{self.__class__.__name__}")
+
+        self.mr_to_task_id: dict[int, int] = {}
+        """MR number to kanboard task id"""
+
+        self.issue_to_task_id: dict[int, int] = {}
+        """issue number to kanboard task id"""
+
+        self.update_subtask_futures: list = []
+
+        # these are populated later in prepare
+        self.kb_project: KanboardProject
+        # self.task_collection: TaskCollection
+        self.kb: kanboard.Client
+
+    def decrement_limit_and_return_true_if_reached(self, count: int = 1):
+        if self.limit is None:
+            return False
+        if self.limit < 0:
+            return True
+
+        self.limit -= count
+
+        return self.limit < 0
+
+    def _find_list_notes(self, title: str) -> NBNotes:
+        for nb_list in self.wbu.board["lists"]:
+            if nb_list["title"] == title:  # type: ignore
+                return nb_list["notes"]  # type: ignore
+        return []
+
+    async def _create_task_for_ref(
+        self,
+        short_ref: str,
+        column: TaskColumn,
+        swimlane: TaskSwimlane,
+        flags: CTSTaskFlags,
+    ):
+        ref_type, num = ReferenceType.short_reference_to_type_and_num(short_ref)
+        if ref_type == ReferenceType.ISSUE:
+            issue_num = num
+            mr_num = None
+        else:
+            issue_num = None
+            mr_num = num
+
+        # TODO
+        title = short_ref
+        data = CTSTaskCreationData(
+            mr_num=mr_num,
+            issue_num=issue_num,
+            column=column,
+            swimlane=swimlane,
+            title=title,
+            description="",
+            flags=flags,
+        )
+
+        task_id = await data.create_task(self.kb_project)
+        if task_id is None:
+            return
+        await self.task_collection.load_task_id(task_id)
+        pass
+
+    async def _process_note(
+        self,
+        # note_text: str,
+        note_data: NoteData,
+        # column: TaskColumn,
+        # swimlane: TaskSwimlane,
+        # flags: CTSTaskFlags,
+    ):
+        column: TaskColumn = COLUMN_EQUIVALENTS[OldTitles(note_data.list_title)]
+        swimlane: TaskSwimlane = TaskSwimlane.GENERAL
+
+        mr_contractor_reviewed = False
+        flags = CTSTaskFlags()
+        if column in (TaskColumn.BACKLOG, TaskColumn.IN_PROGRESS, TaskColumn.ON_HOLD):
+            # these are all approved
+            swimlane = TaskSwimlane.CTS_CONTRACTOR
+        if note_data.subhead in (
+            # "Needs Clarification/Data",
+            "Done but Blocked Waiting for Spec Update",
+            "Blocked on Spec Issue",
+        ):
+            flags.blocked_on_spec = True
+        if column == TaskColumn.NEEDS_REVIEW:
+            if note_data.subhead == "Written by Contractor, more group thumbs needed":
+                swimlane = TaskSwimlane.CTS_CONTRACTOR
+            elif (
+                note_data.subhead == "Reviewed/Tested by Contractor, more thumbs needed"
+            ):
+                mr_contractor_reviewed = True
+        if column == TaskColumn.DONE:
+            if note_data.subhead == "Contractor":
+                swimlane = TaskSwimlane.CTS_CONTRACTOR
+            elif note_data.subhead == "By Others, Contractor Reviewed":
+                mr_contractor_reviewed = True
+
+        mr_flags = dataclasses.replace(
+            flags, contractor_reviewed=mr_contractor_reviewed
+        )
+
+        refs = extract_refs_from_str(note_data.note_text)
+        existing_tasks = {
+            ref: self.task_collection.get_task_by_ref(ref) for ref in refs
+        }
+
+        missing_issues_futures = {
+            int(ref[1:]): self._create_task_for_ref(ref, column, swimlane, flags)
+            for ref, task in existing_tasks.items()
+            if task is None and ref.startswith("#")
+        }
+
+        missing_mrs_futures = {
+            int(ref[1:]): self._create_task_for_ref(ref, column, swimlane, mr_flags)
+            for ref, task in existing_tasks.items()
+            if task is None and ref.startswith("!")
+        }
+        for issue_num, future in missing_issues_futures.items():
+            new_task_id = await future
+
+        for mr_num, future in missing_mrs_futures.items():
+            new_task_id = await future
+
+    # async def _process_list(
+    #     self, notes: NBNotes, column: TaskColumn, swimlane: TaskSwimlane
+    # ):
+    #     futures = []
+    #     for note in notes:
+    #         if not note.get("raw"):
+    #             futures.append(
+    #                 self._process_note(
+    #                     cast(str, note["text"]),
+    #                     # column=column,
+    #                     # swimlane=swimlane,
+    #                     # flags=CTSTaskFlags(),
+    #                 )
+    #             )
+
+    #     # TODO parallelize?
+    #     for future in futures:
+    #         if self.decrement_limit_and_return_true_if_reached():
+    #             return
+    #         await future
+
+    # async def process_todo(self):
+    #     notes = self._find_list_notes(OldTitles.TODO.value)
+    #     await self._process_list(
+    #         notes, column=TaskColumn.BACKLOG, swimlane=TaskSwimlane.CTS_CONTRACTOR
+    #     )
+
+    async def process(self, board) -> None:
+        note_datas: Iterable[NoteData] = NoteData.iterate_notes(board)
+        if self.limit is not None:
+            note_datas = itertools.islice(NoteData.iterate_notes(board), self.limit)
+
+        for note_data in note_datas:
+            await self._process_note(note_data)
+
+    async def prepare(self):
+        self.kb_project, self.task_collection = await load_kb_ops(self.kb_project_name)
+        self.kb = self.kb_project.kb
+
+
+async def load_kb_ops(project_name: str = CTS_PROJ_NAME, only_open: bool = True):
+    log = logging.getLogger(__name__)
+
+    kb, proj = await connect_and_get_project(project_name)
+
+    kb_project = KanboardProject(kb, int(proj["id"]))
+    log.info("Getting columns, swimlanes, and categories")
+    await kb_project.fetch_all_id_maps()
+
+    log.info("Loading KB tasks")
+    task_collection = TaskCollection(kb_project)
+    await task_collection.load_project(only_open=only_open)
+    return kb_project, task_collection
+
+
+class OldTitles(Enum):
+    TODO = "TODO"
+    ON_HOLD = "On Hold"
+    CODING = "Coding"
+    NEEDS_REVIEW = "Needs Review"
+    DONE = "Done"
+
+
+COLUMN_EQUIVALENTS = {
+    OldTitles.TODO: TaskColumn.BACKLOG,
+    OldTitles.ON_HOLD: TaskColumn.ON_HOLD,
+    OldTitles.CODING: TaskColumn.IN_PROGRESS,
+    OldTitles.NEEDS_REVIEW: TaskColumn.NEEDS_REVIEW,
+    OldTitles.DONE: TaskColumn.DONE,
+}
+
+
+async def main(
+    project_name: str,
+    limit: Optional[int],
+    dry_run: bool,
+    in_filename: str,
+):
     logging.basicConfig(level=logging.INFO)
 
     log = logging.getLogger(__name__)
-
-    token = os.environ.get("KANBOARD_API_TOKEN", "")
-    kb = kanboard.Client(
-        url=f"https://{_SERVER}/jsonrpc.php",
-        username=_USERNAME,
-        password=token,
-        # cafile="/path/to/my/cert.pem",
-        ignore_hostname_verification=True,
-        insecure=True,
-    )
-    kb_proj_future = kb.get_project_by_name_async(name=_PROJ_NAME)
 
     oxr_gitlab = OpenXRGitlab.create()
 
     wbu = WorkboardUpdate(oxr_gitlab)
     wbu.load_board(in_filename)
 
-    kb_proj = await kb_proj_future
-    print(kb_proj["url"]["board"])
-    kb_proj_id = kb_proj["id"]
+    obj = CTSNullboardToKanboard(
+        oxr_gitlab=oxr_gitlab,
+        kb_project_name=project_name,
+        wbu=wbu,
+        limit=limit,
+    )
+    await obj.prepare()
+    await obj.process(obj.wbu.board)
 
-    kb_project = KanboardProject(kb, kb_proj_id)
-    await kb_project.fetch_columns()
+    # kb_project, task_collection = await load_kb_ops(project_name, only_open=False)
+    # kb_proj = await kb_proj_future
+    # print(kb_proj["url"]["board"])
+    # kb_proj_id = kb_proj["id"]
+
+    # kb_project = KanboardProject(kb, kb_proj_id)
+    # await kb_project.fetch_columns()
 
     # Create all the columns
-    await asyncio.gather(
-        *[
-            kb_project.get_or_create_column(nb_list_obj["title"])
-            for nb_list_obj in wbu.board["lists"]
-        ]
-    )
+    # await asyncio.gather(
+    #     *[
+    #         kb_project.get_or_create_column(nb_list_obj["title"])
+    #         for nb_list_obj in wbu.board["lists"]
+    #     ]
+    # )
     # updated = wbu.update_board()
 
     # if updated:
@@ -145,8 +397,55 @@ async def main(in_filename):
 
 if __name__ == "__main__":
 
+    logging.basicConfig(level=logging.INFO)
+    from dotenv import load_dotenv
+
+    load_dotenv()
+
+    import argparse
+
+    parser = argparse.ArgumentParser()
+
+    parser.add_help = True
+    parser.add_argument(
+        "--project",
+        type=str,
+        help="Migrate to the named project",
+        default=CTS_PROJ_NAME,
+        required=True,
+    )
+
+    parser.add_argument(
+        "--filename",
+        type=str,
+        help="Nullboard export filename",
+        # required=True,
+        default="Nullboard-1661530413298-OpenXR-CTS.nbx",
+    )
+    parser.add_argument(
+        "--limit",
+        type=int,
+        help="Only process a limited number of elements",
+    )
+    parser.add_argument(
+        "-n",
+        "--dry-run",
+        action="store_true",
+        help="Do not actually make any changes",
+        default=False,
+    )
+    args = parser.parse_args()
+
+    limit: Optional[int] = None
+    if args.limit:
+        limit = args.limit
+        logging.info("got a limit %s %d", type(args.limit), args.limit)
+
     asyncio.run(
         main(
-            "Nullboard-1661530413298-OpenXR-CTS.nbx",
+            project_name=args.project,
+            limit=limit,
+            dry_run=args.dry_run,
+            in_filename="Nullboard-1661530413298-OpenXR-CTS.nbx",
         )
     )

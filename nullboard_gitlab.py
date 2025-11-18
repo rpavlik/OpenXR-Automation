@@ -242,6 +242,10 @@ def remove_marked_for_deletion(board: Dict[str, Any]):
             notelist["notes"] = newlist
 
 
+def extract_refs_from_str(note_text: str) -> list[str]:
+    return _REF_RE.findall(note_text)
+
+
 def extract_refs(note_dict: dict[str, Any]) -> list[str]:
 
     return _REF_RE.findall(note_dict["text"])

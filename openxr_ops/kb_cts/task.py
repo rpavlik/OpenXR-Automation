@@ -184,7 +184,7 @@ class CTSTask(CTSTaskBase):
 
     @classmethod
     async def from_task_id(cls, kb_project: KanboardProject, task_id: int) -> "CTSTask":
-        task_dict = await kb_project.kb.get_task(task_id=task_id)
+        task_dict = await kb_project.kb.get_task_async(task_id=task_id)
         return await cls.from_task_dict_with_more_data(
             task=task_dict, kb_project=kb_project
         )
