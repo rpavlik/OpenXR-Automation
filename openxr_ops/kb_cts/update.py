@@ -122,6 +122,7 @@ class BaseOptions:
     update_tags: bool
     update_color: bool
     create_task: bool
+    add_internal_links: bool
 
     @classmethod
     def all_true(cls):
@@ -131,6 +132,7 @@ class BaseOptions:
             update_tags=True,
             update_color=True,
             create_task=True,
+            add_internal_links=True,
         )
 
     @classmethod
@@ -141,6 +143,7 @@ class BaseOptions:
             update_tags=False,
             update_color=False,
             create_task=False,
+            add_internal_links=False,
         )
 
 
@@ -583,13 +586,10 @@ class CTSBoardSearchUpdater:
 
         num = proj_issue.get_id()
         assert isinstance(num, int)
-        if self.task_collection.get_task_by_issue(num) is not None:
-            return None
-
         ref = get_short_ref(proj_issue)
         if ref in filter_out_refs:
             self.log.info(
-                "Skipping related MRs for: %s: %s",
+                "Skipping issue and its related MRs: %s: %s",
                 ref,
                 proj_issue.title,
             )
@@ -605,49 +605,92 @@ class CTSBoardSearchUpdater:
             )
             return None
 
-        # if ref in FILTER_OUT:
-        #     self.log.info(
-        #         "Skipping related MRs for: %s: %s",
-        #         ref,
-        #         proj_issue.title,
-        #     )
-        #     return
-
-        refs = [ref]
-        # refs.extend(
-        #     mr["references"]["short"]  # type: ignore
-        #     for mr in proj_issue.related_merge_requests()
-        #     if "candidate" not in mr["title"].casefold()
-        # )
-        # filtered_refs = [ref for ref in refs if ref not in filter_out_refs]
-        # if not filtered_refs:
-        #     self.log.info(
-        #         "No refs to consider left after filtering of: %s: %s",
-        #         ref,
-        #         proj_issue.title,
-        #     )
-        #     return
-
         self.log.info(
             "GitLab Issue Search: %s: %s",
             ref,
             proj_issue.title,
         )
-        # try:
-        #     self.base.get_or_fetch_gitlab_issue(num)
-        # except gitlab.GitlabError as ex:
-        #     self.log.warning(f"Error loading {ref}: {ex}")
-        #     return None
+        task = self.task_collection.get_task_by_issue(num)
 
-        data = self.base.compute_creation_data_for_item(
-            ReferenceType.ISSUE,
-            num,
-            proj_issue,
-            column=TaskColumn.BACKLOG,
-            swimlane=TaskSwimlane.CTS_CONTRACTOR,
-            starting_flags=CTSTaskFlags(),
-        )
-        return self.base.create_task_from_data(ref, data)
+        create_future: Optional[Awaitable[Any]] = None
+
+        if task is None:
+
+            data = self.base.compute_creation_data_for_item(
+                ReferenceType.ISSUE,
+                num,
+                proj_issue,
+                column=TaskColumn.BACKLOG,
+                swimlane=TaskSwimlane.CTS_CONTRACTOR,
+                starting_flags=CTSTaskFlags(),
+            )
+            create_future = self.base.create_task_from_data(ref, data)
+
+        related_mrs = [
+            mr
+            for mr in proj_issue.closed_by()
+            if "candidate" not in mr["title"].casefold()
+            and mr["references"]["short"] not in filter_out_refs
+        ]
+
+        if not related_mrs:
+            # no related stuff
+            return create_future
+
+        async def create_or_get_mr_task(mr_num: int, mr):
+            task = self.task_collection.get_task_by_mr(mr_num)
+            if task is not None:
+                return task
+
+            column = TaskColumn.NEEDS_REVIEW
+            if mr["work_in_progress"]:
+                column = TaskColumn.IN_PROGRESS
+            if MainProjectLabels.NEEDS_AUTHOR_ACTION in mr["labels"]:
+                column = TaskColumn.IN_PROGRESS
+            mr_data = self.base.compute_creation_data_for_item(
+                ReferenceType.MERGE_REQUEST,
+                mr_num,
+                mr,
+                column=column,
+                swimlane=TaskSwimlane.CTS_CONTRACTOR,
+                starting_flags=CTSTaskFlags(),
+            )
+            self.log.info(
+                "Creating task for !%d because of its relationship to %s", mr_num, ref
+            )
+            await self.base.create_task_from_data(f"!{mr_num}", mr_data)
+            return self.task_collection.get_task_by_mr(mr_num)
+
+        related_mr_futures = [
+            create_or_get_mr_task(int(mr["iid"]), mr) for mr in related_mrs
+        ]
+
+        async def create_and_link(task: Optional[CTSTask]):
+            if create_future:
+                task_id = await create_future
+                if task_id is None:
+                    return
+                task = self.task_collection.get_task_by_issue(num)
+            if task is None:
+                return
+
+            related_mr_tasks = await asyncio.gather(*related_mr_futures)
+            await asyncio.gather(
+                *(
+                    add_link(
+                        self.kb,
+                        self.kb_project.link_mapping,
+                        task,
+                        mr_task,
+                        InternalLinkRelation.IS_BLOCKED_BY,
+                        not self.base.options.add_internal_links,
+                    )
+                    for mr_task in related_mr_tasks
+                    if mr_task is not None
+                )
+            )
+
+        return create_and_link(task)
 
 
 async def main(

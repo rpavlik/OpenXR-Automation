@@ -73,6 +73,7 @@ class UpdateOptions:
             update_tags=self.update_tags,
             update_color=self.update_color,
             create_task=self.create_task,
+            add_internal_links=self.add_internal_links,
         )
 
 
