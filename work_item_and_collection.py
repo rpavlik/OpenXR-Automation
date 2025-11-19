@@ -7,7 +7,6 @@
 
 import dataclasses
 import logging
-from enum import Enum
 from typing import (
     Dict,
     Generator,
@@ -25,6 +24,8 @@ import gitlab
 import gitlab.v4.objects
 from gitlab.v4.objects import ProjectIssue, ProjectMergeRequest
 from typing_extensions import assert_never
+
+from openxr_ops.gitlab import ReferenceType
 
 
 def make_url_list_item(issue_or_mr: Union[ProjectIssue, ProjectMergeRequest]) -> str:
@@ -101,18 +102,6 @@ class WorkUnit:
     ) -> Generator[Union[ProjectIssue, ProjectMergeRequest], None, None]:
         yield self.key_item
         yield from self.non_key_issues_and_mrs()
-
-
-class ReferenceType(Enum):
-    ISSUE = "#"
-    MERGE_REQUEST = "!"
-
-    @classmethod
-    def parse_short_reference(cls, short_ref):
-        for reftype in cls:
-            if short_ref[0] == reftype.value:
-                return reftype
-        raise RuntimeError(f"Cannot detect reference type of{short_ref}")
 
 
 def get_short_ref(api_item: Union[ProjectIssue, ProjectMergeRequest]) -> str:

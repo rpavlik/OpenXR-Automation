@@ -8,6 +8,7 @@
 
 import os
 from dataclasses import dataclass
+from enum import Enum
 
 import gitlab
 import gitlab.v4.objects
@@ -62,3 +63,15 @@ class OpenXRGitlab:
         return cls(
             gl=gl, group=group, main_proj=main_proj, operations_proj=operations_proj
         )
+
+
+class ReferenceType(Enum):
+    ISSUE = "#"
+    MERGE_REQUEST = "!"
+
+    @classmethod
+    def parse_short_reference(cls, short_ref: str) -> "ReferenceType":
+        for reftype in cls:
+            if short_ref[0] == reftype.value:
+                return reftype
+        raise RuntimeError(f"Cannot detect reference type of{short_ref}")
