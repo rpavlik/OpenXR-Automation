@@ -256,7 +256,7 @@ class CTSTaskCreationData:
 
     date_started: Optional[datetime.datetime] = None
 
-    color_id: str = "white"
+    color_id: str = "blue"
 
     @property
     def gitlab_link(self) -> Optional[str]:

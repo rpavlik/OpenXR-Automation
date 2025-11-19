@@ -52,7 +52,8 @@ def _title_from_gitlab_item(
 def _color_id_from_ref_type(ref_type: ReferenceType) -> str:
     if ref_type == ReferenceType.ISSUE:
         return "grey"
-    return "white"
+    # apparently white is not officially a selectable color?
+    return "blue"
 
 
 def _category_from_labels(labels: set[str]) -> Optional[TaskCategory]:
