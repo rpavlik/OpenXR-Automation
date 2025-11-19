@@ -319,7 +319,6 @@ async def main(
 
 if __name__ == "__main__":
 
-    logging.basicConfig(level=logging.INFO)
     from dotenv import load_dotenv
 
     load_dotenv()
@@ -355,7 +354,19 @@ if __name__ == "__main__":
         help="Do not actually make any changes",
         default=False,
     )
+    parser.add_argument(
+        "-v",
+        "--verbose",
+        action="store_true",
+        help="Higher log level",
+        default=False,
+    )
     args = parser.parse_args()
+
+    if args.verbose:
+        logging.basicConfig(level=logging.DEBUG)
+    else:
+        logging.basicConfig(level=logging.INFO)
 
     limit: Optional[int] = None
     if args.limit:
