@@ -9,16 +9,12 @@
 
 import asyncio
 import dataclasses
-import itertools
 import logging
 from dataclasses import dataclass
 from pprint import pformat
-from typing import Awaitable, Optional, Union, cast
-
-import gitlab
+from typing import Any, Awaitable, Optional, Union, cast
 
 import kanboard
-import gitlab.exceptions
 from gitlab.v4.objects import ProjectIssue, ProjectMergeRequest
 
 from ..cts_board_utils import (
@@ -207,39 +203,39 @@ class CTSBoardUpdater:
         assert ref_type == ReferenceType.MERGE_REQUEST
         return self.get_or_fetch_gitlab_mr(num)
 
-    # def compute_creation_data_for_item(
-    #     self,
-    #     ref_type: ReferenceType,
-    #     num: int,
-    #     gl_item: Union[ProjectIssue, ProjectMergeRequest],
-    #     column: TaskColumn,
-    #     swimlane: TaskSwimlane,
-    #     starting_flags: CTSTaskFlags,
-    # ) -> CTSTaskCreationData:
+    def compute_creation_data_for_item(
+        self,
+        ref_type: ReferenceType,
+        num: int,
+        gl_item: Union[ProjectIssue, ProjectMergeRequest],
+        column: TaskColumn,
+        swimlane: TaskSwimlane,
+        starting_flags: CTSTaskFlags,
+    ) -> CTSTaskCreationData:
 
-    #     custom_flags = dataclasses.replace(starting_flags)
-    #     if ref_type == ReferenceType.ISSUE:
-    #         issue_num = num
-    #         mr_num = None
-    #     else:
-    #         issue_num = None
-    #         mr_num = num
+        custom_flags = dataclasses.replace(starting_flags)
+        if ref_type == ReferenceType.ISSUE:
+            issue_num = num
+            mr_num = None
+        else:
+            issue_num = None
+            mr_num = num
 
-    #     labels: set[str] = set(gl_item.attributes["labels"])
+        labels: set[str] = set(gl_item.attributes["labels"])
 
-    #     custom_flags.update_from_gitlab_labels(labels)
+        custom_flags.update_from_gitlab_labels(labels)
 
-    #     return CTSTaskCreationData(
-    #         mr_num=mr_num,
-    #         issue_num=issue_num,
-    #         column=column,
-    #         swimlane=swimlane,
-    #         title=_title_from_gitlab_item(gl_item),
-    #         description="",
-    #         flags=custom_flags,
-    #         category=_category_from_labels(labels),
-    #         color_id=_color_id_from_ref_type(ref_type),
-    #     )
+        return CTSTaskCreationData(
+            mr_num=mr_num,
+            issue_num=issue_num,
+            column=column,
+            swimlane=swimlane,
+            title=_title_from_gitlab_item(gl_item),
+            description="",
+            flags=custom_flags,
+            category=_category_from_labels(labels),
+            color_id=_color_id_from_ref_type(ref_type),
+        )
 
     def compute_creation_data_for_ref(
         self,
@@ -277,6 +273,24 @@ class CTSBoardUpdater:
             color_id=_color_id_from_ref_type(ref_type),
         )
 
+    async def create_task_from_data(
+        self, short_ref: str, data: CTSTaskCreationData
+    ) -> Optional[int]:
+
+        if not self.options.create_task:
+
+            self.log.info("Skipping creating task due to options: %s", pformat(data))
+            return None
+        self.log.debug("Creating task for %s: %s", short_ref, pformat(data))
+        task_id = await data.create_task(self.kb_project)
+        if task_id is None:
+            self.log.error("Failed to create task for %s!", short_ref)
+            return None
+
+        self.log.debug("Task ID for %s: %d", short_ref, task_id)
+        await self.task_collection.load_task_id(task_id)
+        return task_id
+
     async def create_task_for_ref(
         self,
         short_ref: str,
@@ -290,19 +304,7 @@ class CTSBoardUpdater:
             swimlane=swimlane,
             starting_flags=starting_flags,
         )
-
-        if self.options.create_task:
-            self.log.debug("Creating task for %s: %s", short_ref, pformat(data))
-            task_id = await data.create_task(self.kb_project)
-            if task_id is None:
-                self.log.error("Failed to create task for %s~", short_ref)
-                return None
-            self.log.debug("Task ID for %s: %d", short_ref, task_id)
-            await self.task_collection.load_task_id(task_id)
-            return task_id
-
-        self.log.info("Skipping creating task due to options: %s", pformat(data))
-        return None
+        return await self.create_task_from_data(short_ref, data)
 
     async def _update_either(
         self,
@@ -577,9 +579,10 @@ class CTSBoardSearchUpdater:
 
     def _handle_approved_issue(
         self, proj_issue: ProjectIssue, filter_out_refs: set[str]
-    ) -> Optional[Awaitable[Optional[int]]]:
+    ) -> Optional[Awaitable[Any]]:
 
-        num = proj_issue.attributes["id"]
+        num = proj_issue.get_id()
+        assert isinstance(num, int)
         if self.task_collection.get_task_by_issue(num) is not None:
             return None
 
@@ -630,18 +633,21 @@ class CTSBoardSearchUpdater:
             ref,
             proj_issue.title,
         )
-        try:
-            self.base.get_or_fetch_gitlab_issue(num)
-        except gitlab.GitlabError as ex:
-            self.log.warning(f"Error loading {ref}: {ex}")
-            return None
+        # try:
+        #     self.base.get_or_fetch_gitlab_issue(num)
+        # except gitlab.GitlabError as ex:
+        #     self.log.warning(f"Error loading {ref}: {ex}")
+        #     return None
 
-        return self.base.create_task_for_ref(
-            ref,
+        data = self.base.compute_creation_data_for_item(
+            ReferenceType.ISSUE,
+            num,
+            proj_issue,
             column=TaskColumn.BACKLOG,
             swimlane=TaskSwimlane.CTS_CONTRACTOR,
             starting_flags=CTSTaskFlags(),
         )
+        return self.base.create_task_from_data(ref, data)
 
 
 async def main(
