@@ -16,18 +16,8 @@ from .stages import TaskCategory, TaskColumn, TaskSwimlane, TaskTags
 class CTSTaskFlags:
     """Booleans that come from presence/absence of tags."""
 
-    blocked_on_spec: bool
-    contractor_reviewed: bool
-
-    @classmethod
-    def from_default(
-        cls,
-    ) -> "CTSTaskFlags":
-
-        return CTSTaskFlags(
-            blocked_on_spec=False,
-            contractor_reviewed=False,
-        )
+    blocked_on_spec: bool = False
+    contractor_reviewed: bool = False
 
     @classmethod
     def from_task_tags_result(cls, task_tags: dict[str, str]) -> "CTSTaskFlags":
