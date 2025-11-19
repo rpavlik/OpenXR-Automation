@@ -37,8 +37,9 @@ class UpdateOptions:
     update_title: bool = True
     update_description: bool = False
     update_column_and_swimlane: bool = False
-    update_category: bool = False
-    update_tags: bool = False
+    update_category: bool = True
+    update_tags: bool = True
+    update_color: bool = True
     add_internal_links: bool = True
 
     # Changes affecting GitLab MRs
@@ -57,7 +58,13 @@ class UpdateOptions:
         )
 
     def to_base_options(self) -> BaseOptions:
-        return BaseOptions(update_title=self.update_title, create_task=self.create_task)
+        return BaseOptions(
+            update_title=self.update_title,
+            update_category=self.update_category,
+            update_tags=self.update_tags,
+            update_color=self.update_color,
+            create_task=self.create_task,
+        )
 
 
 class CTSNullboardToKanboard:

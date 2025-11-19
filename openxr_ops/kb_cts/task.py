@@ -74,6 +74,7 @@ class CTSTaskBase:
     category: Optional[TaskCategory]
     title: str
     description: str
+    color_id: str
     task_dict: Optional[dict]
 
     @property
@@ -109,6 +110,7 @@ class CTSTaskBase:
         if task["category_id"] is not None:
             category_id = int(task["category_id"])
             category = TaskCategory.from_category_id_maybe_none(kb_project, category_id)
+        color_id = task["color_id"]
         return cls(
             task_id=task_id,
             column=column,
@@ -116,6 +118,7 @@ class CTSTaskBase:
             category=category,
             title=title,
             description=description,
+            color_id=color_id,
             task_dict=task,
         )
 
@@ -209,6 +212,7 @@ class CTSTask(CTSTaskBase):
             category=base.category,
             title=base.title,
             description=base.description,
+            color_id=base.color_id,
             task_dict=base.task_dict,
             mr_num=mr_num,
             issue_num=issue_num,
@@ -251,6 +255,8 @@ class CTSTaskCreationData:
     category: Optional[TaskCategory] = None
 
     date_started: Optional[datetime.datetime] = None
+
+    color_id: str = "white"
 
     @property
     def gitlab_link(self) -> Optional[str]:
@@ -300,7 +306,7 @@ class CTSTaskCreationData:
             description=self.description,
             swimlane_id=swimlane_id,
             column_id=column_id,
-            color_id="white",
+            color_id=self.color_id,
             category_id=category_id,
             tags=tags,
             date_started=date_started,

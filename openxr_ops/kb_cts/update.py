@@ -28,19 +28,37 @@ from .stages import TaskCategory, TaskColumn, TaskSwimlane
 from .task import CTSTask, CTSTaskCreationData, CTSTaskFlags
 
 
-def _make_api_item_text(
+def _title_from_gitlab_item(
     api_item: Union[ProjectIssue, ProjectMergeRequest],
 ) -> str:
 
     state, suffix = compute_api_item_state_and_suffix(api_item)
     state_str = " ".join(state)
+    short_ref = api_item.references["short"]
+    if short_ref[0] == "#":
+        kind = "Issue"
+    else:
+        kind = "MR"
 
-    return "{ref}: {state}{title}{suffix}".format(
-        ref=api_item.references["short"],
+    return "{kind} {ref}: {state}{title}{suffix}".format(
+        kind=kind,
+        ref=short_ref,
         state=state_str,
         title=api_item.title,
         suffix=suffix,
     )
+
+
+def _color_id_from_ref_type(ref_type: ReferenceType) -> str:
+    if ref_type == ReferenceType.ISSUE:
+        return "grey"
+    return "white"
+
+
+def _category_from_labels(labels: set[str]) -> Optional[TaskCategory]:
+    if MainProjectLabels.CONTRACTOR_APPROVED in labels:
+        return TaskCategory.CONTRACTOR
+    return None
 
 
 async def add_link(
@@ -94,8 +112,11 @@ async def add_link(
 class BaseOptions:
     """Options for CTSBoardUpdater."""
 
-    update_title: bool = True
-    create_task: bool = True
+    update_title: bool
+    update_category: bool
+    update_tags: bool
+    update_color: bool
+    create_task: bool
 
 
 class CTSBoardUpdater:
@@ -157,6 +178,40 @@ class CTSBoardUpdater:
         assert ref_type == ReferenceType.MERGE_REQUEST
         return self.get_or_fetch_gitlab_mr(num)
 
+    # def compute_creation_data_for_item(
+    #     self,
+    #     ref_type: ReferenceType,
+    #     num: int,
+    #     gl_item: Union[ProjectIssue, ProjectMergeRequest],
+    #     column: TaskColumn,
+    #     swimlane: TaskSwimlane,
+    #     starting_flags: CTSTaskFlags,
+    # ) -> CTSTaskCreationData:
+
+    #     custom_flags = dataclasses.replace(starting_flags)
+    #     if ref_type == ReferenceType.ISSUE:
+    #         issue_num = num
+    #         mr_num = None
+    #     else:
+    #         issue_num = None
+    #         mr_num = num
+
+    #     labels: set[str] = set(gl_item.attributes["labels"])
+
+    #     custom_flags.update_from_gitlab_labels(labels)
+
+    #     return CTSTaskCreationData(
+    #         mr_num=mr_num,
+    #         issue_num=issue_num,
+    #         column=column,
+    #         swimlane=swimlane,
+    #         title=_title_from_gitlab_item(gl_item),
+    #         description="",
+    #         flags=custom_flags,
+    #         category=_category_from_labels(labels),
+    #         color_id=_color_id_from_ref_type(ref_type),
+    #     )
+
     def compute_creation_data_for_ref(
         self,
         short_ref: str,
@@ -166,34 +221,31 @@ class CTSBoardUpdater:
     ) -> CTSTaskCreationData:
 
         ref_type, num = ReferenceType.short_reference_to_type_and_num(short_ref)
-        custom_flags = dataclasses.replace(starting_flags)
         gl_item: Union[ProjectIssue, ProjectMergeRequest]
         if ref_type == ReferenceType.ISSUE:
+            gl_item = self.get_gitlab_issue(num)
             issue_num = num
             mr_num = None
-            gl_item = self.get_gitlab_issue(num)
         else:
+            gl_item = self.get_gitlab_mr(num)
             issue_num = None
             mr_num = num
-            gl_item = self.get_gitlab_mr(num)
 
         labels: set[str] = set(gl_item.attributes["labels"])
-        category: Optional[TaskCategory] = None
-        if MainProjectLabels.CONTRACTOR_APPROVED in labels:
-            category = TaskCategory.CONTRACTOR
-        custom_flags.update_from_gitlab_labels(labels)
 
-        title = _make_api_item_text(gl_item)
+        custom_flags = dataclasses.replace(starting_flags)
+        custom_flags.update_from_gitlab_labels(labels)
 
         return CTSTaskCreationData(
             mr_num=mr_num,
             issue_num=issue_num,
             column=column,
             swimlane=swimlane,
-            title=title,
+            title=_title_from_gitlab_item(gl_item),
             description="",
             flags=custom_flags,
-            category=category,
+            category=_category_from_labels(labels),
+            color_id=_color_id_from_ref_type(ref_type),
         )
 
     async def create_task_for_ref(
@@ -223,46 +275,121 @@ class CTSBoardUpdater:
         self.log.info("Skipping creating task due to options: %s", pformat(data))
         return None
 
-    async def update_issue(self, task: CTSTask, gl_issue: ProjectIssue):
-        new_title = _make_api_item_text(gl_issue)
-        if new_title == task.title:
-            # no new title needed
-            self.log.debug("No issue task title update needed for: '%s'", task.title)
-            return
+    async def _update_either(
+        self,
+        task: CTSTask,
+        ref_type: ReferenceType,
+        gl_item: Union[ProjectIssue, ProjectMergeRequest],
+    ):
+        issue_or_mr = "issue"
+        if ref_type == ReferenceType.MERGE_REQUEST:
+            issue_or_mr = "mr"
 
-        if not self.options.update_title:
+        # Title
+        new_title = _title_from_gitlab_item(gl_item)
+        if new_title == task.title:
+            self.log.debug(
+                "No %s task title update needed for: '%s'", issue_or_mr, task.title
+            )
+        elif not self.options.update_title:
             self.log.info(
-                "Skipping issue task title update by request: would have changed '%s' to '%s'",
+                "Skipping %s task title update by request: would have changed '%s' to '%s'",
+                issue_or_mr,
                 task.title,
                 new_title,
             )
-            return
-        self.log.info(
-            "Updating issue task title: '%s' to '%s'",
-            task.title,
-            new_title,
-        )
-        await self.kb.update_task_async(id=task.task_id, title=new_title)
+        else:
+            self.log.info(
+                "Updating %s task title: '%s' to '%s'",
+                issue_or_mr,
+                task.title,
+                new_title,
+            )
+            await self.kb.update_task_async(id=task.task_id, title=new_title)
+
+        labels = set(gl_item.attributes["labels"])
+
+        # Category
+        new_category = _category_from_labels(labels)
+        if new_category == task.category:
+            self.log.debug(
+                "No %s task category update needed for: '%s'", issue_or_mr, task.title
+            )
+        elif not self.options.update_title:
+            self.log.info(
+                "Skipping %s task category update by request: would have changed '%s' to '%s'",
+                issue_or_mr,
+                str(task.category),
+                str(new_category),
+            )
+        else:
+            self.log.info(
+                "Updating %s task category: '%s' to '%s'",
+                issue_or_mr,
+                str(task.category),
+                str(new_category),
+            )
+            await self.kb.update_task_async(
+                id=task.task_id,
+                category_id=TaskCategory.optional_to_category_id(
+                    self.kb_project, new_category
+                ),
+            )
+
+        assert task.flags
+        new_flags = dataclasses.replace(task.flags)
+        new_flags.update_from_gitlab_labels(labels)
+
+        # tags
+        if new_flags == task.flags:
+            self.log.debug(
+                "No %s task flags update needed for: '%s'", issue_or_mr, task.title
+            )
+        elif not self.options.update_tags:
+            self.log.info(
+                "Skipping %s task flags update by request: would have changed '%s' to '%s'",
+                issue_or_mr,
+                str(task.flags),
+                str(new_flags),
+            )
+        else:
+            self.log.info(
+                "Updating %s task flags: '%s' to '%s'",
+                issue_or_mr,
+                str(task.flags),
+                str(new_flags),
+            )
+            await self.kb.update_task_async(
+                id=task.task_id, tags=new_flags.to_string_list()
+            )
+
+        # Color
+        color_id = _color_id_from_ref_type(ref_type)
+        if color_id == task.color_id:
+            self.log.debug(
+                "No %s task color update needed for: '%s'", issue_or_mr, task.title
+            )
+        elif not self.options.update_color:
+            self.log.info(
+                "Skipping %s task color update by request: would have changed '%s' to '%s'",
+                issue_or_mr,
+                task.color_id,
+                color_id,
+            )
+        else:
+            self.log.info(
+                "Updating %s task color: '%s' to '%s'",
+                issue_or_mr,
+                task.color_id,
+                color_id,
+            )
+            await self.kb.update_task_async(id=task.task_id, color_id=color_id)
+
+    async def update_issue(self, task: CTSTask, gl_issue: ProjectIssue):
+        await self._update_either(task, ReferenceType.ISSUE, gl_issue)
 
     async def update_mr(self, task: CTSTask, gl_mr: ProjectMergeRequest):
-        new_title = _make_api_item_text(gl_mr)
-        if new_title == task.title:
-            # no new title needed
-            self.log.debug("No MR task title update needed for: '%s'", task.title)
-            return
-        if not self.options.update_title:
-            self.log.info(
-                "Skipping MR task title update by request: would have changed '%s' to '%s'",
-                task.title,
-                new_title,
-            )
-            return
-        self.log.info(
-            "Updating MR task title: '%s' to '%s'",
-            task.title,
-            new_title,
-        )
-        await self.kb.update_task_async(id=task.task_id, title=new_title)
+        await self._update_either(task, ReferenceType.MERGE_REQUEST, gl_mr)
 
     def fetch_all_from_gitlab(self) -> None:
         # First, fetch everything from gitlab if possible. Serially.
