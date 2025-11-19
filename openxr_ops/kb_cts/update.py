@@ -9,13 +9,10 @@
 
 import asyncio
 import dataclasses
-import itertools
-import json
 import logging
 from dataclasses import dataclass
-from enum import Enum
 from pprint import pformat
-from typing import Awaitable, Generator, Iterable, Optional, Union
+from typing import Optional, Union
 
 import kanboard
 from gitlab.v4.objects import ProjectIssue, ProjectMergeRequest
@@ -23,12 +20,12 @@ from gitlab.v4.objects import ProjectIssue, ProjectMergeRequest
 from ..cts_board_utils import compute_api_item_state_and_suffix
 from ..gitlab import OpenXRGitlab, ReferenceType
 from ..kanboard_helpers import KanboardProject, LinkIdMapping
-from ..kb_cts.collection import TaskCollection
-from ..kb_cts.stages import TaskColumn, TaskSwimlane
-from ..kb_cts.task import CTSTask, CTSTaskCreationData, CTSTaskFlags
 from ..kb_defaults import CTS_PROJ_NAME, connect_and_get_project
 from ..kb_enums import InternalLinkRelation
 from ..labels import MainProjectLabels
+from .collection import TaskCollection
+from .stages import TaskCategory, TaskColumn, TaskSwimlane
+from .task import CTSTask, CTSTaskCreationData, CTSTaskFlags
 
 
 def _make_api_item_text(
@@ -134,6 +131,9 @@ class CTSBoardUpdater:
         self.gitlab_issues[num] = fetched
         return fetched
 
+    def get_gitlab_issue(self, num: int) -> ProjectIssue:
+        return self.gitlab_issues[num]
+
     def get_or_fetch_gitlab_mr(self, num: int) -> ProjectMergeRequest:
         item = self.gitlab_mrs.get(num)
         if item is not None:
@@ -143,6 +143,9 @@ class CTSBoardUpdater:
         fetched = self.oxr_gitlab.main_proj.mergerequests.get(num)
         self.gitlab_mrs[num] = fetched
         return fetched
+
+    def get_gitlab_mr(self, num: int) -> ProjectMergeRequest:
+        return self.gitlab_mrs[num]
 
     def get_or_fetch_gitlab_ref(
         self, short_ref: str
@@ -168,11 +171,12 @@ class CTSBoardUpdater:
         if ref_type == ReferenceType.ISSUE:
             issue_num = num
             mr_num = None
-            gl_item = self.oxr_gitlab.main_proj.issues.get(num)
+            gl_item = self.get_gitlab_issue(num)
         else:
             issue_num = None
             mr_num = num
-            gl_item = self.oxr_gitlab.main_proj.mergerequests.get(num)
+            gl_item = self.get_gitlab_mr(num)
+
 
         # TODO customize custom_flags based on the gitlab item
 
