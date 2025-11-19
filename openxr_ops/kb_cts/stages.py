@@ -45,11 +45,15 @@ class TaskTags(Enum):
 
     BLOCKED_ON_SPEC = "Blocked on Spec"
     CONTRACTOR_REVIEWED = "Reviewed by Contractor"
+    NEEDS_AUTHOR_ACTION = "Needs Author Action"
+    OBJECTION_WINDOW = "Objection Window"
 
 
 TAG_COLORS = {
-    TaskTags.BLOCKED_ON_SPEC: "orange",
+    TaskTags.BLOCKED_ON_SPEC: "grey",
     TaskTags.CONTRACTOR_REVIEWED: "purple",
+    TaskTags.NEEDS_AUTHOR_ACTION: "orange",
+    TaskTags.OBJECTION_WINDOW: "green",
 }
 
 

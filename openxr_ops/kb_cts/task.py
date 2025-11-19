@@ -19,6 +19,8 @@ class CTSTaskFlags:
 
     blocked_on_spec: bool = False
     contractor_reviewed: bool = False
+    needs_author_action: bool = False
+    objection_window: bool = False
 
     @classmethod
     def from_task_tags_result(cls, task_tags: dict[str, str]) -> "CTSTaskFlags":
@@ -27,6 +29,8 @@ class CTSTaskFlags:
         return cls(
             blocked_on_spec=(TaskTags.BLOCKED_ON_SPEC.value in tags),
             contractor_reviewed=(TaskTags.CONTRACTOR_REVIEWED.value in tags),
+            needs_author_action=(TaskTags.NEEDS_AUTHOR_ACTION.value in tags),
+            objection_window=(TaskTags.OBJECTION_WINDOW.value in tags),
         )
 
     @classmethod
@@ -40,6 +44,10 @@ class CTSTaskFlags:
             ret.append(TaskTags.BLOCKED_ON_SPEC)
         if self.contractor_reviewed:
             ret.append(TaskTags.CONTRACTOR_REVIEWED)
+        if self.needs_author_action:
+            ret.append(TaskTags.NEEDS_AUTHOR_ACTION)
+        if self.objection_window:
+            ret.append(TaskTags.OBJECTION_WINDOW)
         return ret
 
     def to_string_list(self) -> list[str]:
