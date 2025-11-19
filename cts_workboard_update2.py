@@ -103,9 +103,10 @@ def _find_thumb_companies(
     return None
 
 
-def _make_api_item_text(
+def compute_api_item_state_and_suffix(
     api_item: Union[ProjectIssue, ProjectMergeRequest],
-) -> str:
+) -> tuple[list[str], str]:
+
     state = []
     suffix = ""
     if api_item.state == "closed":
@@ -144,7 +145,13 @@ def _make_api_item_text(
     if state:
         # If we have at least one item, add an empty entry for the trailing space
         state.append("")
+    return state, suffix
 
+
+def _make_api_item_text(
+    api_item: Union[ProjectIssue, ProjectMergeRequest],
+) -> str:
+    state, suffix = compute_api_item_state_and_suffix(api_item)
     state_str = " ".join(state)
 
     return "[{ref}]({url}): {state}{title}{suffix}".format(
