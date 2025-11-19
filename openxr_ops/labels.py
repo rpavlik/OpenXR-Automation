@@ -28,6 +28,7 @@ class MainProjectLabels:
     CONFORMANCE_QUESTION = "CTS:question"
     NEEDS_AUTHOR_ACTION = "Needs Author Action"
     CONTRACTOR_APPROVED = "Contractor:Approved"
+    OBJECTION_WINDOW = "Objection Window"
 
 
 class OpsProjectLabels:

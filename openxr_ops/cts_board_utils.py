@@ -12,6 +12,8 @@ from typing import Optional, Union, cast
 
 from gitlab.v4.objects import ProjectIssue, ProjectMergeRequest
 
+from .labels import MainProjectLabels
+
 _THUMBSUP = "thumbsup"
 _REQUIRED_THUMB_COUNT = 3
 
@@ -73,10 +75,10 @@ def compute_api_item_state_and_suffix(
         state.append("⚠️")
 
     if hasattr(api_item, "labels"):
-        if "Objection Window" in api_item.labels:
+        if MainProjectLabels.OBJECTION_WINDOW in api_item.labels:
             state.append("⏰")
 
-        if "Needs Author Action" in api_item.labels:
+        if MainProjectLabels.NEEDS_AUTHOR_ACTION in api_item.labels:
             state.append("🚧")
 
         if any("fast track" in label.casefold() for label in api_item.labels):
