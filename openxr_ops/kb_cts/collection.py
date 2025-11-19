@@ -66,6 +66,14 @@ class TaskCollection:
             return self.get_task_by_id(task_id)
         return None
 
+    def get_task_by_ref(self, short_ref: str) -> Optional[CTSTask]:
+        """Get task object associated with an OpenXR GitLab issue or MR short ref, if any exists."""
+        if short_ref.startswith("#"):
+            return self.get_task_by_issue(int(short_ref[1:]))
+        if short_ref.startswith("!"):
+            return self.get_task_by_mr(int(short_ref[1:]))
+        return None
+
     def get_task_by_id(self, task_id: int) -> Optional[CTSTask]:
         """Get task object from a task ID number."""
         return self.tasks.get(task_id)
