@@ -91,3 +91,51 @@ def compute_api_item_state_and_suffix(
         # If we have at least one item, add an empty entry for the trailing space
         state.append("")
     return state, suffix
+
+
+# Must have at least one of these labels to show up on this board
+# since there are now two projects using "Contractor:Approved"
+REQUIRED_LABEL_SET = set(
+    (
+        MainProjectLabels.CONFORMANCE_IMPLEMENTATION,
+        MainProjectLabels.CONFORMANCE_IN_THE_WILD,
+        MainProjectLabels.CONFORMANCE_QUESTION,
+    )
+)
+
+# List stuff that causes undesired merging here
+# Anything on this list will be excluded from the board
+DO_NOT_MERGE = {
+    "!2887",  # hand tracking permission
+    "!3194",  # usage flag errors - merged
+    "!3224",  # more
+    "!3312",  # use .../click action - merged
+    "!3344",  # generate interaction profile spec from xml
+    "!3418",  # swapchain format list - merged
+    "!3466",  # validate action set names - merged
+    "#1460",
+    "#1828",
+    "#1950",
+    "#1978",
+    "#2072",  # catch2 test number, etc mismatch
+    "#2162",  # unordered success
+    "#2220",  # generic controller test
+    "#2275",  # vulkan layer
+    "#2312",  # subimage y offset with 2 parts
+    "#2350",  # xml stuff with 2 parts
+    # "#2553",  # Check format returned
+    # Release candidates
+    "!3053",
+    "!3692",
+}
+
+# Anything on this list will skip looking for related MRs.
+# The contents of DO_NOT_MERGE are also included
+FILTER_OUT = DO_NOT_MERGE.union(
+    {
+        # stuff getting merged into 1.0 v 1.1 that we don't want like that
+        "#2245",
+        "!3499",
+        "!3505",
+    }
+)

@@ -9,9 +9,11 @@
 import os
 from dataclasses import dataclass
 from enum import Enum
+from typing import Union
 
 import gitlab
 import gitlab.v4.objects
+from gitlab.v4.objects import ProjectIssue, ProjectMergeRequest
 from requests_cache import Optional
 
 GITLAB_SERVER = "https://gitlab.khronos.org"
@@ -78,3 +80,7 @@ class ReferenceType(Enum):
         cls, short_ref: str
     ) -> tuple["ReferenceType", int]:
         return cls.parse_short_reference(short_ref), int(short_ref[1:])
+
+
+def get_short_ref(api_item: Union[ProjectIssue, ProjectMergeRequest]) -> str:
+    return api_item.references["short"]
