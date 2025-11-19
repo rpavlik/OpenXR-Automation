@@ -154,13 +154,14 @@ class CTSBoardUpdater:
         assert ref_type == ReferenceType.MERGE_REQUEST
         return self.get_or_fetch_gitlab_mr(num)
 
-    async def create_task_for_ref(
+    def compute_creation_data_for_ref(
         self,
         short_ref: str,
         column: TaskColumn,
         swimlane: TaskSwimlane,
         starting_flags: CTSTaskFlags,
-    ) -> Optional[int]:
+    ) -> CTSTaskCreationData:
+
         ref_type, num = ReferenceType.short_reference_to_type_and_num(short_ref)
         custom_flags = dataclasses.replace(starting_flags)
         gl_item: Union[ProjectIssue, ProjectMergeRequest]
@@ -177,7 +178,7 @@ class CTSBoardUpdater:
 
         title = _make_api_item_text(gl_item)
 
-        data = CTSTaskCreationData(
+        return CTSTaskCreationData(
             mr_num=mr_num,
             issue_num=issue_num,
             column=column,
@@ -187,10 +188,27 @@ class CTSBoardUpdater:
             flags=custom_flags,
         )
 
+    async def create_task_for_ref(
+        self,
+        short_ref: str,
+        column: TaskColumn,
+        swimlane: TaskSwimlane,
+        starting_flags: CTSTaskFlags,
+    ) -> Optional[int]:
+        data = self.compute_creation_data_for_ref(
+            short_ref=short_ref,
+            column=column,
+            swimlane=swimlane,
+            starting_flags=starting_flags,
+        )
+
         if self.options.create_task:
+            self.log.debug("Creating task for %s: %s", short_ref, pformat(data))
             task_id = await data.create_task(self.kb_project)
             if task_id is None:
+                self.log.error("Failed to create task for %s~", short_ref)
                 return None
+            self.log.debug("Task ID for %s: %d", short_ref, task_id)
             await self.task_collection.load_task_id(task_id)
             return task_id
 
