@@ -47,6 +47,7 @@ class TaskTags(Enum):
     CONTRACTOR_REVIEWED = "Reviewed by Contractor"
     NEEDS_AUTHOR_ACTION = "Needs Author Action"
     OBJECTION_WINDOW = "Objection Window"
+    IN_THE_WILD = "In The Wild"
 
 
 TAG_COLORS = {
@@ -54,6 +55,7 @@ TAG_COLORS = {
     TaskTags.CONTRACTOR_REVIEWED: "purple",
     TaskTags.NEEDS_AUTHOR_ACTION: "orange",
     TaskTags.OBJECTION_WINDOW: "green",
+    TaskTags.IN_THE_WILD: "red",
 }
 
 

@@ -177,8 +177,11 @@ class CTSBoardUpdater:
             mr_num = num
             gl_item = self.get_gitlab_mr(num)
 
-
-        # TODO customize custom_flags based on the gitlab item
+        labels: set[str] = set(gl_item.attributes["labels"])
+        category: Optional[TaskCategory] = None
+        if MainProjectLabels.CONTRACTOR_APPROVED in labels:
+            category = TaskCategory.CONTRACTOR
+        custom_flags.update_from_gitlab_labels(labels)
 
         title = _make_api_item_text(gl_item)
 
@@ -190,6 +193,7 @@ class CTSBoardUpdater:
             title=title,
             description="",
             flags=custom_flags,
+            category=category,
         )
 
     async def create_task_for_ref(

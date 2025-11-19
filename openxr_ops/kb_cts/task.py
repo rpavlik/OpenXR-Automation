@@ -9,6 +9,7 @@ from ..gitlab import ISSUE_URL_BASE, MR_URL_BASE
 from ..kanboard_helpers import KanboardProject, LinkIdMapping
 from ..kb_enums import InternalLinkRelation
 from ..kb_links import InternalLinkData
+from ..labels import MainProjectLabels
 from ..parse import extract_issue_number, extract_mr_number
 from .stages import TaskCategory, TaskColumn, TaskSwimlane, TaskTags
 
@@ -19,8 +20,11 @@ class CTSTaskFlags:
 
     blocked_on_spec: bool = False
     contractor_reviewed: bool = False
+
+    # These are driven from GitLab labels
     needs_author_action: bool = False
     objection_window: bool = False
+    in_the_wild: bool = False
 
     @classmethod
     def from_task_tags_result(cls, task_tags: dict[str, str]) -> "CTSTaskFlags":
@@ -31,12 +35,18 @@ class CTSTaskFlags:
             contractor_reviewed=(TaskTags.CONTRACTOR_REVIEWED.value in tags),
             needs_author_action=(TaskTags.NEEDS_AUTHOR_ACTION.value in tags),
             objection_window=(TaskTags.OBJECTION_WINDOW.value in tags),
+            in_the_wild=(TaskTags.IN_THE_WILD.value in tags),
         )
 
     @classmethod
     async def fetch_tags_list(cls, kb: kanboard.Client, task_id: int) -> "CTSTaskFlags":
         tags_future = kb.get_task_tags_async(task_id=task_id)
         return cls.from_task_tags_result(await tags_future)
+
+    def update_from_gitlab_labels(self, labels: set[str]) -> None:
+        self.needs_author_action = MainProjectLabels.NEEDS_AUTHOR_ACTION in labels
+        self.objection_window = MainProjectLabels.OBJECTION_WINDOW in labels
+        self.in_the_wild = MainProjectLabels.CONFORMANCE_IN_THE_WILD in labels
 
     def to_enum_list(self) -> list[TaskTags]:
         ret = []
@@ -48,6 +58,8 @@ class CTSTaskFlags:
             ret.append(TaskTags.NEEDS_AUTHOR_ACTION)
         if self.objection_window:
             ret.append(TaskTags.OBJECTION_WINDOW)
+        if self.in_the_wild:
+            ret.append(TaskTags.IN_THE_WILD)
         return ret
 
     def to_string_list(self) -> list[str]:
