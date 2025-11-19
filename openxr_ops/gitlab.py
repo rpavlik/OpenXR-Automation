@@ -71,7 +71,10 @@ class ReferenceType(Enum):
 
     @classmethod
     def parse_short_reference(cls, short_ref: str) -> "ReferenceType":
-        for reftype in cls:
-            if short_ref[0] == reftype.value:
-                return reftype
-        raise RuntimeError(f"Cannot detect reference type of{short_ref}")
+        return cls(short_ref[0])
+
+    @classmethod
+    def short_reference_to_type_and_num(
+        cls, short_ref: str
+    ) -> tuple["ReferenceType", int]:
+        return cls.parse_short_reference(short_ref), int(short_ref[1:])
