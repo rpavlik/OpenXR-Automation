@@ -396,7 +396,6 @@ if __name__ == "__main__":
         type=str,
         help="Migrate to the named project",
         default=CTS_PROJ_NAME,
-        required=True,
     )
 
     parser.add_argument(
