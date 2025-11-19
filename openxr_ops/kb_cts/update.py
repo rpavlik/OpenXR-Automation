@@ -9,16 +9,24 @@
 
 import asyncio
 import dataclasses
+import itertools
 import logging
 from dataclasses import dataclass
 from pprint import pformat
-from typing import Optional, Union
+from typing import Awaitable, Optional, Union, cast
+
+import gitlab
 
 import kanboard
+import gitlab.exceptions
 from gitlab.v4.objects import ProjectIssue, ProjectMergeRequest
 
-from ..cts_board_utils import compute_api_item_state_and_suffix
-from ..gitlab import OpenXRGitlab, ReferenceType
+from ..cts_board_utils import (
+    FILTER_OUT,
+    REQUIRED_LABEL_SET,
+    compute_api_item_state_and_suffix,
+)
+from ..gitlab import OpenXRGitlab, ReferenceType, get_short_ref
 from ..kanboard_helpers import KanboardProject, LinkIdMapping
 from ..kb_defaults import CTS_PROJ_NAME, connect_and_get_project
 from ..kb_enums import InternalLinkRelation
@@ -118,6 +126,26 @@ class BaseOptions:
     update_tags: bool
     update_color: bool
     create_task: bool
+
+    @classmethod
+    def all_true(cls):
+        return cls(
+            update_title=True,
+            update_category=True,
+            update_tags=True,
+            update_color=True,
+            create_task=True,
+        )
+
+    @classmethod
+    def all_false(cls):
+        return cls(
+            update_title=False,
+            update_category=False,
+            update_tags=False,
+            update_color=False,
+            create_task=False,
+        )
 
 
 class CTSBoardUpdater:
@@ -439,3 +467,248 @@ async def load_kb_ops(project_name: str = CTS_PROJ_NAME, only_open: bool = True)
     task_collection = TaskCollection(kb_project)
     await task_collection.load_project(only_open=only_open)
     return kb_project, task_collection
+
+
+class CTSBoardSearchUpdater:
+
+    def __init__(
+        self,
+        oxr_gitlab: OpenXRGitlab,
+        kb_project_name: str,
+        options: BaseOptions,
+    ):
+        self.base = CTSBoardUpdater(oxr_gitlab, kb_project_name, options=options)
+        self.oxr_gitlab: OpenXRGitlab = oxr_gitlab
+        self.kb_project_name: str = kb_project_name
+
+        self.log = logging.getLogger(f"{__name__}.{self.__class__.__name__}")
+
+        # these are populated later in prepare
+        self.kb_project: KanboardProject
+        self.task_collection: TaskCollection
+        self.kb: kanboard.Client
+
+    async def prepare(self):
+        await self.base.prepare()
+        self.kb = self.base.kb
+        self.kb_project = self.base.kb_project
+        self.task_collection = self.base.task_collection
+
+    async def process(self, filter_out_refs: set[str]) -> None:
+        # First, fetch everything from gitlab if possible. Serially.
+        self.base.fetch_all_from_gitlab()
+
+        # Now, update stuff.
+        await self.base.update_existing_tasks()
+
+        new_issue_futures = self.search_issues(filter_out_refs)
+
+        # we can do the remaining part in parallel.
+        await asyncio.gather(*new_issue_futures)
+
+    def search_issues(
+        self, filter_out_refs: set[str]
+    ) -> list[Awaitable[Optional[int]]]:
+        # Grab all "Contractor:Approved" issues that are CTS related
+
+        self.log.info("Looking for new relevant GitLab issues")
+
+        futures = []
+        for issue in self.oxr_gitlab.main_proj.issues.list(
+            labels=[
+                MainProjectLabels.CONTRACTOR_APPROVED,
+                MainProjectLabels.CONFORMANCE_IMPLEMENTATION,
+            ],
+            state="opened",
+            iterator=True,
+        ):
+            ret = self._handle_approved_issue(
+                cast(ProjectIssue, issue), filter_out_refs
+            )
+            if ret is not None:
+                futures.append(ret)
+
+        return futures
+
+    # def search_mrs(self, filter_out_refs: set[str]):
+    #     # Grab all "Contractor:Approved" MRs as well as all
+    #     # CTS ones (whether or not written
+    #     # by contractor, as part of maintaining the cts)
+    #     for mr in itertools.chain(
+    #         *[
+    #             self.oxr_gitlab.main_proj.mergerequests.list(
+    #                 labels=[label], state="opened", iterator=True
+    #             )
+    #             for label in (
+    #                 MainProjectLabels.CONTRACTOR_APPROVED,
+    #                 MainProjectLabels.CONFORMANCE_IMPLEMENTATION,
+    #             )
+    #         ]
+    #     ):
+    #         proj_mr = cast(ProjectMergeRequest, mr)
+    #         ref = get_short_ref(proj_mr)
+    #         if ref in filter_out_refs:
+    #             self.log.info(
+    #                 "Skipping filtered out MR: %s: %s",
+    #                 ref,
+    #                 proj_mr.title,
+    #             )
+    #             continue
+
+    #         labels = set(proj_mr.attributes["labels"])
+    #         if not labels.intersection(REQUIRED_LABEL_SET):
+    #             self.log.info(
+    #                 "Skipping contractor approved but non-CTS MR: %s: %s  %s",
+    #                 ref,
+    #                 proj_mr.title,
+    #                 proj_mr.attributes["web_url"],
+    #             )
+    #             continue
+
+    #         if "candidate" in proj_mr.title.casefold():
+    #             self.log.info(
+    #                 "Skipping release candidate MR %s: %s", ref, proj_mr.title
+    #             )
+    #             continue
+
+    #         self.log.info("GitLab MR Search: %s: %s", ref, proj_mr.title)
+    #         self.base.create_task_for_ref()
+    # self.work.add_refs(self.proj, [ref])
+
+    def _handle_approved_issue(
+        self, proj_issue: ProjectIssue, filter_out_refs: set[str]
+    ) -> Optional[Awaitable[Optional[int]]]:
+
+        num = proj_issue.attributes["id"]
+        if self.task_collection.get_task_by_issue(num) is not None:
+            return None
+
+        ref = get_short_ref(proj_issue)
+        if ref in filter_out_refs:
+            self.log.info(
+                "Skipping related MRs for: %s: %s",
+                ref,
+                proj_issue.title,
+            )
+            return None
+
+        labels = set(proj_issue.attributes["labels"])
+        if not labels.intersection(REQUIRED_LABEL_SET):
+            self.log.info(
+                "Skipping contractor approved but non-CTS issue: %s: %s  %s",
+                ref,
+                proj_issue.title,
+                proj_issue.attributes["web_url"],
+            )
+            return None
+
+        # if ref in FILTER_OUT:
+        #     self.log.info(
+        #         "Skipping related MRs for: %s: %s",
+        #         ref,
+        #         proj_issue.title,
+        #     )
+        #     return
+
+        refs = [ref]
+        # refs.extend(
+        #     mr["references"]["short"]  # type: ignore
+        #     for mr in proj_issue.related_merge_requests()
+        #     if "candidate" not in mr["title"].casefold()
+        # )
+        # filtered_refs = [ref for ref in refs if ref not in filter_out_refs]
+        # if not filtered_refs:
+        #     self.log.info(
+        #         "No refs to consider left after filtering of: %s: %s",
+        #         ref,
+        #         proj_issue.title,
+        #     )
+        #     return
+
+        self.log.info(
+            "GitLab Issue Search: %s: %s",
+            ref,
+            proj_issue.title,
+        )
+        try:
+            self.base.get_or_fetch_gitlab_issue(num)
+        except gitlab.GitlabError as ex:
+            self.log.warning(f"Error loading {ref}: {ex}")
+            return None
+
+        return self.base.create_task_for_ref(
+            ref,
+            column=TaskColumn.BACKLOG,
+            swimlane=TaskSwimlane.CTS_CONTRACTOR,
+            starting_flags=CTSTaskFlags(),
+        )
+
+
+async def main(
+    project_name: str,
+    dry_run: bool,
+):
+    logging.basicConfig(level=logging.INFO)
+
+    log = logging.getLogger(__name__)
+
+    oxr_gitlab = OpenXRGitlab.create()
+
+    options = BaseOptions.all_true()
+    if dry_run:
+        options = BaseOptions.all_false()
+
+    obj = CTSBoardSearchUpdater(
+        oxr_gitlab=oxr_gitlab,
+        kb_project_name=project_name,
+        options=options,
+    )
+
+    await obj.prepare()
+    await obj.process(FILTER_OUT)
+
+
+if __name__ == "__main__":
+
+    from dotenv import load_dotenv
+
+    load_dotenv()
+
+    import argparse
+
+    parser = argparse.ArgumentParser()
+
+    parser.add_help = True
+    parser.add_argument(
+        "--project",
+        type=str,
+        help="Use the named project",
+        default=CTS_PROJ_NAME,
+    )
+    parser.add_argument(
+        "-n",
+        "--dry-run",
+        action="store_true",
+        help="Do not actually make any changes",
+        default=False,
+    )
+    parser.add_argument(
+        "-v",
+        "--verbose",
+        action="store_true",
+        help="Higher log level",
+        default=False,
+    )
+    args = parser.parse_args()
+
+    if args.verbose:
+        logging.basicConfig(level=logging.DEBUG)
+    else:
+        logging.basicConfig(level=logging.INFO)
+
+    asyncio.run(
+        main(
+            project_name=args.project,
+            dry_run=args.dry_run,
+        )
+    )
