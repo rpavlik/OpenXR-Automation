@@ -14,7 +14,7 @@ import json
 import logging
 from dataclasses import dataclass
 from enum import Enum
-from typing import Awaitable, Generator, Iterable, Optional, Union
+from typing import Awaitable, Iterable, Optional
 
 import kanboard
 
@@ -27,6 +27,7 @@ from openxr_ops.kb_cts.task import CTSTaskFlags
 from openxr_ops.kb_cts.update import BaseOptions, CTSBoardUpdater, add_link
 from openxr_ops.kb_defaults import CTS_PROJ_NAME
 from openxr_ops.kb_enums import InternalLinkRelation
+from openxr_ops.nullboard import NoteData
 
 
 @dataclass
@@ -57,34 +58,6 @@ class UpdateOptions:
 
     def to_base_options(self) -> BaseOptions:
         return BaseOptions(update_title=self.update_title, create_task=self.create_task)
-
-
-@dataclass
-class NoteData:
-    list_title: str
-    subhead: Optional[str]
-    note_text: str
-
-    @classmethod
-    def iterate_notes(cls, board) -> Generator["NoteData", None, None]:
-        log = logging.getLogger(f"{__name__}.{cls.__name__}.iterate_notes")
-        for notelist in board["lists"]:
-            list_title = notelist["title"]
-            log.info("In list %s", list_title)
-            subhead: Optional[str] = None
-            for note in notelist["notes"]:
-                if note.get("raw"):
-                    subhead = note["text"]
-                    continue
-                yield NoteData(
-                    list_title=list_title,
-                    subhead=subhead,
-                    note_text=note["text"],
-                )
-
-
-NBNote = dict[str, Union[str, bool]]
-NBNotes = list[NBNote]
 
 
 class CTSNullboardToKanboard:
