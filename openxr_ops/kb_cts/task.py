@@ -8,6 +8,7 @@ import kanboard
 from ..gitlab import ISSUE_URL_BASE, MR_URL_BASE
 from ..kanboard_helpers import KanboardProject, LinkIdMapping
 from ..kb_enums import InternalLinkRelation
+from ..kb_links import InternalLinkData
 from ..parse import extract_issue_number, extract_mr_number
 from .stages import TaskCategory, TaskColumn, TaskSwimlane, TaskTags
 
@@ -104,14 +105,24 @@ class CTSTask(CTSTaskBase):
     """Like CTSTaskBase but this requires additional queries"""
 
     mr_num: Optional[int]
+    """MR number. If None, then issue_num must not be None."""
+
     issue_num: Optional[int]
+    """Issue number. If None, then mr_num must not be None."""
+
+    internal_links: list[InternalLinkData]
+    """Parsed internal link data"""
 
     ext_links_list: list[dict[str, Any]]
+    """Raw external links data from API"""
+
     internal_links_list: list[dict[str, Any]]
+    """Raw internal links data from API"""
 
     flags: Optional[CTSTaskFlags]
 
     tags_dict: dict[str, Any]
+    """Raw tags data from API."""
 
     def is_mr(self):
         return self.mr_num is not None
@@ -135,6 +146,13 @@ class CTSTask(CTSTaskBase):
             return f"Issue #{self.issue_num}"
         return None
 
+    async def refresh_internal_links(self, kb: kanboard.Client):
+        int_links_future = kb.get_all_task_links_async(task_id=self.task_id)
+        self.internal_links_list = await int_links_future
+        self.internal_links = InternalLinkData.parse_internal_links(
+            self.task_id, self.internal_links_list
+        )
+
     @classmethod
     async def from_base_with_more_data(
         cls, base: CTSTaskBase, kb: kanboard.Client
@@ -154,6 +172,11 @@ class CTSTask(CTSTaskBase):
             if issue_num is not None:
                 break
 
+        if mr_num is None and issue_num is None:
+            raise RuntimeError(
+                "No external links are an issue or MR! "
+                + " ".join((ext_link["url"] for ext_link in ext_links))
+            )
         tags = await tags_future
         flags = CTSTaskFlags.from_task_tags_result(tags)
 
@@ -169,6 +192,9 @@ class CTSTask(CTSTaskBase):
             task_dict=base.task_dict,
             mr_num=mr_num,
             issue_num=issue_num,
+            internal_links=InternalLinkData.parse_internal_links(
+                base.task_id, int_links
+            ),
             ext_links_list=ext_links,
             internal_links_list=int_links,
             flags=flags,

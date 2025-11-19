@@ -13,6 +13,8 @@ import kanboard
 
 @dataclass
 class LinkIdData:
+    """Data describing an internal link type.."""
+
     link_id: int
     label: str
     opposite_id: int
@@ -55,7 +57,7 @@ class KanboardProject:
         self.category_title_to_id: dict[str, int] = dict()
         self.category_ids_to_titles: dict[int, str] = dict()
 
-        self.link_manager = LinkIdMapping(kb)
+        self.link_mapping = LinkIdMapping(kb)
 
     async def fetch_all_id_maps(self):
         """Retrieve names and IDs for categories, swimlands, columns, and links."""
@@ -63,7 +65,7 @@ class KanboardProject:
             self.fetch_categories(),
             self.fetch_columns(),
             self.fetch_swimlanes(),
-            self.link_manager.fetch_link_types(),
+            self.link_mapping.fetch_link_types(),
         )
 
     async def fetch_categories(self):
