@@ -13,18 +13,21 @@ import json
 import logging
 from dataclasses import dataclass
 from enum import Enum
-from typing import Any, Generator, Iterable, Optional, Union, cast
+from pprint import pformat
+from typing import Any, Awaitable, Generator, Iterable, Optional, Union
 
 import kanboard
+from gitlab.v4.objects import ProjectIssue, ProjectMergeRequest
 
 from cts_workboard_update2 import WorkboardUpdate
 from nullboard_gitlab import extract_refs, extract_refs_from_str
 from openxr_ops.gitlab import OpenXRGitlab, ReferenceType
-from openxr_ops.kanboard_helpers import KanboardProject
+from openxr_ops.kanboard_helpers import KanboardProject, LinkIdMapping
 from openxr_ops.kb_cts.collection import TaskCollection
 from openxr_ops.kb_cts.stages import TaskColumn, TaskSwimlane
-from openxr_ops.kb_cts.task import CTSTaskCreationData, CTSTaskFlags
+from openxr_ops.kb_cts.task import CTSTask, CTSTaskCreationData, CTSTaskFlags
 from openxr_ops.kb_defaults import CTS_PROJ_NAME, connect_and_get_project
+from openxr_ops.kb_enums import InternalLinkRelation
 from openxr_ops.labels import MainProjectLabels
 
 # List stuff that causes undesired merging here
@@ -82,6 +85,32 @@ async def _handle_item(
 
 
 @dataclass
+class UpdateOptions:
+    # Changes affecting Kanboard
+    create_task: bool = True
+    update_title: bool = False
+    update_description: bool = False
+    update_column_and_swimlane: bool = False
+    update_category: bool = False
+    update_tags: bool = False
+    add_internal_links: bool = True
+
+    # Changes affecting GitLab MRs
+    update_mr_desc: bool = False
+
+    def make_dry_run(self):
+        self.create_task = False
+        self.update_title = False
+        self.update_description = False
+        self.update_column_and_swimlane = False
+        self.update_category = False
+        self.update_tags = False
+        self.add_internal_links = False
+
+        self.update_mr_desc = False
+
+
+@dataclass
 class NoteData:
     list_title: str
     subhead: Optional[str]
@@ -132,6 +161,53 @@ NBNote = dict[str, Union[str, bool]]
 NBNotes = list[NBNote]
 
 
+async def add_link(
+    kb: kanboard.Client,
+    link_mapping: LinkIdMapping,
+    a: CTSTask,
+    b: CTSTask,
+    link_type: InternalLinkRelation,
+    dry_run: bool = False,
+):
+    # Assumes a and b both have their links populated.
+    # await asyncio.gather(a.refresh_internal_links(kb), b.refresh_internal_links(kb))
+    log = logging.getLogger(f"{__name__}.add_link")
+    if a.task_id == b.task_id:
+        log.warning(
+            "Trying to self-link task ID %d with relation '%s'",
+            a.task_id,
+            link_type.value,
+        )
+        return
+    matching_links = [
+        link_data
+        for link_data in a.internal_links_list
+        if link_data["task_id"] == b.task_id
+    ]
+    if matching_links:
+        log.info(
+            "Found existing link(s) between %d and %d (%s), skipping creation",
+            a.task_id,
+            b.task_id,
+            str([link_data["label"] for link_data in matching_links]),
+        )
+        return
+
+    link_type_id = link_type.to_link_id(link_mapping)
+    if dry_run:
+        log.info(
+            "Skipping creation of link '%s' (type ID %d) from %d to %d, due to options",
+            link_type.value,
+            link_type_id,
+            a.task_id,
+            b.task_id,
+        )
+        return
+    await kb.create_task_link_async(
+        task_id=a.task_id, opposite_task_id=b.task_id, link_id=link_type_id
+    )
+
+
 class CTSNullboardToKanboard:
 
     def __init__(
@@ -141,12 +217,12 @@ class CTSNullboardToKanboard:
         kb_project_name: str,
         # wbu: WorkboardUpdate,
         limit: Optional[int],
-        # update_options: UpdateOptions,
+        update_options: UpdateOptions,
     ):
         self.oxr_gitlab: OpenXRGitlab = oxr_gitlab
         # self.gl_collection: ReleaseChecklistCollection = gl_collection
         self.kb_project_name: str = kb_project_name
-        # self.update_options: UpdateOptions = update_options
+        self.update_options: UpdateOptions = update_options
         # self.wbu: WorkboardUpdate = wbu
         self.limit: Optional[int] = limit
 
@@ -154,17 +230,20 @@ class CTSNullboardToKanboard:
 
         self.log = logging.getLogger(f"{__name__}.{self.__class__.__name__}")
 
-        self.mr_to_task_id: dict[int, int] = {}
-        """MR number to kanboard task id"""
+        # self.mr_to_task_id: dict[int, int] = {}
+        # """MR number to kanboard task id"""
 
-        self.issue_to_task_id: dict[int, int] = {}
-        """issue number to kanboard task id"""
+        # self.issue_to_task_id: dict[int, int] = {}
+        # """issue number to kanboard task id"""
 
-        self.update_subtask_futures: list = []
+        # self.update_subtask_futures: list = []
+
+        self.gitlab_mrs: dict[int, ProjectMergeRequest] = {}
+        self.gitlab_issues: dict[int, ProjectIssue] = {}
 
         # these are populated later in prepare
         self.kb_project: KanboardProject
-        # self.task_collection: TaskCollection
+        self.task_collection: TaskCollection
         self.kb: kanboard.Client
 
     def decrement_limit_and_return_true_if_reached(self, count: int = 1):
@@ -183,14 +262,43 @@ class CTSNullboardToKanboard:
     #             return nb_list["notes"]  # type: ignore
     #     return []
 
+    def _fetch_gitlab_issue(self, num: int) -> ProjectIssue:
+        item = self.gitlab_issues.get(num)
+        if item is not None:
+            return item
+
+        fetched = self.oxr_gitlab.main_proj.issues.get(num)
+        self.gitlab_issues[num] = fetched
+        return fetched
+
+    def _fetch_gitlab_mr(self, num: int) -> ProjectMergeRequest:
+        item = self.gitlab_mrs.get(num)
+        if item is not None:
+            return item
+
+        fetched = self.oxr_gitlab.main_proj.mergerequests.get(num)
+        self.gitlab_mrs[num] = fetched
+        return fetched
+
+    def _fetch_gitlab_ref(
+        self, short_ref: str
+    ) -> Union[ProjectIssue, ProjectMergeRequest]:
+        ref_type, num = ReferenceType.short_reference_to_type_and_num(short_ref)
+        if ref_type == ReferenceType.ISSUE:
+            return self._fetch_gitlab_issue(num)
+
+        assert ref_type == ReferenceType.MERGE_REQUEST
+        return self._fetch_gitlab_mr(num)
+
     async def _create_task_for_ref(
         self,
         short_ref: str,
         column: TaskColumn,
         swimlane: TaskSwimlane,
         flags: CTSTaskFlags,
-    ):
+    ) -> Optional[int]:
         ref_type, num = ReferenceType.short_reference_to_type_and_num(short_ref)
+        gl_item: Union[ProjectIssue, ProjectMergeRequest]
         if ref_type == ReferenceType.ISSUE:
             issue_num = num
             mr_num = None
@@ -213,11 +321,24 @@ class CTSNullboardToKanboard:
             flags=flags,
         )
 
-        task_id = await data.create_task(self.kb_project)
-        if task_id is None:
-            return
-        await self.task_collection.load_task_id(task_id)
-        pass
+        if self.update_options.create_task:
+            task_id = await data.create_task(self.kb_project)
+            if task_id is None:
+                return None
+            await self.task_collection.load_task_id(task_id)
+            return task_id
+
+        self.log.info("Skipping creating task due to options: %s", pformat(data))
+        return None
+
+    def _prefetch_note_deps(
+        self,
+        note_data: NoteData,
+    ):
+
+        refs = extract_refs_from_str(note_data.note_text)
+        for ref in refs:
+            self._fetch_gitlab_ref(ref)
 
     async def _process_note(
         self,
@@ -254,31 +375,107 @@ class CTSNullboardToKanboard:
             elif note_data.subhead == "By Others, Contractor Reviewed":
                 mr_contractor_reviewed = True
 
-        mr_flags = dataclasses.replace(
-            flags, contractor_reviewed=mr_contractor_reviewed
-        )
-
         refs = extract_refs_from_str(note_data.note_text)
+        self.log.info("Processing note with refs: %s", ", ".join(refs))
+
         existing_tasks = {
             ref: self.task_collection.get_task_by_ref(ref) for ref in refs
         }
-
-        missing_issues_futures = {
-            int(ref[1:]): self._create_task_for_ref(ref, column, swimlane, flags)
+        # TODO update existing tasks? maybe in separate step?
+        missing_parsed_refs: list[tuple[str, ReferenceType, int]] = [
+            (ref, *ReferenceType.short_reference_to_type_and_num(ref))
             for ref, task in existing_tasks.items()
-            if task is None and ref.startswith("#")
-        }
+            if task is None
+        ]
 
-        missing_mrs_futures = {
-            int(ref[1:]): self._create_task_for_ref(ref, column, swimlane, mr_flags)
-            for ref, task in existing_tasks.items()
-            if task is None and ref.startswith("!")
+        missing_issues_futures: dict[int, Awaitable[Optional[int]]] = {
+            num: self._create_task_for_ref(
+                ref,
+                column,
+                swimlane,
+                flags,
+            )
+            for ref, ref_type, num in missing_parsed_refs
+            if ref_type == ReferenceType.ISSUE
         }
-        for issue_num, future in missing_issues_futures.items():
-            new_task_id = await future
+        missing_mrs_futures: dict[int, Awaitable[Optional[int]]] = {
+            num: self._create_task_for_ref(
+                ref,
+                column,
+                swimlane,
+                dataclasses.replace(flags, contractor_reviewed=mr_contractor_reviewed),
+            )
+            for ref, ref_type, num in missing_parsed_refs
+            if ref_type == ReferenceType.MERGE_REQUEST
+        }
+        for future in missing_issues_futures.values():
+            await future
 
-        for mr_num, future in missing_mrs_futures.items():
-            new_task_id = await future
+        for future in missing_mrs_futures.values():
+            await future
+
+        current_tasks = {ref: self.task_collection.get_task_by_ref(ref) for ref in refs}
+        current_valid_tasks = {
+            ref: task for ref, task in current_tasks.items() if task is not None
+        }
+        # Update all link data first
+        await asyncio.gather(
+            *(
+                task.refresh_internal_links(self.kb)
+                for task in current_valid_tasks.values()
+            )
+        )
+        current_issue_tasks = [
+            task for task in current_valid_tasks.values() if task.is_issue()
+        ]
+        current_mr_tasks = [
+            task for task in current_valid_tasks.values() if task.is_mr()
+        ]
+
+        head_task = self.task_collection.get_task_by_ref(refs[0])
+        if head_task is None:
+            return
+        if head_task.is_issue():
+            relates_futures = [
+                add_link(
+                    kb=self.kb,
+                    link_mapping=self.kb_project.link_mapping,
+                    a=head_task,
+                    b=other_issue_task,
+                    link_type=InternalLinkRelation.RELATES_TO,
+                    dry_run=(not self.update_options.add_internal_links),
+                )
+                for other_issue_task in current_issue_tasks
+                if other_issue_task.task_id != head_task.task_id
+            ]
+
+            depends_futures = [
+                add_link(
+                    kb=self.kb,
+                    link_mapping=self.kb_project.link_mapping,
+                    a=head_task,
+                    b=mr_task,
+                    link_type=InternalLinkRelation.IS_BLOCKED_BY,
+                    dry_run=(not self.update_options.add_internal_links),
+                )
+                for mr_task in current_mr_tasks
+            ]
+            await asyncio.gather(*relates_futures, *depends_futures)
+        else:
+            # Head task is an MR, so just make them all "relates to" if nothing else
+            overall_relates_futures = [
+                add_link(
+                    kb=self.kb,
+                    link_mapping=self.kb_project.link_mapping,
+                    a=head_task,
+                    b=other_task,
+                    link_type=InternalLinkRelation.RELATES_TO,
+                    dry_run=(not self.update_options.add_internal_links),
+                )
+                for other_task in current_valid_tasks.values()
+                if other_task.task_id != head_task.task_id
+            ]
+            await asyncio.gather(*overall_relates_futures)
 
     # async def _process_list(
     #     self, notes: NBNotes, column: TaskColumn, swimlane: TaskSwimlane
@@ -307,17 +504,67 @@ class CTSNullboardToKanboard:
     #         notes, column=TaskColumn.BACKLOG, swimlane=TaskSwimlane.CTS_CONTRACTOR
     #     )
 
+    async def _update_issue(self, task: CTSTask, gl_issue: ProjectIssue):
+        pass
+
+    async def _update_mr(self, task: CTSTask, gl_mr: ProjectMergeRequest):
+        pass
+
     async def process(self, board) -> None:
+        # First, fetch everything from gitlab if possible. Serially.
+        self.log.info("Fetching data on known issues with tasks from GitLab")
+        for issue_num in self.task_collection.issue_to_task_id.keys():
+            self._fetch_gitlab_issue(issue_num)
+
+        self.log.info("Fetching data on known MRs with tasks from GitLab")
+        for mr_num in self.task_collection.mr_to_task_id.keys():
+            self._fetch_gitlab_mr(mr_num)
+
+        # Now, update stuff.
+        self.log.info("Updating issue tasks")
+        issue_update_futures = []
+        for issue_num, task_id in self.task_collection.issue_to_task_id.items():
+            gl_issue = self._fetch_gitlab_issue(issue_num)
+            issue_update_futures.append(
+                self._update_issue(self.task_collection.tasks[task_id], gl_issue)
+            )
+        await asyncio.gather(*issue_update_futures)
+
+        self.log.info("Updating MR tasks")
+        mr_update_futures = []
+        for mr_num, task_id in self.task_collection.mr_to_task_id.items():
+            gl_mr = self._fetch_gitlab_mr(mr_num)
+            mr_update_futures.append(
+                self._update_mr(self.task_collection.tasks[task_id], gl_mr)
+            )
+        await asyncio.gather(*mr_update_futures)
+
+        # serially/synchronously in a single thread
+        self.log.info("Iterating notes to fetch GitLab refs")
+        for note_data in _iterate_notes_with_optional_limit(board, self.limit):
+            self._prefetch_note_deps(note_data)
+
+        self.log.info("Iterating notes to process")
+        for note_data in _iterate_notes_with_optional_limit(board, self.limit):
+            await self._process_note(note_data)
+
+    def _iterate_notes(self, board) -> Iterable[NoteData]:
         note_datas: Iterable[NoteData] = NoteData.iterate_notes(board)
         if self.limit is not None:
             note_datas = itertools.islice(NoteData.iterate_notes(board), self.limit)
-
-        for note_data in note_datas:
-            await self._process_note(note_data)
+        return note_datas
 
     async def prepare(self):
         self.kb_project, self.task_collection = await load_kb_ops(self.kb_project_name)
         self.kb = self.kb_project.kb
+
+
+def _iterate_notes_with_optional_limit(
+    board, limit: Optional[int] = None
+) -> Iterable[NoteData]:
+    if limit is not None:
+        return itertools.islice(NoteData.iterate_notes(board), limit)
+    return NoteData.iterate_notes(board)
 
 
 async def load_kb_ops(project_name: str = CTS_PROJ_NAME, only_open: bool = True):
@@ -364,6 +611,10 @@ async def main(
 
     oxr_gitlab = OpenXRGitlab.create()
 
+    update_options = UpdateOptions()
+    if dry_run:
+        update_options.make_dry_run()
+
     # wbu = WorkboardUpdate(oxr_gitlab)
     # wbu.load_board(in_filename)
 
@@ -372,6 +623,7 @@ async def main(
         kb_project_name=project_name,
         # wbu=wbu,
         limit=limit,
+        update_options=update_options,
     )
 
     with open(in_filename, "r") as fp:
