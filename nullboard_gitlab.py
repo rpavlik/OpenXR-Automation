@@ -15,7 +15,7 @@ import gitlab
 import gitlab.v4.objects
 from gitlab.v4.objects import ProjectIssue, ProjectMergeRequest
 
-from work_item_and_collection import WorkUnit, WorkUnitCollection
+from work_item_and_collection import WorkUnit, WorkUnitCollection, is_mr
 
 _REF_RE = re.compile(r"([!#][0-9]+)\b")
 
@@ -53,8 +53,8 @@ def _make_api_item_text(
     elif api_item.state == "merged":
         state.append("(MERGED)")
 
-    is_mr = hasattr(api_item, "target_branch")
-    really_show_votes = show_votes or (is_mr and show_mr_votes)
+    is_item_mr = is_mr(api_item)
+    really_show_votes = show_votes or (is_item_mr and show_mr_votes)
 
     if really_show_votes and hasattr(api_item, "upvotes") and api_item.upvotes > 0:
         state.append("👍" * api_item.upvotes)
