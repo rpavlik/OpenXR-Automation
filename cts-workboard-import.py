@@ -14,13 +14,13 @@ import logging
 from dataclasses import dataclass
 from enum import Enum
 from pprint import pformat
-from typing import Any, Awaitable, Generator, Iterable, Optional, Union
+from typing import Awaitable, Generator, Iterable, Optional, Union
 
 import kanboard
 from gitlab.v4.objects import ProjectIssue, ProjectMergeRequest
 
-from cts_workboard_update2 import WorkboardUpdate
-from nullboard_gitlab import extract_refs, extract_refs_from_str
+from cts_workboard_update2 import WorkboardUpdate, compute_api_item_state_and_suffix
+from nullboard_gitlab import extract_refs_from_str
 from openxr_ops.gitlab import OpenXRGitlab, ReferenceType
 from openxr_ops.kanboard_helpers import KanboardProject, LinkIdMapping
 from openxr_ops.kb_cts.collection import TaskCollection
@@ -88,7 +88,7 @@ async def _handle_item(
 class UpdateOptions:
     # Changes affecting Kanboard
     create_task: bool = True
-    update_title: bool = False
+    update_title: bool = True
     update_description: bool = False
     update_column_and_swimlane: bool = False
     update_category: bool = False
@@ -134,31 +134,23 @@ class NoteData:
                 )
 
 
-async def _handle_note(
-    wbu: WorkboardUpdate,
-    kb_project: KanboardProject,
-    list_title: str,
-    note_dict: dict[str, Any],
-):
-    log = logging.getLogger(__name__ + "._handle_note")
-
-    refs = extract_refs(note_dict)
-    log.debug("Extracted refs: %s", str(refs))
-    if not refs:
-        # Can't find a reference to an item in the text
-        return
-
-    items = wbu.work.get_items_for_refs(refs)
-    if not items:
-        # Can't find a match for any references
-        log.debug("Could not find an entry for '%s'", ",".join(refs))
-        return
-
-    top_item = items[0]
-
-
 NBNote = dict[str, Union[str, bool]]
 NBNotes = list[NBNote]
+
+
+def _make_api_item_text(
+    api_item: Union[ProjectIssue, ProjectMergeRequest],
+) -> str:
+
+    state, suffix = compute_api_item_state_and_suffix(api_item)
+    state_str = " ".join(state)
+
+    return "{ref}: {state}{title}{suffix}".format(
+        ref=api_item.references["short"],
+        state=state_str,
+        title=api_item.title,
+        suffix=suffix,
+    )
 
 
 async def add_link(
@@ -309,7 +301,8 @@ class CTSNullboardToKanboard:
             gl_item = self.oxr_gitlab.main_proj.mergerequests.get(num)
 
         # TODO
-        title = f"{short_ref}: {gl_item.title}"
+        # title = f"{short_ref}: {gl_item.title}"
+        title = _make_api_item_text(gl_item)
 
         data = CTSTaskCreationData(
             mr_num=mr_num,
@@ -505,10 +498,32 @@ class CTSNullboardToKanboard:
     #     )
 
     async def _update_issue(self, task: CTSTask, gl_issue: ProjectIssue):
-        pass
+        new_title = _make_api_item_text(gl_issue)
+        if new_title == task.title:
+            # no new title needed
+            return
+        if not self.update_options.update_title:
+            self.log.info(
+                "Skipping issue task title update by request: would have changed '%s' to '%s'",
+                task.title,
+                new_title,
+            )
+            return
+        await self.kb.update_task_async(id=task.task_id, title=new_title)
 
     async def _update_mr(self, task: CTSTask, gl_mr: ProjectMergeRequest):
-        pass
+        new_title = _make_api_item_text(gl_mr)
+        if new_title == task.title:
+            # no new title needed
+            return
+        if not self.update_options.update_title:
+            self.log.info(
+                "Skipping MR task title update by request: would have changed '%s' to '%s'",
+                task.title,
+                new_title,
+            )
+            return
+        await self.kb.update_task_async(id=task.task_id, title=new_title)
 
     async def process(self, board) -> None:
         # First, fetch everything from gitlab if possible. Serially.
