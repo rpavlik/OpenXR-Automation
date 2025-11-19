@@ -1,10 +1,11 @@
 #!/usr/bin/env python3
 # Copyright 2022-2024, Collabora, Ltd.
+# Copyright 2025, The Khronos Group Inc.
 #
 # SPDX-License-Identifier: BSL-1.0
 #
 # Author: Rylie Pavlik <rylie.pavlik@collabora.com>
-"""This updates a CTS workboard, but starting with the board, rather than GitLab."""
+"""This updates a CTS Kanboard workboard, from a Nullboard export."""
 
 import asyncio
 import dataclasses
@@ -13,75 +14,19 @@ import json
 import logging
 from dataclasses import dataclass
 from enum import Enum
-from pprint import pformat
 from typing import Awaitable, Generator, Iterable, Optional, Union
 
 import kanboard
-from gitlab.v4.objects import ProjectIssue, ProjectMergeRequest
 
-from cts_workboard_update2 import WorkboardUpdate, compute_api_item_state_and_suffix
 from nullboard_gitlab import extract_refs_from_str
 from openxr_ops.gitlab import OpenXRGitlab, ReferenceType
-from openxr_ops.kanboard_helpers import KanboardProject, LinkIdMapping
+from openxr_ops.kanboard_helpers import KanboardProject
 from openxr_ops.kb_cts.collection import TaskCollection
 from openxr_ops.kb_cts.stages import TaskColumn, TaskSwimlane
-from openxr_ops.kb_cts.task import CTSTask, CTSTaskCreationData, CTSTaskFlags
-from openxr_ops.kb_defaults import CTS_PROJ_NAME, connect_and_get_project
+from openxr_ops.kb_cts.task import CTSTaskFlags
+from openxr_ops.kb_cts.update import BaseOptions, CTSBoardUpdater, add_link
+from openxr_ops.kb_defaults import CTS_PROJ_NAME
 from openxr_ops.kb_enums import InternalLinkRelation
-from openxr_ops.labels import MainProjectLabels
-
-# List stuff that causes undesired merging here
-# Anything on this list will be excluded from the board
-DO_NOT_MERGE = {
-    "!2887",  # hand tracking permission
-    "!3194",  # usage flag errors - merged
-    "!3224",  # more
-    "!3312",  # use .../click action - merged
-    "!3344",  # generate interaction profile spec from xml
-    "!3418",  # swapchain format list - merged
-    "!3466",  # validate action set names - merged
-    "#1460",
-    "#1828",
-    "#1950",
-    "#1978",
-    "#2072",  # catch2 test number, etc mismatch
-    "#2162",  # unordered success
-    "#2220",  # generic controller test
-    "#2275",  # vulkan layer
-    "#2312",  # subimage y offset with 2 parts
-    "#2350",  # xml stuff with 2 parts
-    # "#2553",  # Check format returned
-    # Release candidates
-    "!3053",
-    "!3692",
-}
-
-# Anything on this list will skip looking for related MRs.
-# The contents of DO_NOT_MERGE are also included
-FILTER_OUT = DO_NOT_MERGE.union(
-    {
-        # stuff getting merged into 1.0 v 1.1 that we don't want like that
-        "#2245",
-        "!3499",
-        "!3505",
-    }
-)
-
-# Must have at least one of these labels to show up on this board
-# since there are now two projects using "Contractor:Approved"
-REQUIRED_LABEL_SET = set(
-    (
-        MainProjectLabels.CONFORMANCE_IMPLEMENTATION,
-        MainProjectLabels.CONFORMANCE_IN_THE_WILD,
-        MainProjectLabels.CONFORMANCE_QUESTION,
-    )
-)
-
-
-async def _handle_item(
-    wbu: WorkboardUpdate, kb_project: KanboardProject, list_title: str
-):
-    pass
 
 
 @dataclass
@@ -99,15 +44,19 @@ class UpdateOptions:
     update_mr_desc: bool = False
 
     def make_dry_run(self):
-        self.create_task = False
-        self.update_title = False
-        self.update_description = False
-        self.update_column_and_swimlane = False
-        self.update_category = False
-        self.update_tags = False
-        self.add_internal_links = False
+        self = UpdateOptions(
+            create_task=False,
+            update_title=False,
+            update_description=False,
+            update_column_and_swimlane=False,
+            update_category=False,
+            update_tags=False,
+            add_internal_links=False,
+            update_mr_desc=False,
+        )
 
-        self.update_mr_desc = False
+    def to_base_options(self) -> BaseOptions:
+        return BaseOptions(update_title=self.update_title, create_task=self.create_task)
 
 
 @dataclass
@@ -138,100 +87,24 @@ NBNote = dict[str, Union[str, bool]]
 NBNotes = list[NBNote]
 
 
-def _make_api_item_text(
-    api_item: Union[ProjectIssue, ProjectMergeRequest],
-) -> str:
-
-    state, suffix = compute_api_item_state_and_suffix(api_item)
-    state_str = " ".join(state)
-
-    return "{ref}: {state}{title}{suffix}".format(
-        ref=api_item.references["short"],
-        state=state_str,
-        title=api_item.title,
-        suffix=suffix,
-    )
-
-
-async def add_link(
-    kb: kanboard.Client,
-    link_mapping: LinkIdMapping,
-    a: CTSTask,
-    b: CTSTask,
-    link_type: InternalLinkRelation,
-    dry_run: bool = False,
-):
-    # Assumes a and b both have their links populated.
-    # await asyncio.gather(a.refresh_internal_links(kb), b.refresh_internal_links(kb))
-    log = logging.getLogger(f"{__name__}.add_link")
-    if a.task_id == b.task_id:
-        log.warning(
-            "Trying to self-link task ID %d with relation '%s'",
-            a.task_id,
-            link_type.value,
-        )
-        return
-    matching_links = [
-        link_data
-        for link_data in a.internal_links_list
-        if link_data["task_id"] == b.task_id
-    ]
-    if matching_links:
-        log.info(
-            "Found existing link(s) between %d and %d (%s), skipping creation",
-            a.task_id,
-            b.task_id,
-            str([link_data["label"] for link_data in matching_links]),
-        )
-        return
-
-    link_type_id = link_type.to_link_id(link_mapping)
-    if dry_run:
-        log.info(
-            "Skipping creation of link '%s' (type ID %d) from %d to %d, due to options",
-            link_type.value,
-            link_type_id,
-            a.task_id,
-            b.task_id,
-        )
-        return
-    await kb.create_task_link_async(
-        task_id=a.task_id, opposite_task_id=b.task_id, link_id=link_type_id
-    )
-
-
 class CTSNullboardToKanboard:
 
     def __init__(
         self,
         oxr_gitlab: OpenXRGitlab,
-        # gl_collection: ReleaseChecklistCollection,
         kb_project_name: str,
-        # wbu: WorkboardUpdate,
         limit: Optional[int],
         update_options: UpdateOptions,
     ):
+        self.base = CTSBoardUpdater(
+            oxr_gitlab, kb_project_name, options=update_options.to_base_options()
+        )
         self.oxr_gitlab: OpenXRGitlab = oxr_gitlab
-        # self.gl_collection: ReleaseChecklistCollection = gl_collection
         self.kb_project_name: str = kb_project_name
         self.update_options: UpdateOptions = update_options
-        # self.wbu: WorkboardUpdate = wbu
         self.limit: Optional[int] = limit
 
-        # self.config = get_config_data()
-
         self.log = logging.getLogger(f"{__name__}.{self.__class__.__name__}")
-
-        # self.mr_to_task_id: dict[int, int] = {}
-        # """MR number to kanboard task id"""
-
-        # self.issue_to_task_id: dict[int, int] = {}
-        # """issue number to kanboard task id"""
-
-        # self.update_subtask_futures: list = []
-
-        self.gitlab_mrs: dict[int, ProjectMergeRequest] = {}
-        self.gitlab_issues: dict[int, ProjectIssue] = {}
 
         # these are populated later in prepare
         self.kb_project: KanboardProject
@@ -248,82 +121,6 @@ class CTSNullboardToKanboard:
 
         return self.limit < 0
 
-    # def _find_list_notes(self, title: str) -> NBNotes:
-    #     for nb_list in self.wbu.board["lists"]:
-    #         if nb_list["title"] == title:  # type: ignore
-    #             return nb_list["notes"]  # type: ignore
-    #     return []
-
-    def _fetch_gitlab_issue(self, num: int) -> ProjectIssue:
-        item = self.gitlab_issues.get(num)
-        if item is not None:
-            return item
-
-        fetched = self.oxr_gitlab.main_proj.issues.get(num)
-        self.gitlab_issues[num] = fetched
-        return fetched
-
-    def _fetch_gitlab_mr(self, num: int) -> ProjectMergeRequest:
-        item = self.gitlab_mrs.get(num)
-        if item is not None:
-            return item
-
-        fetched = self.oxr_gitlab.main_proj.mergerequests.get(num)
-        self.gitlab_mrs[num] = fetched
-        return fetched
-
-    def _fetch_gitlab_ref(
-        self, short_ref: str
-    ) -> Union[ProjectIssue, ProjectMergeRequest]:
-        ref_type, num = ReferenceType.short_reference_to_type_and_num(short_ref)
-        if ref_type == ReferenceType.ISSUE:
-            return self._fetch_gitlab_issue(num)
-
-        assert ref_type == ReferenceType.MERGE_REQUEST
-        return self._fetch_gitlab_mr(num)
-
-    async def _create_task_for_ref(
-        self,
-        short_ref: str,
-        column: TaskColumn,
-        swimlane: TaskSwimlane,
-        flags: CTSTaskFlags,
-    ) -> Optional[int]:
-        ref_type, num = ReferenceType.short_reference_to_type_and_num(short_ref)
-        gl_item: Union[ProjectIssue, ProjectMergeRequest]
-        if ref_type == ReferenceType.ISSUE:
-            issue_num = num
-            mr_num = None
-            gl_item = self.oxr_gitlab.main_proj.issues.get(num)
-        else:
-            issue_num = None
-            mr_num = num
-            gl_item = self.oxr_gitlab.main_proj.mergerequests.get(num)
-
-        # TODO
-        # title = f"{short_ref}: {gl_item.title}"
-        title = _make_api_item_text(gl_item)
-
-        data = CTSTaskCreationData(
-            mr_num=mr_num,
-            issue_num=issue_num,
-            column=column,
-            swimlane=swimlane,
-            title=title,
-            description="",
-            flags=flags,
-        )
-
-        if self.update_options.create_task:
-            task_id = await data.create_task(self.kb_project)
-            if task_id is None:
-                return None
-            await self.task_collection.load_task_id(task_id)
-            return task_id
-
-        self.log.info("Skipping creating task due to options: %s", pformat(data))
-        return None
-
     def _prefetch_note_deps(
         self,
         note_data: NoteData,
@@ -331,7 +128,7 @@ class CTSNullboardToKanboard:
 
         refs = extract_refs_from_str(note_data.note_text)
         for ref in refs:
-            self._fetch_gitlab_ref(ref)
+            self.base.get_or_fetch_gitlab_ref(ref)
 
     async def _process_note(
         self,
@@ -382,7 +179,7 @@ class CTSNullboardToKanboard:
         ]
 
         missing_issues_futures: dict[int, Awaitable[Optional[int]]] = {
-            num: self._create_task_for_ref(
+            num: self.base.create_task_for_ref(
                 ref,
                 column,
                 swimlane,
@@ -392,7 +189,7 @@ class CTSNullboardToKanboard:
             if ref_type == ReferenceType.ISSUE
         }
         missing_mrs_futures: dict[int, Awaitable[Optional[int]]] = {
-            num: self._create_task_for_ref(
+            num: self.base.create_task_for_ref(
                 ref,
                 column,
                 swimlane,
@@ -470,95 +267,19 @@ class CTSNullboardToKanboard:
             ]
             await asyncio.gather(*overall_relates_futures)
 
-    # async def _process_list(
-    #     self, notes: NBNotes, column: TaskColumn, swimlane: TaskSwimlane
-    # ):
-    #     futures = []
-    #     for note in notes:
-    #         if not note.get("raw"):
-    #             futures.append(
-    #                 self._process_note(
-    #                     cast(str, note["text"]),
-    #                     # column=column,
-    #                     # swimlane=swimlane,
-    #                     # flags=CTSTaskFlags(),
-    #                 )
-    #             )
-
-    #     # TODO parallelize?
-    #     for future in futures:
-    #         if self.decrement_limit_and_return_true_if_reached():
-    #             return
-    #         await future
-
-    # async def process_todo(self):
-    #     notes = self._find_list_notes(OldTitles.TODO.value)
-    #     await self._process_list(
-    #         notes, column=TaskColumn.BACKLOG, swimlane=TaskSwimlane.CTS_CONTRACTOR
-    #     )
-
-    async def _update_issue(self, task: CTSTask, gl_issue: ProjectIssue):
-        new_title = _make_api_item_text(gl_issue)
-        if new_title == task.title:
-            # no new title needed
-            return
-        if not self.update_options.update_title:
-            self.log.info(
-                "Skipping issue task title update by request: would have changed '%s' to '%s'",
-                task.title,
-                new_title,
-            )
-            return
-        await self.kb.update_task_async(id=task.task_id, title=new_title)
-
-    async def _update_mr(self, task: CTSTask, gl_mr: ProjectMergeRequest):
-        new_title = _make_api_item_text(gl_mr)
-        if new_title == task.title:
-            # no new title needed
-            return
-        if not self.update_options.update_title:
-            self.log.info(
-                "Skipping MR task title update by request: would have changed '%s' to '%s'",
-                task.title,
-                new_title,
-            )
-            return
-        await self.kb.update_task_async(id=task.task_id, title=new_title)
-
     async def process(self, board) -> None:
         # First, fetch everything from gitlab if possible. Serially.
-        self.log.info("Fetching data on known issues with tasks from GitLab")
-        for issue_num in self.task_collection.issue_to_task_id.keys():
-            self._fetch_gitlab_issue(issue_num)
-
-        self.log.info("Fetching data on known MRs with tasks from GitLab")
-        for mr_num in self.task_collection.mr_to_task_id.keys():
-            self._fetch_gitlab_mr(mr_num)
+        self.base.fetch_all_from_gitlab()
 
         # Now, update stuff.
-        self.log.info("Updating issue tasks")
-        issue_update_futures = []
-        for issue_num, task_id in self.task_collection.issue_to_task_id.items():
-            gl_issue = self._fetch_gitlab_issue(issue_num)
-            issue_update_futures.append(
-                self._update_issue(self.task_collection.tasks[task_id], gl_issue)
-            )
-        await asyncio.gather(*issue_update_futures)
+        await self.base.update_existing_tasks()
 
-        self.log.info("Updating MR tasks")
-        mr_update_futures = []
-        for mr_num, task_id in self.task_collection.mr_to_task_id.items():
-            gl_mr = self._fetch_gitlab_mr(mr_num)
-            mr_update_futures.append(
-                self._update_mr(self.task_collection.tasks[task_id], gl_mr)
-            )
-        await asyncio.gather(*mr_update_futures)
-
-        # serially/synchronously in a single thread
+        # serially/synchronously in a single thread - prefetch
         self.log.info("Iterating notes to fetch GitLab refs")
         for note_data in _iterate_notes_with_optional_limit(board, self.limit):
             self._prefetch_note_deps(note_data)
 
+        # now handle notes
         self.log.info("Iterating notes to process")
         for note_data in _iterate_notes_with_optional_limit(board, self.limit):
             await self._process_note(note_data)
@@ -570,8 +291,10 @@ class CTSNullboardToKanboard:
         return note_datas
 
     async def prepare(self):
-        self.kb_project, self.task_collection = await load_kb_ops(self.kb_project_name)
-        self.kb = self.kb_project.kb
+        await self.base.prepare()
+        self.kb = self.base.kb
+        self.kb_project = self.base.kb_project
+        self.task_collection = self.base.task_collection
 
 
 def _iterate_notes_with_optional_limit(
@@ -580,21 +303,6 @@ def _iterate_notes_with_optional_limit(
     if limit is not None:
         return itertools.islice(NoteData.iterate_notes(board), limit)
     return NoteData.iterate_notes(board)
-
-
-async def load_kb_ops(project_name: str = CTS_PROJ_NAME, only_open: bool = True):
-    log = logging.getLogger(__name__)
-
-    kb, proj = await connect_and_get_project(project_name)
-
-    kb_project = KanboardProject(kb, int(proj["id"]))
-    log.info("Getting columns, swimlanes, and categories")
-    await kb_project.fetch_all_id_maps()
-
-    log.info("Loading KB tasks")
-    task_collection = TaskCollection(kb_project)
-    await task_collection.load_project(only_open=only_open)
-    return kb_project, task_collection
 
 
 class OldTitles(Enum):
@@ -636,7 +344,6 @@ async def main(
     obj = CTSNullboardToKanboard(
         oxr_gitlab=oxr_gitlab,
         kb_project_name=project_name,
-        # wbu=wbu,
         limit=limit,
         update_options=update_options,
     )
@@ -646,28 +353,6 @@ async def main(
 
     await obj.prepare()
     await obj.process(nb_board)
-
-    # kb_project, task_collection = await load_kb_ops(project_name, only_open=False)
-    # kb_proj = await kb_proj_future
-    # print(kb_proj["url"]["board"])
-    # kb_proj_id = kb_proj["id"]
-
-    # kb_project = KanboardProject(kb, kb_proj_id)
-    # await kb_project.fetch_columns()
-
-    # Create all the columns
-    # await asyncio.gather(
-    #     *[
-    #         kb_project.get_or_create_column(nb_list_obj["title"])
-    #         for nb_list_obj in wbu.board["lists"]
-    #     ]
-    # )
-    # updated = wbu.update_board()
-
-    # if updated:
-    #     log.info("Board contents have been changed.")
-    # else:
-    #     log.info("No changes to board, output is the same data as input.")
 
 
 if __name__ == "__main__":
@@ -721,6 +406,6 @@ if __name__ == "__main__":
             project_name=args.project,
             limit=limit,
             dry_run=args.dry_run,
-            in_filename="Nullboard-1661530413298-OpenXR-CTS.nbx",
+            in_filename=args.filename,
         )
     )
