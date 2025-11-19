@@ -23,11 +23,18 @@ from openxr_ops.gitlab import OpenXRGitlab, ReferenceType
 from openxr_ops.kanboard_helpers import KanboardProject
 from openxr_ops.kb_cts.collection import TaskCollection
 from openxr_ops.kb_cts.stages import TaskColumn, TaskSwimlane
-from openxr_ops.kb_cts.task import CTSTaskFlags
+from openxr_ops.kb_cts.task import CTSTask, CTSTaskFlags
 from openxr_ops.kb_cts.update import BaseOptions, CTSBoardUpdater, add_link
 from openxr_ops.kb_defaults import CTS_PROJ_NAME
 from openxr_ops.kb_enums import InternalLinkRelation
 from openxr_ops.nullboard import NoteData
+
+SUBHEAD_TO_USER = {
+    "Rylie": "rpavlik",
+    "Charlton": "safarimonkey",
+    "Christoph": "haagch",
+    "Simon": "simonz",
+}
 
 
 @dataclass
@@ -40,6 +47,7 @@ class UpdateOptions:
     update_category: bool = True
     update_tags: bool = True
     update_color: bool = True
+    update_owner: bool = True
     add_internal_links: bool = True
 
     # Changes affecting GitLab MRs
@@ -53,6 +61,7 @@ class UpdateOptions:
             update_column_and_swimlane=False,
             update_category=False,
             update_tags=False,
+            update_owner=False,
             add_internal_links=False,
             update_mr_desc=False,
         )
@@ -239,6 +248,47 @@ class CTSNullboardToKanboard:
             ]
             await asyncio.gather(*overall_relates_futures)
 
+        if column == TaskColumn.IN_PROGRESS and note_data.subhead is not None:
+            desired_username: Optional[str] = SUBHEAD_TO_USER.get(note_data.subhead)
+            if desired_username is not None:
+                await self._update_owner_on_tasks(
+                    current_valid_tasks.values(), desired_username
+                )
+
+    async def _update_owner_on_tasks(
+        self, tasks: Iterable[CTSTask], desired_username: str
+    ):
+        desired_user_id: Optional[int] = self.kb_project.username_to_id.get(
+            desired_username
+        )
+        if desired_user_id is None:
+            return
+
+        await asyncio.gather(
+            *(self._update_owner(task, desired_user_id) for task in tasks)
+        )
+
+    async def _update_owner(self, task: CTSTask, desired_user_id: int):
+        assert task.task_dict
+        existing_id = int(task.task_dict.get("owner_id", "0"))
+        if existing_id != desired_user_id:
+            if not self.update_options.update_owner:
+                self.log.info(
+                    "Skipping updating owner on '%s' from %d to %d",
+                    task.title,
+                    existing_id,
+                    desired_user_id,
+                )
+                return
+
+            self.log.info(
+                "Updating owner on '%s' from %d to %d",
+                task.title,
+                existing_id,
+                desired_user_id,
+            )
+            await self.kb.update_task_async(id=task.task_id, owner_id=desired_user_id)
+
     async def process(self, board) -> None:
         # First, fetch everything from gitlab if possible. Serially.
         self.base.fetch_all_from_gitlab()
@@ -253,8 +303,14 @@ class CTSNullboardToKanboard:
 
         # now handle notes
         self.log.info("Iterating notes to process")
-        for note_data in _iterate_notes_with_optional_limit(board, self.limit):
-            await self._process_note(note_data)
+
+        BATCH_SIZE = 5
+        for note_data_batch in itertools.batched(
+            _iterate_notes_with_optional_limit(board, self.limit), BATCH_SIZE
+        ):
+            await asyncio.gather(
+                *(self._process_note(note_data) for note_data in note_data_batch)
+            )
 
     def _iterate_notes(self, board) -> Iterable[NoteData]:
         note_datas: Iterable[NoteData] = NoteData.iterate_notes(board)

@@ -57,6 +57,9 @@ class KanboardProject:
         self.category_title_to_id: dict[str, int] = dict()
         self.category_ids_to_titles: dict[int, str] = dict()
 
+        self.username_to_id: dict[str, int] = {}
+        self.user_id_to_username: dict[int, str] = {}
+
         self.link_mapping = LinkIdMapping(kb)
 
     async def fetch_all_id_maps(self):
@@ -65,8 +68,15 @@ class KanboardProject:
             self.fetch_categories(),
             self.fetch_columns(),
             self.fetch_swimlanes(),
+            self.fetch_users(),
             self.link_mapping.fetch_link_types(),
         )
+
+    async def fetch_users(self):
+        """Retrieve users."""
+        users = await self.kb.get_all_users_async()
+        self.username_to_id.update({user["username"]: user["id"] for user in users})
+        self.user_id_to_username = {v: k for k, v in self.username_to_id.items()}
 
     async def fetch_categories(self):
         """Retrieve category names and IDs."""
