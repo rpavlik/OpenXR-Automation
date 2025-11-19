@@ -95,11 +95,14 @@ async def add_link(
 
 @dataclass
 class BaseOptions:
+    """Options for CTSBoardUpdater."""
+
     update_title: bool = True
     create_task: bool = True
 
 
 class CTSBoardUpdater:
+    """Class for handling CTS Kanboard workboard operations."""
 
     def __init__(
         self,
@@ -124,6 +127,7 @@ class CTSBoardUpdater:
     def get_or_fetch_gitlab_issue(self, num: int) -> ProjectIssue:
         item = self.gitlab_issues.get(num)
         if item is not None:
+            # already had it
             return item
 
         fetched = self.oxr_gitlab.main_proj.issues.get(num)
@@ -133,6 +137,7 @@ class CTSBoardUpdater:
     def get_or_fetch_gitlab_mr(self, num: int) -> ProjectMergeRequest:
         item = self.gitlab_mrs.get(num)
         if item is not None:
+            # already had it
             return item
 
         fetched = self.oxr_gitlab.main_proj.mergerequests.get(num)
@@ -154,9 +159,10 @@ class CTSBoardUpdater:
         short_ref: str,
         column: TaskColumn,
         swimlane: TaskSwimlane,
-        flags: CTSTaskFlags,
+        starting_flags: CTSTaskFlags,
     ) -> Optional[int]:
         ref_type, num = ReferenceType.short_reference_to_type_and_num(short_ref)
+        custom_flags = dataclasses.replace(starting_flags)
         gl_item: Union[ProjectIssue, ProjectMergeRequest]
         if ref_type == ReferenceType.ISSUE:
             issue_num = num
@@ -167,8 +173,8 @@ class CTSBoardUpdater:
             mr_num = num
             gl_item = self.oxr_gitlab.main_proj.mergerequests.get(num)
 
-        # TODO
-        # title = f"{short_ref}: {gl_item.title}"
+        # TODO customize custom_flags based on the gitlab item
+
         title = _make_api_item_text(gl_item)
 
         data = CTSTaskCreationData(
@@ -178,7 +184,7 @@ class CTSBoardUpdater:
             swimlane=swimlane,
             title=title,
             description="",
-            flags=flags,
+            flags=custom_flags,
         )
 
         if self.options.create_task:
@@ -195,7 +201,9 @@ class CTSBoardUpdater:
         new_title = _make_api_item_text(gl_issue)
         if new_title == task.title:
             # no new title needed
+            self.log.debug("No issue task title update needed for: '%s'", task.title)
             return
+
         if not self.options.update_title:
             self.log.info(
                 "Skipping issue task title update by request: would have changed '%s' to '%s'",
@@ -203,12 +211,18 @@ class CTSBoardUpdater:
                 new_title,
             )
             return
+        self.log.info(
+            "Updating issue task title: '%s' to '%s'",
+            task.title,
+            new_title,
+        )
         await self.kb.update_task_async(id=task.task_id, title=new_title)
 
     async def update_mr(self, task: CTSTask, gl_mr: ProjectMergeRequest):
         new_title = _make_api_item_text(gl_mr)
         if new_title == task.title:
             # no new title needed
+            self.log.debug("No MR task title update needed for: '%s'", task.title)
             return
         if not self.options.update_title:
             self.log.info(
@@ -217,6 +231,11 @@ class CTSBoardUpdater:
                 new_title,
             )
             return
+        self.log.info(
+            "Updating MR task title: '%s' to '%s'",
+            task.title,
+            new_title,
+        )
         await self.kb.update_task_async(id=task.task_id, title=new_title)
 
     def fetch_all_from_gitlab(self) -> None:
