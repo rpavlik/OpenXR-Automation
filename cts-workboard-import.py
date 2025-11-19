@@ -9,6 +9,7 @@
 import asyncio
 import dataclasses
 import itertools
+import json
 import logging
 from dataclasses import dataclass
 from enum import Enum
@@ -138,7 +139,7 @@ class CTSNullboardToKanboard:
         oxr_gitlab: OpenXRGitlab,
         # gl_collection: ReleaseChecklistCollection,
         kb_project_name: str,
-        wbu: WorkboardUpdate,
+        # wbu: WorkboardUpdate,
         limit: Optional[int],
         # update_options: UpdateOptions,
     ):
@@ -146,7 +147,7 @@ class CTSNullboardToKanboard:
         # self.gl_collection: ReleaseChecklistCollection = gl_collection
         self.kb_project_name: str = kb_project_name
         # self.update_options: UpdateOptions = update_options
-        self.wbu: WorkboardUpdate = wbu
+        # self.wbu: WorkboardUpdate = wbu
         self.limit: Optional[int] = limit
 
         # self.config = get_config_data()
@@ -176,11 +177,11 @@ class CTSNullboardToKanboard:
 
         return self.limit < 0
 
-    def _find_list_notes(self, title: str) -> NBNotes:
-        for nb_list in self.wbu.board["lists"]:
-            if nb_list["title"] == title:  # type: ignore
-                return nb_list["notes"]  # type: ignore
-        return []
+    # def _find_list_notes(self, title: str) -> NBNotes:
+    #     for nb_list in self.wbu.board["lists"]:
+    #         if nb_list["title"] == title:  # type: ignore
+    #             return nb_list["notes"]  # type: ignore
+    #     return []
 
     async def _create_task_for_ref(
         self,
@@ -193,12 +194,15 @@ class CTSNullboardToKanboard:
         if ref_type == ReferenceType.ISSUE:
             issue_num = num
             mr_num = None
+            gl_item = self.oxr_gitlab.main_proj.issues.get(num)
         else:
             issue_num = None
             mr_num = num
+            gl_item = self.oxr_gitlab.main_proj.mergerequests.get(num)
 
         # TODO
-        title = short_ref
+        title = f"{short_ref}: {gl_item.title}"
+
         data = CTSTaskCreationData(
             mr_num=mr_num,
             issue_num=issue_num,
@@ -360,17 +364,21 @@ async def main(
 
     oxr_gitlab = OpenXRGitlab.create()
 
-    wbu = WorkboardUpdate(oxr_gitlab)
-    wbu.load_board(in_filename)
+    # wbu = WorkboardUpdate(oxr_gitlab)
+    # wbu.load_board(in_filename)
 
     obj = CTSNullboardToKanboard(
         oxr_gitlab=oxr_gitlab,
         kb_project_name=project_name,
-        wbu=wbu,
+        # wbu=wbu,
         limit=limit,
     )
+
+    with open(in_filename, "r") as fp:
+        nb_board = json.load(fp)
+
     await obj.prepare()
-    await obj.process(obj.wbu.board)
+    await obj.process(nb_board)
 
     # kb_project, task_collection = await load_kb_ops(project_name, only_open=False)
     # kb_proj = await kb_proj_future
