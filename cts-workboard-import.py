@@ -111,16 +111,6 @@ class CTSNullboardToKanboard:
         self.task_collection: TaskCollection
         self.kb: kanboard.Client
 
-    def decrement_limit_and_return_true_if_reached(self, count: int = 1):
-        if self.limit is None:
-            return False
-        if self.limit < 0:
-            return True
-
-        self.limit -= count
-
-        return self.limit < 0
-
     def _prefetch_note_deps(
         self,
         note_data: NoteData,
@@ -132,11 +122,7 @@ class CTSNullboardToKanboard:
 
     async def _process_note(
         self,
-        # note_text: str,
         note_data: NoteData,
-        # column: TaskColumn,
-        # swimlane: TaskSwimlane,
-        # flags: CTSTaskFlags,
     ):
         column: TaskColumn = COLUMN_EQUIVALENTS[OldTitles(note_data.list_title)]
         swimlane: TaskSwimlane = TaskSwimlane.GENERAL
@@ -171,7 +157,7 @@ class CTSNullboardToKanboard:
         existing_tasks = {
             ref: self.task_collection.get_task_by_ref(ref) for ref in refs
         }
-        # TODO update existing tasks? maybe in separate step?
+
         missing_parsed_refs: list[tuple[str, ReferenceType, int]] = [
             (ref, *ReferenceType.short_reference_to_type_and_num(ref))
             for ref, task in existing_tasks.items()
@@ -208,6 +194,7 @@ class CTSNullboardToKanboard:
         current_valid_tasks = {
             ref: task for ref, task in current_tasks.items() if task is not None
         }
+
         # Update all link data first
         await asyncio.gather(
             *(
@@ -215,6 +202,7 @@ class CTSNullboardToKanboard:
                 for task in current_valid_tasks.values()
             )
         )
+
         current_issue_tasks = [
             task for task in current_valid_tasks.values() if task.is_issue()
         ]
@@ -224,7 +212,11 @@ class CTSNullboardToKanboard:
 
         head_task = self.task_collection.get_task_by_ref(refs[0])
         if head_task is None:
+            self.log.warning(
+                "Head item in note does not have a corresponding task: %s", refs[0]
+            )
             return
+
         if head_task.is_issue():
             relates_futures = [
                 add_link(
@@ -338,9 +330,6 @@ async def main(
     if dry_run:
         update_options.make_dry_run()
 
-    # wbu = WorkboardUpdate(oxr_gitlab)
-    # wbu.load_board(in_filename)
-
     obj = CTSNullboardToKanboard(
         oxr_gitlab=oxr_gitlab,
         kb_project_name=project_name,
@@ -379,7 +368,6 @@ if __name__ == "__main__":
         "--filename",
         type=str,
         help="Nullboard export filename",
-        # required=True,
         default="Nullboard-1661530413298-OpenXR-CTS.nbx",
     )
     parser.add_argument(
