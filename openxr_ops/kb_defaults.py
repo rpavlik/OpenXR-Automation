@@ -48,11 +48,9 @@ async def connect_and_get_project(
         insecure=True,
     )
     log.info("Getting project by name")
-    from pprint import pformat
 
     proj = await kb.get_project_by_name_async(name=project_name)
     if proj == False:
         raise RuntimeError("No project named " + project_name)
 
-    log.debug("Project data: %s", pformat(proj))
     return kb, proj

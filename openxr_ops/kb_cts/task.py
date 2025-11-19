@@ -1,5 +1,5 @@
 import datetime
-import re
+import logging
 from dataclasses import dataclass
 from typing import Any, Optional
 
@@ -249,12 +249,15 @@ class CTSTaskCreationData:
         return None
 
     async def create_task(self, kb_project: KanboardProject) -> Optional[int]:
+        log = logging.getLogger(f"{__name__}.{self.__class__.__name__}.create_task")
         swimlane_id = self.swimlane.to_swimlane_id(kb_project)
         if swimlane_id is None:
+            log.error("Could not find ID for swimlane %s", self.swimlane.value)
             return None
 
         column_id = self.column.to_column_id(kb_project)
         if column_id is None:
+            log.error("Could not find ID for column %s", self.column.value)
             return None
 
         category_id: Optional[int] = None
@@ -282,6 +285,8 @@ class CTSTaskCreationData:
             tags=tags,
             date_started=date_started,
         )
+        if not task_id:
+            raise RuntimeError("Failed to create task!")
 
         main_url = self.gitlab_link
         if main_url is not None:
