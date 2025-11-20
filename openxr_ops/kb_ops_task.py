@@ -256,7 +256,7 @@ class OperationsTaskCreationData:
             description=self.description,
             swimlane_id=swimlane_id,
             column_id=column_id,
-            color_id="white",
+            color_id="grey",
             # gl_url=mr_url,
             category_id=category_id,
             tags=tags,
