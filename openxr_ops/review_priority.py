@@ -26,7 +26,7 @@ class ReviewPriorityConfig:
         self.vendor_config: dict[str, dict[str, Union[str, List[str]]]] = dict()
         """Customization per vendor tag."""
 
-        self.log = logging.getLogger(__name__ + ".ReviewPriorityConfig")
+        self.log = logging.getLogger(f"{__name__}.ReviewPriorityConfig")
 
         if fn:
             self.log.info("Opening config %s", fn)

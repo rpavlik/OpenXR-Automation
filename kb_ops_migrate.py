@@ -238,7 +238,7 @@ class OperationsGitLabToKanboard:
     ):
         existing_subtasks = await self.kb.get_all_subtasks_async(task_id=task_id)
         if existing_subtasks == False:
-            raise RuntimeError("Failed to get subtasks for task ID " + str(task_id))
+            raise RuntimeError(f"Failed to get subtasks for task ID {task_id!s}")
 
         subtask_migration = MigrateChecklistToSubtasks(
             self.kb,
@@ -324,13 +324,11 @@ class OperationsGitLabToKanboard:
         if must_move and self.update_options.update_column_and_swimlane:
             column_id = data.column.to_column_id(self.kb_project)
             if column_id is None:
-                raise RuntimeError("Could not find column ID for " + str(data.column))
+                raise RuntimeError(f"Could not find column ID for {data.column!s}")
 
             swimlane_id = data.swimlane.to_swimlane_id(self.kb_project)
             if swimlane_id is None:
-                raise RuntimeError(
-                    "Could not find swimlane ID for " + str(data.swimlane)
-                )
+                raise RuntimeError(f"Could not find swimlane ID for {data.swimlane!s}")
             await self.kb.move_task_position_async(
                 project_id=self.kb_project.project_id,
                 task_id=kb_task.task_id,

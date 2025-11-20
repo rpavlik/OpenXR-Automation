@@ -61,7 +61,7 @@ async def create_or_populate_project(kb: kanboard.Client, project_name: str):
 
 
 async def get_projects(kb: kanboard.Client):
-    log = logging.getLogger(__name__ + ".get_projects")
+    log = logging.getLogger(f"{__name__}.get_projects")
     projects = await kb.get_all_projects_async()
     log.info("All projects: %s", pformat(projects))
 

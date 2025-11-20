@@ -44,13 +44,7 @@ def _title_from_gitlab_item(
     else:
         kind = "MR"
 
-    return "{kind} {ref}: {state}{title}{suffix}".format(
-        kind=kind,
-        ref=short_ref,
-        state=state_str,
-        title=api_item.title,
-        suffix=suffix,
-    )
+    return f"{kind} {short_ref}: {state_str}{api_item.title}{suffix}"
 
 
 def _color_id_from_ref_type(ref_type: ReferenceType) -> str:

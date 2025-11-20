@@ -32,7 +32,7 @@ class InternalLinkRelation(Enum):
     def to_link_id(self, link_mapping: LinkIdMapping) -> int:
         result = self.try_to_link_id(link_mapping)
         if result is None:
-            raise RuntimeError("Missing link ID for " + str(self))
+            raise RuntimeError(f"Missing link ID for {self!s}")
         return result
 
     @classmethod
