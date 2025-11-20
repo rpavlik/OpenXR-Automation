@@ -61,6 +61,7 @@ TAG_COLORS = {
 
 class TaskCategory(Enum):
     CONTRACTOR = "CTS Contractor"
+    NOT_CTS = "Non-CTS Task"
 
     def to_category_id(self, kb_project: KanboardProject) -> Optional[int]:
         # depends on data cached by kb_project
@@ -92,7 +93,10 @@ class TaskCategory(Enum):
         return cls(kb_project.category_ids_to_titles[category_id])
 
 
-CATEGORY_COLORS = {TaskCategory.CONTRACTOR: "green"}
+CATEGORY_COLORS = {
+    TaskCategory.CONTRACTOR: "green",
+    TaskCategory.NOT_CTS: "grey",
+}
 
 
 class TaskSwimlane(Enum):
