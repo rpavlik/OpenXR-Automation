@@ -8,14 +8,16 @@
 import logging
 import re
 import time
+from collections.abc import Callable, Generator
 from dataclasses import dataclass
-from typing import Any, Callable, Dict, Generator, List, Optional, Set, Tuple, Union
+from typing import Any
 
 import gitlab
 import gitlab.v4.objects
 from gitlab.v4.objects import ProjectIssue, ProjectMergeRequest
 
-from work_item_and_collection import WorkUnit, WorkUnitCollection
+from openxr_ops.labels import MainProjectLabels
+from work_item_and_collection import WorkUnit, WorkUnitCollection, is_mr
 
 _REF_RE = re.compile(r"([!#][0-9]+)\b")
 
@@ -35,14 +37,14 @@ def guess_list(item: WorkUnit) -> str:
         # merge request
         if mr.work_in_progress:
             return ListName.DOING
-        if "Needs Action" in mr.labels:
+        if MainProjectLabels.NEEDS_AUTHOR_ACTION in mr.labels:
             return ListName.DOING
         return ListName.REVIEW
     return ListName.TODO
 
 
 def _make_api_item_text(
-    api_item: Union[ProjectIssue, ProjectMergeRequest],
+    api_item: ProjectIssue | ProjectMergeRequest,
     show_votes: bool = False,
     show_mr_votes: bool = False,
     show_objection_window: bool = False,
@@ -53,8 +55,8 @@ def _make_api_item_text(
     elif api_item.state == "merged":
         state.append("(MERGED)")
 
-    is_mr = hasattr(api_item, "target_branch")
-    really_show_votes = show_votes or (is_mr and show_mr_votes)
+    is_item_mr = is_mr(api_item)
+    really_show_votes = show_votes or (is_item_mr and show_mr_votes)
 
     if really_show_votes and hasattr(api_item, "upvotes") and api_item.upvotes > 0:
         state.append("👍" * api_item.upvotes)
@@ -83,7 +85,7 @@ def _make_api_item_text(
 
 
 def make_item_bullet(
-    api_item: Union[ProjectIssue, ProjectMergeRequest],
+    api_item: ProjectIssue | ProjectMergeRequest,
     show_votes: bool = False,
     show_mr_votes: bool = False,
     show_objection_window: bool = False,
@@ -101,7 +103,7 @@ def make_item_bullet(
 @dataclass
 class NoteLine:
     line: str
-    ref: Optional[str] = None
+    ref: str | None = None
 
     def __str__(self):
         return self.line
@@ -116,18 +118,18 @@ class NoteLine:
         return NoteLine(s, str(matches[0]))
 
 
-def make_note_lines(item: WorkUnit) -> List[NoteLine]:
+def make_note_lines(item: WorkUnit) -> list[NoteLine]:
     return [NoteLine(_make_api_item_text(item.key_item), ref=item.ref)] + [
         NoteLine(make_item_bullet(api_item), api_item.references["short"])
         for api_item in item.non_key_issues_and_mrs()
     ]
 
 
-def parse_note(note: str) -> List[NoteLine]:
+def parse_note(note: str) -> list[NoteLine]:
     return [NoteLine.parse_line(line) for line in note.split("\n")]
 
 
-def merge_note(existing_note: str, notelines: List[NoteLine]) -> str:
+def merge_note(existing_note: str, notelines: list[NoteLine]) -> str:
     new_lines_by_ref = {nl.ref: nl for nl in notelines if nl.ref}
     old_lines = parse_note(existing_note)
     merged_lines = []
@@ -186,7 +188,7 @@ def make_empty_board(title):
     }
 
 
-def _iterate_notes(board) -> Generator[Tuple[Dict, Dict], None, None]:
+def _iterate_notes(board) -> Generator[tuple[dict, dict], None, None]:
     log = logging.getLogger(__name__)
     # Go through all existing lists
     for notelist in board["lists"]:
@@ -201,7 +203,7 @@ def _iterate_notes(board) -> Generator[Tuple[Dict, Dict], None, None]:
 def parse_board(
     proj: gitlab.v4.objects.Project,
     work: WorkUnitCollection,
-    board: Dict[str, Any],
+    board: dict[str, Any],
 ):
     """Populate a work item collection from a nullboard export."""
     log = logging.getLogger(__name__)
@@ -224,11 +226,11 @@ def parse_board(
 _DELETION_MARKER = "delete"
 
 
-def mark_note_for_deletion(note: Dict[str, Union[str, bool]]):
+def mark_note_for_deletion(note: dict[str, str | bool]):
     note[_DELETION_MARKER] = True
 
 
-def remove_marked_for_deletion(board: Dict[str, Any]):
+def remove_marked_for_deletion(board: dict[str, Any]):
     log = logging.getLogger(__name__)
     for notelist in board["lists"]:
         newlist = [note for note in notelist["notes"] if _DELETION_MARKER not in note]
@@ -242,6 +244,10 @@ def remove_marked_for_deletion(board: Dict[str, Any]):
             notelist["notes"] = newlist
 
 
+def extract_refs_from_str(note_text: str) -> list[str]:
+    return _REF_RE.findall(note_text)
+
+
 def extract_refs(note_dict: dict[str, Any]) -> list[str]:
 
     return _REF_RE.findall(note_dict["text"])
@@ -249,11 +255,11 @@ def extract_refs(note_dict: dict[str, Any]) -> list[str]:
 
 def update_board(
     work: WorkUnitCollection,
-    board: Dict[str, Any],
+    board: dict[str, Any],
     note_text_maker: Callable[[WorkUnit], str] = make_note_text,
     list_guesser: Callable[[WorkUnit], str] = guess_list,
     list_titles_to_skip_adding_to=None,
-    project: Optional[gitlab.v4.objects.Project] = None,
+    project: gitlab.v4.objects.Project | None = None,
 ) -> bool:
     """
     Update the JSON data for a nullboard kanban board.
@@ -267,7 +273,7 @@ def update_board(
         parse_board(project, work, board)
 
     # the refs for all items used to update an existing note
-    existing: Set[str] = set()
+    existing: set[str] = set()
 
     changed = False
 
@@ -327,7 +333,7 @@ def update_board(
         remove_marked_for_deletion(board)
 
     # Decide what list to put the leftovers in
-    all_new: Dict[str, List[Dict[str, str]]] = {}
+    all_new: dict[str, list[dict[str, str]]] = {}
 
     for item in work.items:
         if item.ref in existing:

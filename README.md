@@ -2,6 +2,8 @@
 
 <!--
 Copyright 2022, Collabora, Ltd.
+Copyright 2025, The Khronos Group Inc.
+
 SPDX-License-Identifier: CC-BY-4.0
 -->
 
@@ -21,17 +23,32 @@ Nullboard, besides its quick setup (clone and open HTML file in a browser) and
 minimal environment, is that it has robust JSON import/export support, so we can
 easily create/modify/parse the data of each board.
 
+Gradually things are being migrated to [Kanboard][] for easier collaboration and more flexibility and features.
+
+[Kanboard]: https://kanboard.org/
+
 ## Files
 
+By now there are far more tools in here than just the below.
+
+- CTS Contractor Kanboard project:
+  - `python3 -m openxr_ops.kb_cts.update` to run an update of the CTS Contractor
+    Kanboard project. Takes about a minute and a half. `--help` and `--dry-run` available.
+  - `python3 -m openxr_ops.kb_cts.create` to automatically create/update most of
+    the structure for the CTS Contractor board. Idempotent. `--help` and `--dry-run` available.
+  - `./cts-workboard-import.py` to import the old "Nullboard" export json into a
+    Kanboard project.
+- OpenXRExtensions (Operations) Kanboard project:
+  - `python3 -m openxr_ops.kb_ops_create` to automatically create most of the
+    structure for the OpenXRExtensions board. Idempotent. `--help` available.
+  - `./kb_ops_migrate.py` to perform automatic migration from the GitLab
+    operations project to kanboard. `--help` and `--dry-run` available.
 - `work_item_and_collection.py` is a somewhat-generic (though GitLab-based)
   group of data structures
 - `nullboard_gitlab.py` has some shared utilities for Nullboard export (`.nbx`)
   and GitLab interaction, building on the above
-- `cts_workboard_update.py`/`cts_workboard_update2.py` and
-  `openxr_release_checklist_update.py` are the top-level scripts for doing the
-  update for two boards I maintain. They assume you have placed your latest
-  Nullboard export of the corresponding board (if available), using the default
-  filename, in this root directory before execution.
+- `kanboard-from-nullboard-async.py` - really primitive and generic Nullboard to
+  Kanboard migration script.
 
 ## Usage
 
@@ -53,10 +70,15 @@ You will also need to provide a GitLab token either in your environment or in a
 
 Set at least the following:
 
-- `GL_USERNAME`
-- `GL_ACCESS_TOKEN`
-- `GL_URL` (probably `GL_URL=https://gitlab.khronos.org` for direct usage by
-  Khronos members)
+- GitLab access credentials:
+  - `GL_USERNAME`
+  - `GL_ACCESS_TOKEN`
+  - `GL_URL` (probably `GL_URL=https://gitlab.khronos.org` for direct usage by
+    Khronos members)
+- Kanboard access credentials:
+  - `KANBOARD_URL`
+  - `KANBOARD_USERNAME`
+  - `KANBOARD_API_TOKEN`
 
 Further documentation is in the source files, basically.
 

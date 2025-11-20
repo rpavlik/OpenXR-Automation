@@ -7,8 +7,9 @@
 # Author: Rylie Pavlik <rylie.pavlik@collabora.com>
 
 
+from collections.abc import Iterable
 from enum import Enum
-from typing import Iterable, Optional
+from typing import Optional
 
 
 class GroupLabels:
@@ -28,6 +29,7 @@ class MainProjectLabels:
     CONFORMANCE_QUESTION = "CTS:question"
     NEEDS_AUTHOR_ACTION = "Needs Author Action"
     CONTRACTOR_APPROVED = "Contractor:Approved"
+    OBJECTION_WINDOW = "Objection Window"
 
 
 class OpsProjectLabels:
@@ -74,7 +76,7 @@ class ColumnName(Enum):
         column_labels = {x.value for x in ColumnName}
 
         # Remove all column labels except the one we want.
-        new_labels = set(x for x in labels if x == self.value or x not in column_labels)
+        new_labels = {x for x in labels if x == self.value or x not in column_labels}
 
         # Add the one we want if it wasn't already there
         new_labels.update([self.value])

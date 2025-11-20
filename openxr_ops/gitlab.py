@@ -8,12 +8,17 @@
 
 import os
 from dataclasses import dataclass
+from enum import Enum
 
 import gitlab
 import gitlab.v4.objects
-from requests_cache import Optional
+from gitlab.v4.objects import ProjectIssue, ProjectMergeRequest
+
+GITLAB_SERVER = "https://gitlab.khronos.org"
 
 MAIN_PROJECT_NAME = "openxr/openxr"
+MR_URL_BASE = f"{GITLAB_SERVER}/{MAIN_PROJECT_NAME}/-/merge_requests/"
+ISSUE_URL_BASE = f"{GITLAB_SERVER}/{MAIN_PROJECT_NAME}/-/issues/"
 
 OPERATIONS_PROJECT_NAME = "openxr/openxr-operations"
 
@@ -26,7 +31,7 @@ class OpenXRGitlab:
 
     gl: gitlab.Gitlab
 
-    group: Optional[gitlab.v4.objects.Group]
+    group: gitlab.v4.objects.Group | None
     main_proj: gitlab.v4.objects.Project
     operations_proj: gitlab.v4.objects.Project
 
@@ -45,7 +50,7 @@ class OpenXRGitlab:
         job_token = os.environ.get("CI_JOB_TOKEN")
         private_token = os.environ.get("GL_ACCESS_TOKEN")
 
-        group: Optional[gitlab.v4.objects.Group] = None
+        group: gitlab.v4.objects.Group | None = None
 
         if private_token:
             gl = gitlab.Gitlab(url=url, private_token=private_token)
@@ -58,3 +63,22 @@ class OpenXRGitlab:
         return cls(
             gl=gl, group=group, main_proj=main_proj, operations_proj=operations_proj
         )
+
+
+class ReferenceType(Enum):
+    ISSUE = "#"
+    MERGE_REQUEST = "!"
+
+    @classmethod
+    def parse_short_reference(cls, short_ref: str) -> "ReferenceType":
+        return cls(short_ref[0])
+
+    @classmethod
+    def short_reference_to_type_and_num(
+        cls, short_ref: str
+    ) -> tuple["ReferenceType", int]:
+        return cls.parse_short_reference(short_ref), int(short_ref[1:])
+
+
+def get_short_ref(api_item: ProjectIssue | ProjectMergeRequest) -> str:
+    return api_item.references["short"]

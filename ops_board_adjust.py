@@ -17,7 +17,7 @@ Process the operations board, auto-updating where applicable.
 
 import logging
 import re
-from typing import Optional, cast
+from typing import cast
 
 import gitlab
 import gitlab.v4.objects
@@ -54,7 +54,7 @@ class OpsBoardProcessing:
                 iterator=True,
             )
         ]
-        self.title: Optional[str] = None
+        self.title: str | None = None
 
     def log_title(self):
         if self.title is not None:

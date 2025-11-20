@@ -75,7 +75,7 @@ def main(in_filename):
     proj = kb.get_project_by_name(name=_PROJ_NAME)
 
     log.info("Reading %s", in_filename)
-    with open(in_filename, "r") as fp:
+    with open(in_filename) as fp:
         existing_board = json.load(fp)
 
     print(proj["url"]["board"])

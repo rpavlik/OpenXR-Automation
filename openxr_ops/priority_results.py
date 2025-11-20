@@ -10,38 +10,26 @@ import datetime
 import logging
 import re
 from collections import defaultdict
+from collections.abc import Iterable
 from dataclasses import dataclass
 from functools import cached_property
-from typing import Iterable, Optional, cast
+from typing import cast
 
 import gitlab
 import gitlab.v4.objects
 
+from .extensions import compute_vendor_name_and_tag
 from .labels import GroupLabels, MainProjectLabels, OpsProjectLabels
 from .vendors import VendorNames
 
 NOW = datetime.datetime.now(datetime.UTC)
 log = logging.getLogger(__name__)
 
-_EXT_DECOMP_RE = re.compile(r"XR_(?P<tag>[A-Z]+)(?P<experiment>X[0-9]*)?_.*")
-
-
 _IGNORE_PUSH_USERS = ("rpavlik", "safarimonkey", "haagch", "khrbot")
 """Do not consider pushes from these users when determining latency"""
 
 
 _PUSH_NOTE_RE = re.compile(r"added \d+ commit(s?)\n\n.*")
-
-
-def compute_vendor_name_and_tag(title, vendors) -> tuple[Optional[str], Optional[str]]:
-    m = _EXT_DECOMP_RE.match(title)
-    vendor: Optional[str] = None
-    tag: Optional[str] = None
-    if m is not None:
-        tag = m.group("tag")
-        assert tag is not None
-        vendor = vendors.get_vendor_name(tag)
-    return vendor, tag
 
 
 def _is_note_a_push(note: gitlab.v4.objects.ProjectMergeRequestNote):
@@ -93,7 +81,7 @@ class ReleaseChecklistMRData:
     def _last_author_revision_push_with_date(
         self,
     ) -> tuple[
-        Optional[gitlab.v4.objects.ProjectMergeRequestNote], Optional[datetime.datetime]
+        gitlab.v4.objects.ProjectMergeRequestNote | None, datetime.datetime | None
     ]:
         """The system note and date for the last non-bot, non-spec-editor/contractor push to the MR."""
 
@@ -117,7 +105,7 @@ class ReleaseChecklistMRData:
     @cached_property
     def last_push(
         self,
-    ) -> Optional[gitlab.v4.objects.ProjectMergeRequestNote]:
+    ) -> gitlab.v4.objects.ProjectMergeRequestNote | None:
         """The system note for the last push to the MR."""
         pushes = [
             cast(gitlab.v4.objects.ProjectMergeRequestNote, n)
@@ -167,8 +155,8 @@ class ReleaseChecklistIssue(ReleaseChecklistMRData):
 
     # mr: gitlab.v4.objects.ProjectMergeRequest
 
-    vendor_name: Optional[str] = None
-    vendor_tag: Optional[str] = None
+    vendor_name: str | None = None
+    vendor_tag: str | None = None
 
     offset: int = 0
     """Corrective latency offset"""

@@ -16,6 +16,12 @@ SERVER = "openxr-boards.khronos.org"
 USERNAME = "khronos-bot"
 
 REAL_PROJ_NAME = "OpenXRExtensions"
+REAL_PROJ_NUMBER = 29
+
+REAL_HUMAN_BOARD_URL = f"https://{SERVER}/board/{REAL_PROJ_NUMBER}"
+REAL_HUMAN_OVERVIEW_URL = f"https://{SERVER}/project/{REAL_PROJ_NUMBER}/overview/"
+
+CTS_PROJ_NAME = "CTS Contractor"
 
 
 def get_kb_api_url():
@@ -42,11 +48,9 @@ async def connect_and_get_project(
         insecure=True,
     )
     log.info("Getting project by name")
-    from pprint import pformat
 
     proj = await kb.get_project_by_name_async(name=project_name)
     if proj == False:
-        raise RuntimeError("No project named " + project_name)
+        raise RuntimeError(f"No project named {project_name}")
 
-    log.debug("Project data: %s", pformat(proj))
     return kb, proj

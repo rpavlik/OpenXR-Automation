@@ -12,15 +12,13 @@ from pprint import pformat
 
 import kanboard
 
-from .kb_auto_actions import AutoActionABC, auto_actions_from_config
-from .kb_create import (
+from ..kb_create import (
     ProjectData,
     create_or_populate_project_general,
     populate_project_general,
 )
-from .kb_defaults import USERNAME, get_kb_api_token, get_kb_api_url
-from .kb_ops_config import get_config_data
-from .kb_ops_stages import (
+from ..kb_defaults import USERNAME, get_kb_api_token, get_kb_api_url
+from .stages import (
     CATEGORY_COLORS,
     COLUMN_DESCRIPTIONS,
     SWIMLANE_DESCRIPTIONS,
@@ -32,9 +30,9 @@ from .kb_ops_stages import (
 )
 
 
-def get_ops_project_data() -> ProjectData:
-    config = get_config_data()
-    expected_auto_actions: list[AutoActionABC] = auto_actions_from_config(config)
+def get_cts_project_data() -> ProjectData:
+    # config = get_config_data()
+    # expected_auto_actions: list[AutoActionABC] = auto_actions_from_config(config)
     return ProjectData(
         column_enum=TaskColumn,
         column_descriptions=COLUMN_DESCRIPTIONS,
@@ -44,8 +42,8 @@ def get_ops_project_data() -> ProjectData:
         categories_colors=CATEGORY_COLORS,
         tags_enum=TaskTags,
         tags_colors=TAG_COLORS,
-        expected_auto_actions=expected_auto_actions,
-        remove_unexpected_actions=True,
+        expected_auto_actions=[],
+        remove_unexpected_actions=False,
     )
 
 
@@ -53,13 +51,13 @@ async def populate_project(kb: kanboard.Client, proj_id: int):
     kb_project = await populate_project_general(
         kb,
         proj_id,
-        get_ops_project_data(),
+        get_cts_project_data(),
     )
     return kb_project
 
 
 async def create_or_populate_project(kb: kanboard.Client, project_name: str):
-    await create_or_populate_project_general(kb, project_name, get_ops_project_data())
+    await create_or_populate_project_general(kb, project_name, get_cts_project_data())
 
 
 async def get_projects(kb: kanboard.Client):
@@ -83,14 +81,12 @@ if __name__ == "__main__":
     parser.add_argument(
         "--project",
         type=str,
-        nargs=1,
         help="Create or update the named project",
     )
 
     parser.add_argument(
         "--project-id",
         type=int,
-        nargs=1,
         help="Update the project with the given ID",
     )
     args = parser.parse_args()
@@ -119,11 +115,11 @@ if __name__ == "__main__":
 
         if args.project:
             await get_projects(kb)
-            await create_or_populate_project(kb, args.project[0])
+            await create_or_populate_project(kb, args.project)
 
         if args.project_id:
 
             await get_projects(kb)
-            await populate_project(kb, args.project_id[0])
+            await populate_project(kb, args.project_id)
 
     asyncio.run(runner())

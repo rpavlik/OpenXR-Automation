@@ -9,7 +9,7 @@
 import logging
 from collections import defaultdict
 from dataclasses import dataclass, field
-from typing import Any, Optional
+from typing import Any
 
 from .priority_results import ReleaseChecklistIssue
 from .vendors import VendorNames
@@ -165,12 +165,12 @@ class CustomizedSort(SorterBase):
         )
 
         # Split up
-        vendor_slots: list[Optional[str]] = []
+        vendor_slots: list[str | None] = []
 
-        by_vendor: dict[Optional[str], list[ReleaseChecklistIssue]] = defaultdict(list)
+        by_vendor: dict[str | None, list[ReleaseChecklistIssue]] = defaultdict(list)
 
         for issue in issues:
-            tag: Optional[str] = None
+            tag: str | None = None
             if issue.vendor_name:
                 tag = self.vendors.vendor_name_to_canonical_tag(issue.vendor_name)
             vendor_slots.append(tag)

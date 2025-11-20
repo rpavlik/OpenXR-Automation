@@ -2,20 +2,19 @@
 # SPDX-FileCopyrightText: 2022-2024, Collabora, Ltd.
 .*
 !.gitignore
-.vscode
-venv/
-.env
+!.mailmap
 *.json
 !*.schema.json
-__pycache__
 *.egg-info
 *.nbx
 *.ipynb
-*.md
-!README.md
-agenda.md
+__pycache__/
+venv/
+
 gitlab_cache.sqlite
-!.mailmap
+
+/*.md
+!README.md
 
 /*.html
 /*.pdf

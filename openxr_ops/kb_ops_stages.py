@@ -30,7 +30,7 @@ class TaskColumn(Enum):
     REVISIONS_IN_PROGRESS = "Revisions in Progress"
     PENDING_APPROVALS_AND_MERGE = "Pending Approvals And Merge"
 
-    def to_column_id(self, kb_project) -> Optional[int]:
+    def to_column_id(self, kb_project) -> int | None:
         # depends on data cached by kb_project
         return kb_project.col_titles.get(self.value)
 
@@ -42,9 +42,9 @@ class TaskColumn(Enum):
 
 COLUMN_DESCRIPTIONS = {
     TaskColumn.INACTIVE: "Not currently being moved toward release.",
-    TaskColumn.IN_PREPARATION: "Champion moves item to the next step, 'Awaiting Review'",
+    TaskColumn.IN_PREPARATION: "Champion moves item to the next step, 'Awaiting Review', once all required prerequisites have been completed",
     TaskColumn.AWAITING_REVIEW: "Spec support team or spec editor will move to 'In Review' when applicable.",
-    TaskColumn.IN_REVIEW: "Next step is either 'Needs Revisions' or 'Review Cycle Complete', moved by spec support or spec editor.",
+    TaskColumn.IN_REVIEW: "Next step is either 'Needs Revisions' or 'Pending Approvals and Merge', moved by spec support or spec editor.",
     TaskColumn.NEEDS_REVISIONS: "Champion moves items from here to 'Revisions in Progress' when they start.",
     TaskColumn.REVISIONS_IN_PROGRESS: "When complete, next step is return to 'Awaiting Review'",
     TaskColumn.PENDING_APPROVALS_AND_MERGE: "This column can be skipped during the Design Review phase, extensions can move directly on to 'In Preparation' for the Spec Review phase. In the Spec Review phase, this column is for waiting on approvals, CTS, ratification, or other details.",
@@ -80,14 +80,14 @@ TAG_COLORS = {
 class TaskCategory(Enum):
     OUTSIDE_IPR_POLICY = "Not Subject to IPR Policy"
 
-    def to_category_id(self, kb_project: KanboardProject) -> Optional[int]:
+    def to_category_id(self, kb_project: KanboardProject) -> int | None:
         # depends on data cached by kb_project
         return kb_project.category_title_to_id.get(self.value)
 
     @classmethod
     def optional_to_category_id(
         cls, kb_project: KanboardProject, category: Optional["TaskCategory"]
-    ) -> Optional[int]:
+    ) -> int | None:
         if category is None:
             return 0
         # depends on data cached by kb_project
@@ -126,7 +126,7 @@ class TaskSwimlane(Enum):
     DESIGN_REVIEW_PHASE = "Design Review phase"
     SPEC_REVIEW_PHASE = "Spec Review phase"
 
-    def to_swimlane_id(self, kb_project: KanboardProject) -> Optional[int]:
+    def to_swimlane_id(self, kb_project: KanboardProject) -> int | None:
         # depends on data cached by kb_project
         return kb_project.swimlane_titles.get(self.value)
 

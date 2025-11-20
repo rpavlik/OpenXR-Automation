@@ -7,8 +7,8 @@
 # Author: Rylie Pavlik <rylie.pavlik@collabora.com>
 
 import logging
+from collections.abc import Iterable
 from pathlib import Path
-from typing import Iterable, List, Optional, Tuple, cast
 
 from .checklists import ColumnName, ReleaseChecklistCollection
 from .custom_sort import SorterBase
@@ -20,9 +20,9 @@ from .vendors import VendorNames
 
 def load_in_flight(
     collection: ReleaseChecklistCollection,
-) -> Tuple[
-    List[ReleaseChecklistIssue],
-    dict[str, List[ReleaseChecklistIssue]],
+) -> tuple[
+    list[ReleaseChecklistIssue],
+    dict[str, list[ReleaseChecklistIssue]],
 ]:
     log.info("Loading items that are in progress")
     items = []
@@ -36,7 +36,7 @@ def load_in_flight(
         ColumnName.NEEDS_SPEC_REVISION.value,
         ColumnName.NEEDS_CHAMPION_APPROVAL_OR_RATIFICATION.value,
     ]
-    col_data: dict[str, List[ReleaseChecklistIssue]] = {k: [] for k in columns}
+    col_data: dict[str, list[ReleaseChecklistIssue]] = {k: [] for k in columns}
     for issue in collection.issue_to_mr.keys():
         issue_obj = collection.issue_str_to_cached_issue_object(issue)
         if not issue_obj:
@@ -79,12 +79,12 @@ def load_in_flight(
 
 def make_html(
     vendor: str,
-    categories: dict[str, List[ReleaseChecklistIssue]],
+    categories: dict[str, list[ReleaseChecklistIssue]],
     results: PriorityResults,
     sort_desc: Iterable[str],
     fn: str,
-    extra: Optional[str],
-    extra_safe: Optional[str],
+    extra: str | None,
+    extra_safe: str | None,
 ):
     from jinja2 import Environment, PackageLoader, select_autoescape
 
@@ -133,15 +133,15 @@ def filter_and_generate_vendor_page(
     vendor_name: str,
     filename: str,
     sorted: Iterable[ReleaseChecklistIssue],
-    categories: dict[str, List[ReleaseChecklistIssue]],
-    extra: Optional[str] = None,
-    extra_safe: Optional[str] = None,
+    categories: dict[str, list[ReleaseChecklistIssue]],
+    extra: str | None = None,
+    extra_safe: str | None = None,
 ):
     log.info("Considering %s", vendor_name)
 
     def filter_items(
         data: Iterable[ReleaseChecklistIssue],
-    ) -> List[ReleaseChecklistIssue]:
+    ) -> list[ReleaseChecklistIssue]:
         return [x for x in data if x.vendor_name == vendor_name]
 
     vendor_results = PriorityResults.from_sorted_items(filter_items(sorted))
@@ -162,8 +162,8 @@ def filter_and_generate_vendor_page(
 def generate_vendor_index(
     vendor_names_to_filenames: dict[str, str],
     filename: str,
-    extra: Optional[str] = None,
-    extra_safe: Optional[str] = None,
+    extra: str | None = None,
+    extra_safe: str | None = None,
 ):
     from jinja2 import Environment, PackageLoader, select_autoescape
 

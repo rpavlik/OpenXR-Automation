@@ -10,7 +10,6 @@ import importlib
 import importlib.resources
 import tomllib
 from dataclasses import dataclass
-from typing import Optional
 
 from .kb_enums import AutoActionEvents
 from .kb_ops_stages import TaskCategory, TaskColumn, TaskSwimlane
@@ -38,7 +37,7 @@ class ConfigSubtaskEntry:
         return self.name
 
 
-def parse_into(enum_type, s: Optional[str]):
+def parse_into(enum_type, s: str | None):
     if s is None:
         return None
     return enum_type(s)
@@ -52,9 +51,9 @@ class ConfigActionCondition:
     All populated condition fields must match to be true.
     """
 
-    swimlane: Optional[TaskSwimlane]
-    column: Optional[TaskColumn]
-    category: Optional[TaskCategory]
+    swimlane: TaskSwimlane | None
+    column: TaskColumn | None
+    category: TaskCategory | None
     exclude_categories: bool = False
 
     @classmethod
@@ -77,12 +76,12 @@ class ConfigActionCondition:
             self.category is None and self.exclude_categories
         )
 
-    def get_category_predicate(self) -> Optional[TaskCategory]:
+    def get_category_predicate(self) -> TaskCategory | None:
         if self.exclude_categories:
             return None
         return self.category
 
-    def test_category(self, category: Optional[TaskCategory]):
+    def test_category(self, category: TaskCategory | None):
         """Determine if the category provided matches this condition."""
         if not self.has_category_predicate():
             return True
@@ -99,13 +98,13 @@ class ConfigSubtaskGroup:
     subtasks: list[ConfigSubtaskEntry]
     """List of subtasks in the group."""
 
-    prefix: Optional[str]
+    prefix: str | None
     """A name prefix to apply to all these subtasks."""
 
-    condition: Optional[ConfigActionCondition] = None
+    condition: ConfigActionCondition | None = None
     """Condition to evaluate to auto-create the subtasks in the group."""
 
-    events: Optional[list[AutoActionEvents]] = None
+    events: list[AutoActionEvents] | None = None
     """Events to create an auto action for."""
 
     allow_duplicate_subtasks: bool = False
@@ -141,7 +140,7 @@ class ConfigAutoTag:
     tag: str
     condition: ConfigActionCondition
 
-    events: Optional[list[AutoActionEvents]] = None
+    events: list[AutoActionEvents] | None = None
     """Events to create an auto action for."""
 
     @classmethod

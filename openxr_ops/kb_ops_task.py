@@ -1,28 +1,20 @@
+# Copyright 2022-2025, Collabora, Ltd.
+# Copyright 2024-2025, The Khronos Group Inc.
+#
+# SPDX-License-Identifier: BSL-1.0
+#
+# Author: Rylie Pavlik <rylie.pavlik@collabora.com>
 import datetime
-import re
 from dataclasses import dataclass
-from typing import Any, Optional
+from typing import Any
 
 import kanboard
 
+from .ext_author_kind import CanonicalExtensionAuthorKind
+from .gitlab import MR_URL_BASE
 from .kanboard_helpers import KanboardProject
 from .kb_ops_stages import TaskCategory, TaskColumn, TaskSwimlane, TaskTags
-
-_MR_URL_BASE = "https://gitlab.khronos.org/openxr/openxr/-/merge_requests/"
-
-_MR_URL_RE = re.compile(_MR_URL_BASE + r"(?P<mrnum>[0-9]+)")
-
-
-def extract_mr_number(uri: Optional[str]) -> Optional[int]:
-    """Pull out the merge request number from a URI."""
-    if not uri:
-        return None
-
-    m = _MR_URL_RE.match(uri)
-    if not m:
-        return None
-
-    return int(m.group("mrnum"))
+from .parse import extract_mr_number
 
 
 @dataclass
@@ -38,6 +30,26 @@ class OperationsTaskFlags:
     khr_extension: bool
     multivendor_extension: bool
     single_vendor_extension: bool
+
+    @classmethod
+    def from_author_kind(
+        cls,
+        author_kind: CanonicalExtensionAuthorKind,
+    ) -> "OperationsTaskFlags":
+
+        return OperationsTaskFlags(
+            api_frozen=False,
+            initial_design_review_complete=False,
+            initial_spec_review_complete=False,
+            spec_support_review_comments_pending=False,
+            editor_review_requested=(
+                author_kind != CanonicalExtensionAuthorKind.SINGLE_VENDOR
+            ),
+            khr_extension=author_kind == CanonicalExtensionAuthorKind.KHR,
+            multivendor_extension=author_kind == CanonicalExtensionAuthorKind.EXT,
+            single_vendor_extension=author_kind
+            == CanonicalExtensionAuthorKind.SINGLE_VENDOR,
+        )
 
     @classmethod
     def from_task_tags_result(cls, task_tags: dict[str, str]) -> "OperationsTaskFlags":
@@ -96,13 +108,13 @@ class OperationsTaskBase:
     task_id: int
     column: TaskColumn
     swimlane: TaskSwimlane
-    category: Optional[TaskCategory]
+    category: TaskCategory | None
     title: str
     description: str
-    task_dict: Optional[dict]
+    task_dict: dict | None
 
     @property
-    def url(self) -> Optional[str]:
+    def url(self) -> str | None:
         if self.task_dict:
             return self.task_dict["url"]
         return None
@@ -129,8 +141,8 @@ class OperationsTaskBase:
         swimlane: TaskSwimlane = TaskSwimlane.from_swimlane_id(
             kb_project, swimlane_id=int(swimlane_id)
         )
-        category_id: Optional[int] = None
-        category: Optional[TaskCategory] = None
+        category_id: int | None = None
+        category: TaskCategory | None = None
         if task["category_id"] is not None:
             category_id = int(task["category_id"])
             category = TaskCategory.from_category_id_maybe_none(kb_project, category_id)
@@ -149,11 +161,11 @@ class OperationsTaskBase:
 class OperationsTask(OperationsTaskBase):
     """Like OperationsTaskBase but this requires additional queries"""
 
-    main_mr: Optional[int]
+    main_mr: int | None
 
     ext_links_list: list[dict[str, Any]]
 
-    flags: Optional[OperationsTaskFlags]
+    flags: OperationsTaskFlags | None
 
     tags_dict: dict[str, Any]
 
@@ -164,7 +176,7 @@ class OperationsTask(OperationsTaskBase):
         ext_links_future = kb.get_all_external_task_links_async(task_id=base.task_id)
         tags_future = kb.get_task_tags_async(task_id=base.task_id)
 
-        main_mr: Optional[int] = None
+        main_mr: int | None = None
         ext_links = await ext_links_future
         for ext_link in ext_links:
             main_mr = extract_mr_number(ext_link["url"])
@@ -213,14 +225,14 @@ class OperationsTaskCreationData:
     title: str
     description: str
 
-    flags: Optional[OperationsTaskFlags]
-    issue_url: Optional[str] = None
+    flags: OperationsTaskFlags | None
+    issue_url: str | None = None
 
-    category: Optional[TaskCategory] = None
+    category: TaskCategory | None = None
 
-    date_started: Optional[datetime.datetime] = None
+    date_started: datetime.datetime | None = None
 
-    async def create_task(self, kb_project: KanboardProject) -> Optional[int]:
+    async def create_task(self, kb_project: KanboardProject) -> int | None:
         swimlane_id = self.swimlane.to_swimlane_id(kb_project)
         if swimlane_id is None:
             return None
@@ -229,19 +241,19 @@ class OperationsTaskCreationData:
         if column_id is None:
             return None
 
-        category_id: Optional[int] = None
+        category_id: int | None = None
         if self.category is not None:
             category_id = self.category.to_category_id(kb_project)
 
-        tags: Optional[list[str]] = None
+        tags: list[str] | None = None
         if self.flags is not None:
             tags = self.flags.to_string_list()
 
-        date_started: Optional[str] = None
+        date_started: str | None = None
         if self.date_started is not None:
             date_started = self.date_started.strftime("%Y-%m-%d %H:%M")
 
-        mr_url = f"{_MR_URL_BASE}{self.main_mr}"
+        mr_url = f"{MR_URL_BASE}{self.main_mr}"
         kb = kb_project.kb
 
         task_id = await kb.create_task_async(
@@ -250,7 +262,7 @@ class OperationsTaskCreationData:
             description=self.description,
             swimlane_id=swimlane_id,
             column_id=column_id,
-            color_id="white",
+            color_id="grey",
             # gl_url=mr_url,
             category_id=category_id,
             tags=tags,

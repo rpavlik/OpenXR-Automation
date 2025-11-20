@@ -9,9 +9,10 @@ import itertools
 import logging
 import re
 import tomllib
+from collections.abc import Iterable
 from dataclasses import dataclass
 from functools import cached_property
-from typing import Dict, Iterable, List, Optional, Set, cast
+from typing import cast
 
 import gitlab
 import gitlab.v4.objects
@@ -153,8 +154,8 @@ class ChecklistData:
     vendor_id: str
     mr_num: int
     merge_request: gitlab.v4.objects.ProjectMergeRequest
-    checklist_issue: Optional[gitlab.v4.objects.ProjectIssue] = None
-    checklist_issue_ref: Optional[str] = None
+    checklist_issue: gitlab.v4.objects.ProjectIssue | None = None
+    checklist_issue_ref: str | None = None
 
     def make_issue_params(
         self, vendor_names: VendorNames, checklist_factory: ReleaseChecklistFactory
@@ -194,8 +195,8 @@ class ChecklistData:
 
         mr = proj.mergerequests.get(mr_num)
 
-        ext_names: Optional[list[str]] = kwargs.get("ext_names")
-        vendor_ids: Optional[list[str]] = kwargs.get("vendor_ids")
+        ext_names: list[str] | None = kwargs.get("ext_names")
+        vendor_ids: list[str] | None = kwargs.get("vendor_ids")
         if not ext_names or not vendor_ids:
             ext_name_data = list(get_extension_names_for_mr(mr))
             if not ext_names:
@@ -282,22 +283,22 @@ class ReleaseChecklistCollection:
         self,
         proj,
         ops_proj,
-        checklist_factory: Optional[ReleaseChecklistFactory],
+        checklist_factory: ReleaseChecklistFactory | None,
         vendor_names,
-        data: Optional[dict] = None,
+        data: dict | None = None,
     ):
         self.proj: gitlab.v4.objects.Project = proj
         """Main project"""
         self.ops_proj: gitlab.v4.objects.Project = ops_proj
         """Operations project containing (some) release checklists"""
-        self.checklist_factory: Optional[ReleaseChecklistFactory] = checklist_factory
+        self.checklist_factory: ReleaseChecklistFactory | None = checklist_factory
         self.vendor_names: VendorNames = vendor_names
 
-        self.issue_to_mr: Dict[str, int] = {}
-        self.mr_to_issue_object: Dict[int, gitlab.v4.objects.ProjectIssue] = {}
-        self.mr_to_issue: Dict[int, str] = {}
-        self.ignore_issues: Set[str] = set()
-        self.include_issues: List[int] = []
+        self.issue_to_mr: dict[str, int] = {}
+        self.mr_to_issue_object: dict[int, gitlab.v4.objects.ProjectIssue] = {}
+        self.mr_to_issue: dict[int, str] = {}
+        self.ignore_issues: set[str] = set()
+        self.include_issues: list[int] = []
 
     def load_config(self, fn: str):
         with open(fn, "rb") as fp:
@@ -381,7 +382,7 @@ class ReleaseChecklistCollection:
 
     def issue_str_to_cached_issue_object(
         self, issue_ref: str
-    ) -> Optional[gitlab.v4.objects.ProjectIssue]:
+    ) -> gitlab.v4.objects.ProjectIssue | None:
         mr = self.issue_to_mr.get(issue_ref)
         if mr is None:
             return None
@@ -472,8 +473,8 @@ class ReleaseChecklistCollection:
         self,
         mr_num: int,
         new_column: ColumnName,
-        add_labels: Optional[Iterable[str]] = None,
-        remove_labels: Optional[Iterable[str]] = None,
+        add_labels: Iterable[str] | None = None,
+        remove_labels: Iterable[str] | None = None,
     ) -> None:
         issue = self.mr_to_issue_object[mr_num]
         labels = set(issue.attributes["labels"])
