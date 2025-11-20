@@ -7,7 +7,8 @@
 
 import datetime
 import re
-from typing import Any, Iterable, Optional
+from collections.abc import Iterable
+from typing import Any, Optional
 
 from openxr_ops.gitlab import OpenXRGitlab
 
@@ -18,8 +19,8 @@ def generate_milestone(
     title_re: re.Pattern,
     description: str,
     milestones: Iterable[Any],
-    freeze: Optional[datetime.date] = None,
-    due_date: Optional[datetime.date] = None,
+    freeze: datetime.date | None = None,
+    due_date: datetime.date | None = None,
     force_title: bool = False,
     dry_run: bool = False,
 ):
@@ -73,7 +74,7 @@ def generate_milestones(
     major: int,
     minor: int,
     patch: int,
-    freeze: Optional[datetime.date] = None,
+    freeze: datetime.date | None = None,
     force_title: bool = False,
     dry_run: bool = False,
 ):
@@ -94,8 +95,8 @@ def generate_milestones(
         rf"(Conformance {ver_escaped}.0 release|{ver_escaped}(.0)? - CTS)"
     )
 
-    due_date: Optional[datetime.date] = None
-    cts_freeze: Optional[datetime.date] = None
+    due_date: datetime.date | None = None
+    cts_freeze: datetime.date | None = None
     if freeze:
         due_date = freeze + datetime.timedelta(days=7)
 

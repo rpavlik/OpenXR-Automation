@@ -12,9 +12,10 @@ import dataclasses
 import itertools
 import json
 import logging
+from collections.abc import Awaitable, Iterable
 from dataclasses import dataclass
 from enum import Enum
-from typing import Awaitable, Iterable, Optional
+from typing import Optional
 
 import kanboard
 
@@ -83,7 +84,7 @@ class CTSNullboardToKanboard:
         self,
         oxr_gitlab: OpenXRGitlab,
         kb_project_name: str,
-        limit: Optional[int],
+        limit: int | None,
         update_options: UpdateOptions,
     ):
         self.base = CTSBoardUpdater(
@@ -92,7 +93,7 @@ class CTSNullboardToKanboard:
         self.oxr_gitlab: OpenXRGitlab = oxr_gitlab
         self.kb_project_name: str = kb_project_name
         self.update_options: UpdateOptions = update_options
-        self.limit: Optional[int] = limit
+        self.limit: int | None = limit
 
         self.log = logging.getLogger(f"{__name__}.{self.__class__.__name__}")
 
@@ -154,7 +155,7 @@ class CTSNullboardToKanboard:
             if task is None
         ]
 
-        missing_issues_futures: dict[int, Awaitable[Optional[int]]] = {
+        missing_issues_futures: dict[int, Awaitable[int | None]] = {
             num: self.base.create_task_for_ref(
                 ref,
                 column,
@@ -164,7 +165,7 @@ class CTSNullboardToKanboard:
             for ref, ref_type, num in missing_parsed_refs
             if ref_type == ReferenceType.ISSUE
         }
-        missing_mrs_futures: dict[int, Awaitable[Optional[int]]] = {
+        missing_mrs_futures: dict[int, Awaitable[int | None]] = {
             num: self.base.create_task_for_ref(
                 ref,
                 column,
@@ -250,7 +251,7 @@ class CTSNullboardToKanboard:
             await asyncio.gather(*overall_relates_futures)
 
         if column == TaskColumn.IN_PROGRESS and note_data.subhead is not None:
-            desired_username: Optional[str] = SUBHEAD_TO_USER.get(note_data.subhead)
+            desired_username: str | None = SUBHEAD_TO_USER.get(note_data.subhead)
             if desired_username is not None:
                 await self._update_owner_on_tasks(
                     current_valid_tasks.values(), desired_username
@@ -259,7 +260,7 @@ class CTSNullboardToKanboard:
     async def _update_owner_on_tasks(
         self, tasks: Iterable[CTSTask], desired_username: str
     ):
-        desired_user_id: Optional[int] = self.kb_project.username_to_id.get(
+        desired_user_id: int | None = self.kb_project.username_to_id.get(
             desired_username
         )
         if desired_user_id is None:
@@ -327,7 +328,7 @@ class CTSNullboardToKanboard:
 
 
 def _iterate_notes_with_optional_limit(
-    board, limit: Optional[int] = None
+    board, limit: int | None = None
 ) -> Iterable[NoteData]:
     if limit is not None:
         return itertools.islice(NoteData.iterate_notes(board), limit)
@@ -353,7 +354,7 @@ COLUMN_EQUIVALENTS = {
 
 async def main(
     project_name: str,
-    limit: Optional[int],
+    limit: int | None,
     dry_run: bool,
     in_filename: str,
 ):
@@ -374,7 +375,7 @@ async def main(
         update_options=update_options,
     )
 
-    with open(in_filename, "r") as fp:
+    with open(in_filename) as fp:
         nb_board = json.load(fp)
 
     await obj.prepare()
@@ -431,7 +432,7 @@ if __name__ == "__main__":
     else:
         logging.basicConfig(level=logging.INFO)
 
-    limit: Optional[int] = None
+    limit: int | None = None
     if args.limit:
         limit = args.limit
         logging.info("got a limit %s %d", type(args.limit), args.limit)

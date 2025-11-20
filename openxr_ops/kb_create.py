@@ -163,7 +163,7 @@ async def populate_tags_general(
         await asyncio.gather(*futures)
 
 
-def find_auto_action(action, expected_auto_actions) -> Optional[int]:
+def find_auto_action(action, expected_auto_actions) -> int | None:
     for i, expected_action in enumerate(expected_auto_actions):
         if action == expected_action:
             return i
@@ -303,9 +303,7 @@ async def create_or_populate_project_general(
 ):
     log = logging.getLogger(f"{__name__}.create_or_populate_project_general")
 
-    proj: Union[dict, Literal[False]] = await kb.get_project_by_name_async(
-        name=project_name
-    )
+    proj: dict | Literal[False] = await kb.get_project_by_name_async(name=project_name)
     print(proj)
     if not proj:
         log.info("Project '%s' not found, will create.", project_name)

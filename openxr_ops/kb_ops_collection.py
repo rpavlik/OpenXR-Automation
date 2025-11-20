@@ -24,8 +24,8 @@ class TaskCollection:
 
         # self.ignore_issues: Set[str] = set()
         # self.include_issues: List[int] = []
-        self.mr_to_task_id: Dict[int, int] = dict()
-        self.tasks: Dict[int, OperationsTask] = dict()
+        self.mr_to_task_id: dict[int, int] = dict()
+        self.tasks: dict[int, OperationsTask] = dict()
 
     def _update_task_maps(self, task: OperationsTask):
         self.tasks[task.task_id] = task
@@ -50,13 +50,13 @@ class TaskCollection:
         tasks = await self.kb_project.get_all_tasks(only_open=only_open)
         await asyncio.gather(*[self._load_task(task) for task in tasks])
 
-    def get_task_by_mr(self, mr_num: int) -> Optional[OperationsTask]:
+    def get_task_by_mr(self, mr_num: int) -> OperationsTask | None:
         """Get task object associated with an OpenXR GitLab MR number, if any exists."""
         task_id = self.mr_to_task_id.get(mr_num)
         if task_id is not None:
             return self.get_task_by_id(task_id)
         return None
 
-    def get_task_by_id(self, task_id: int) -> Optional[OperationsTask]:
+    def get_task_by_id(self, task_id: int) -> OperationsTask | None:
         """Get task object from a task ID number."""
         return self.tasks.get(task_id)

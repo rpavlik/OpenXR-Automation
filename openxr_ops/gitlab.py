@@ -82,5 +82,5 @@ class ReferenceType(Enum):
         return cls.parse_short_reference(short_ref), int(short_ref[1:])
 
 
-def get_short_ref(api_item: Union[ProjectIssue, ProjectMergeRequest]) -> str:
+def get_short_ref(api_item: ProjectIssue | ProjectMergeRequest) -> str:
     return api_item.references["short"]

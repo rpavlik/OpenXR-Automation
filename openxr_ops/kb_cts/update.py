@@ -10,9 +10,10 @@
 import asyncio
 import dataclasses
 import logging
+from collections.abc import Awaitable, Sequence
 from dataclasses import dataclass
 from pprint import pformat
-from typing import Any, Awaitable, Optional, Sequence, Union, cast
+from typing import Any, Optional, Union, cast
 
 import kanboard
 from gitlab.v4.objects import ProjectIssue, ProjectMergeRequest
@@ -33,7 +34,7 @@ from .task import CTSTask, CTSTaskCreationData, CTSTaskFlags
 
 
 def _title_from_gitlab_item(
-    api_item: Union[ProjectIssue, ProjectMergeRequest],
+    api_item: ProjectIssue | ProjectMergeRequest,
 ) -> str:
 
     state, suffix = compute_api_item_state_and_suffix(api_item)
@@ -54,7 +55,7 @@ def _color_id_from_ref_type(ref_type: ReferenceType) -> str:
     return "blue"
 
 
-def _category_from_labels(labels: set[str]) -> Optional[TaskCategory]:
+def _category_from_labels(labels: set[str]) -> TaskCategory | None:
     if MainProjectLabels.CONTRACTOR_APPROVED in labels:
         return TaskCategory.CONTRACTOR
     return None
@@ -203,7 +204,7 @@ class CTSBoardUpdater:
 
     def get_or_fetch_gitlab_ref(
         self, short_ref: str
-    ) -> Union[ProjectIssue, ProjectMergeRequest]:
+    ) -> ProjectIssue | ProjectMergeRequest:
         ref_type, num = ReferenceType.short_reference_to_type_and_num(short_ref)
         if ref_type == ReferenceType.ISSUE:
             return self.get_or_fetch_gitlab_issue(num)
@@ -215,7 +216,7 @@ class CTSBoardUpdater:
         self,
         ref_type: ReferenceType,
         num: int,
-        gl_item: Union[ProjectIssue, ProjectMergeRequest],
+        gl_item: ProjectIssue | ProjectMergeRequest,
         column: TaskColumn,
         swimlane: TaskSwimlane,
         starting_flags: CTSTaskFlags,
@@ -254,7 +255,7 @@ class CTSBoardUpdater:
     ) -> CTSTaskCreationData:
 
         ref_type, num = ReferenceType.short_reference_to_type_and_num(short_ref)
-        gl_item: Union[ProjectIssue, ProjectMergeRequest]
+        gl_item: ProjectIssue | ProjectMergeRequest
         if ref_type == ReferenceType.ISSUE:
             gl_item = self.get_gitlab_issue(num)
             issue_num = num
@@ -283,7 +284,7 @@ class CTSBoardUpdater:
 
     async def create_task_from_data(
         self, short_ref: str, data: CTSTaskCreationData
-    ) -> Optional[int]:
+    ) -> int | None:
 
         if not self.options.create_task:
 
@@ -307,7 +308,7 @@ class CTSBoardUpdater:
         column: TaskColumn,
         swimlane: TaskSwimlane,
         starting_flags: CTSTaskFlags,
-    ) -> Optional[int]:
+    ) -> int | None:
         data = self.compute_creation_data_for_ref(
             short_ref=short_ref,
             column=column,
@@ -320,7 +321,7 @@ class CTSBoardUpdater:
         self,
         task: CTSTask,
         ref_type: ReferenceType,
-        gl_item: Union[ProjectIssue, ProjectMergeRequest],
+        gl_item: ProjectIssue | ProjectMergeRequest,
     ):
         issue_or_mr = "issue"
         if ref_type == ReferenceType.MERGE_REQUEST:
@@ -536,9 +537,7 @@ class CTSBoardSearchUpdater:
 
         return self.base.changes_made
 
-    def search_issues(
-        self, filter_out_refs: set[str]
-    ) -> list[Awaitable[Optional[Any]]]:
+    def search_issues(self, filter_out_refs: set[str]) -> list[Awaitable[Any | None]]:
         # Grab all "Contractor:Approved" issues that are CTS related
 
         self.log.info("Looking for relevant GitLab issues")
@@ -560,7 +559,7 @@ class CTSBoardSearchUpdater:
 
         return futures
 
-    def search_mrs(self, filter_out_refs: set[str]) -> list[Awaitable[Optional[Any]]]:
+    def search_mrs(self, filter_out_refs: set[str]) -> list[Awaitable[Any | None]]:
         # Grab all "Contractor:Approved" MRs as well as all
         # CTS ones (whether or not written
         # by contractor, as part of maintaining the cts)
@@ -582,7 +581,7 @@ class CTSBoardSearchUpdater:
 
     def _handle_cts_mr(
         self, proj_mr: ProjectMergeRequest, filter_out_refs: set[str]
-    ) -> Optional[Awaitable[Any]]:
+    ) -> Awaitable[Any] | None:
         """
         Return a future to perform Kanboard operations associated with the MR.
 
@@ -628,7 +627,7 @@ class CTSBoardSearchUpdater:
 
     def _handle_approved_issue(
         self, proj_issue: ProjectIssue, filter_out_refs: set[str]
-    ) -> Optional[Awaitable[Any]]:
+    ) -> Awaitable[Any] | None:
         """
         Return a future to perform Kanboard operations associated with the issue.
 
@@ -662,7 +661,7 @@ class CTSBoardSearchUpdater:
 
         task = self.task_collection.get_task_by_issue(num)
 
-        create_future: Optional[Awaitable[Any]] = None
+        create_future: Awaitable[Any] | None = None
 
         if task is None:
 
@@ -715,7 +714,7 @@ class CTSBoardSearchUpdater:
             create_or_get_mr_task(int(mr["iid"]), mr) for mr in related_mrs
         ]
 
-        async def create_and_link(task: Optional[CTSTask]):
+        async def create_and_link(task: CTSTask | None):
             if create_future:
                 task_id = await create_future
                 if task_id is None:

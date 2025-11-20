@@ -25,7 +25,7 @@ class InternalLinkRelation(Enum):
     IS_FIXED_BY = "is fixed by"
     FIXES = "fixes"
 
-    def try_to_link_id(self, link_mapping: LinkIdMapping) -> Optional[int]:
+    def try_to_link_id(self, link_mapping: LinkIdMapping) -> int | None:
         # depends on data cached by link_mapping
         return link_mapping.link_label_to_id.get(self.value)
 

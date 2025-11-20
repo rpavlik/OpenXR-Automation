@@ -18,7 +18,7 @@ class InternalLinkData:
     link_type: InternalLinkRelation
     other_task_id: int
 
-    task_link_id: Optional[int] = None
+    task_link_id: int | None = None
 
     @classmethod
     def parse_internal_links(

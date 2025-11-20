@@ -8,7 +8,8 @@
 
 import logging
 import tomllib
-from typing import Iterable, List, Optional, Union
+from collections.abc import Iterable
+from typing import List, Optional, Union
 
 from .checklists import ColumnName, ReleaseChecklistCollection
 from .custom_sort import SORTERS, BasicDesignReviewSort, BasicSpecReviewSort, SorterBase
@@ -19,11 +20,11 @@ from .vendors import VendorNames
 
 
 class ReviewPriorityConfig:
-    def __init__(self, fn: Optional[str]):
-        self.config: Optional[dict] = None
+    def __init__(self, fn: str | None):
+        self.config: dict | None = None
         """The actual config initially loaded from TOML."""
 
-        self.vendor_config: dict[str, dict[str, Union[str, List[str]]]] = dict()
+        self.vendor_config: dict[str, dict[str, str | list[str]]] = dict()
         """Customization per vendor tag."""
 
         self.log = logging.getLogger(f"{__name__}.ReviewPriorityConfig")
@@ -61,7 +62,7 @@ class ReviewPriorityConfig:
 def load_needs_review(
     collection: ReleaseChecklistCollection,
     column: ColumnName = ColumnName.AWAITING_SPEC_REVIEW,
-) -> List[ReleaseChecklistIssue]:
+) -> list[ReleaseChecklistIssue]:
     log.info("Loading items that need review")
     items = []
     for issue in collection.issue_to_mr.keys():
@@ -91,8 +92,8 @@ def make_html(
     spec_results: PriorityResults,
     sort_desc: Iterable[str],
     fn: str,
-    extra: Optional[str],
-    extra_safe: Optional[str],
+    extra: str | None,
+    extra_safe: str | None,
 ):
     from jinja2 import Environment, PackageLoader, select_autoescape
 

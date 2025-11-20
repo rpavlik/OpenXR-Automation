@@ -7,45 +7,34 @@
 
 import dataclasses
 import logging
-from typing import (
-    Dict,
-    Generator,
-    Iterable,
-    List,
-    Optional,
-    Sequence,
-    Set,
-    Tuple,
-    Union,
-    cast,
-)
+from collections.abc import Generator, Iterable, Sequence
+from typing import Dict, List, Optional, Set, Tuple, Union, assert_never, cast
 
 import gitlab
 import gitlab.v4.objects
 from gitlab.v4.objects import ProjectIssue, ProjectMergeRequest
-from typing_extensions import assert_never
 
 from openxr_ops.gitlab import ReferenceType
 
 
-def make_url_list_item(issue_or_mr: Union[ProjectIssue, ProjectMergeRequest]) -> str:
+def make_url_list_item(issue_or_mr: ProjectIssue | ProjectMergeRequest) -> str:
     return "• {}: {} {}".format(
         issue_or_mr.references["short"], issue_or_mr.title, issue_or_mr.web_url
     )
 
 
-def is_mr(issue_or_mr: Union[ProjectIssue, ProjectMergeRequest]):
+def is_mr(issue_or_mr: ProjectIssue | ProjectMergeRequest):
     return "merge_status" in issue_or_mr.attributes
 
 
 @dataclasses.dataclass
 class WorkUnit:
-    key_item: Union[ProjectIssue, ProjectMergeRequest]
+    key_item: ProjectIssue | ProjectMergeRequest
 
-    mrs: List[ProjectMergeRequest] = dataclasses.field(default_factory=list)
-    issues: List[ProjectIssue] = dataclasses.field(default_factory=list)
+    mrs: list[ProjectMergeRequest] = dataclasses.field(default_factory=list)
+    issues: list[ProjectIssue] = dataclasses.field(default_factory=list)
 
-    list_name: Optional[str] = None
+    list_name: str | None = None
 
     @property
     def ref(self):
@@ -70,12 +59,12 @@ class WorkUnit:
         for mr in self.mrs:
             yield mr.references["short"]
 
-    def get_key_item_as_mr(self) -> Optional[ProjectMergeRequest]:
+    def get_key_item_as_mr(self) -> ProjectMergeRequest | None:
         if not self.is_mr:
             return None
         return cast(ProjectMergeRequest, self.key_item)
 
-    def get_key_item_as_issue(self) -> Optional[ProjectIssue]:
+    def get_key_item_as_issue(self) -> ProjectIssue | None:
         if self.is_mr:
             return None
         return cast(ProjectIssue, self.key_item)
@@ -91,20 +80,18 @@ class WorkUnit:
 
     def non_key_issues_and_mrs(
         self,
-    ) -> Generator[Union[ProjectIssue, ProjectMergeRequest], None, None]:
-        for issue in self.issues:
-            yield issue
-        for mr in self.mrs:
-            yield mr
+    ) -> Generator[ProjectIssue | ProjectMergeRequest, None, None]:
+        yield from self.issues
+        yield from self.mrs
 
     def all_issues_and_mrs(
         self,
-    ) -> Generator[Union[ProjectIssue, ProjectMergeRequest], None, None]:
+    ) -> Generator[ProjectIssue | ProjectMergeRequest, None, None]:
         yield self.key_item
         yield from self.non_key_issues_and_mrs()
 
 
-def get_short_ref(api_item: Union[ProjectIssue, ProjectMergeRequest]) -> str:
+def get_short_ref(api_item: ProjectIssue | ProjectMergeRequest) -> str:
     return api_item.references["short"]
 
 
@@ -112,7 +99,7 @@ def get_issue_from_data_or_project(
     proj: gitlab.v4.objects.Project,
     ref: str,
     ref_num: int,
-    data: Optional[Dict[str, Union[ProjectIssue, ProjectMergeRequest]]] = None,
+    data: dict[str, ProjectIssue | ProjectMergeRequest] | None = None,
 ) -> ProjectIssue:
     if data and ref in data:
         return cast(ProjectIssue, data[ref])
@@ -123,7 +110,7 @@ def get_mr_from_data_or_project(
     proj: gitlab.v4.objects.Project,
     ref: str,
     ref_num: int,
-    data: Optional[Dict[str, Union[ProjectIssue, ProjectMergeRequest]]] = None,
+    data: dict[str, ProjectIssue | ProjectMergeRequest] | None = None,
 ) -> ProjectMergeRequest:
     if data and ref in data:
         return cast(ProjectMergeRequest, data[ref])
@@ -132,16 +119,16 @@ def get_mr_from_data_or_project(
 
 @dataclasses.dataclass
 class WorkUnitCollection:
-    items_by_ref: Dict[str, WorkUnit] = dataclasses.field(default_factory=dict)
-    items: List[WorkUnit] = dataclasses.field(default_factory=list)
+    items_by_ref: dict[str, WorkUnit] = dataclasses.field(default_factory=dict)
+    items: list[WorkUnit] = dataclasses.field(default_factory=list)
 
-    do_not_merge: Set[str] = dataclasses.field(default_factory=set)
+    do_not_merge: set[str] = dataclasses.field(default_factory=set)
     """Refs that should not be fully parsed/merged"""
 
     def _add_item(
         self,
-        api_item: Union[ProjectIssue, ProjectMergeRequest],
-    ) -> Optional[WorkUnit]:
+        api_item: ProjectIssue | ProjectMergeRequest,
+    ) -> WorkUnit | None:
         log = logging.getLogger(__name__)
         short_ref = get_short_ref(api_item)
         if short_ref in self.items_by_ref:
@@ -163,7 +150,7 @@ class WorkUnitCollection:
         proj: gitlab.v4.objects.Project,
         item: WorkUnit,
         refs: Iterable[str],
-        data: Optional[Dict[str, Union[ProjectIssue, ProjectMergeRequest]]] = None,
+        data: dict[str, ProjectIssue | ProjectMergeRequest] | None = None,
     ):
         log = logging.getLogger(__name__)
         for ref in refs:
@@ -186,7 +173,7 @@ class WorkUnitCollection:
         self,
         proj: gitlab.v4.objects.Project,
         refs: Sequence[str],
-        data: Optional[Dict[str, Union[ProjectIssue, ProjectMergeRequest]]] = None,
+        data: dict[str, ProjectIssue | ProjectMergeRequest] | None = None,
     ) -> WorkUnit:
         """Add a new item for the given refs, or extend an existing item. Returns the relevant item in either case"""
         item, _ = self._add_refs(proj, refs, data)
@@ -199,19 +186,19 @@ class WorkUnitCollection:
         self,
         proj: gitlab.v4.objects.Project,
         refs: Sequence[str],
-        data: Optional[Dict[str, Union[ProjectIssue, ProjectMergeRequest]]] = None,
-    ) -> Optional[WorkUnit]:
+        data: dict[str, ProjectIssue | ProjectMergeRequest] | None = None,
+    ) -> WorkUnit | None:
         """Add a new item for the given refs, or extend an existing item and return None if they overlap one."""
         item, is_new = self._add_refs(proj, refs, data)
         if is_new:
             return item
         return None
 
-    def get_items_for_refs(self, refs: Sequence[str]) -> List[WorkUnit]:
+    def get_items_for_refs(self, refs: Sequence[str]) -> list[WorkUnit]:
         """Return a list of all unique WorkUnits that the refs belong to."""
         log = logging.getLogger(__name__)
-        retrieved_items: List[WorkUnit] = []
-        retrieved_key_refs: Set[str] = set()
+        retrieved_items: list[WorkUnit] = []
+        retrieved_key_refs: set[str] = set()
         log.debug("Getting items for refs %s", str(refs))
         for ref in refs:
             if ref in self.do_not_merge:
@@ -246,11 +233,11 @@ class WorkUnitCollection:
         self,
         proj: gitlab.v4.objects.Project,
         refs: Sequence[str],
-        data: Optional[Dict[str, Union[ProjectIssue, ProjectMergeRequest]]] = None,
-    ) -> Tuple[Optional[WorkUnit], bool]:
+        data: dict[str, ProjectIssue | ProjectMergeRequest] | None = None,
+    ) -> tuple[WorkUnit | None, bool]:
         """Add a new item for the given refs, or extend an existing item and return None if they overlap one."""
 
-        item: Optional[WorkUnit] = None
+        item: WorkUnit | None = None
         items = self.get_items_for_refs(refs)
         if items:
             log = logging.getLogger(__name__)
@@ -297,7 +284,7 @@ class WorkUnitCollection:
         proj: gitlab.v4.objects.Project,
         issue: ProjectIssue,
         also_add_related_mrs: bool = True,
-    ) -> Optional[WorkUnit]:
+    ) -> WorkUnit | None:
         item = self._add_item(issue)
         if not item:
             return None
@@ -350,7 +337,7 @@ class WorkUnitCollection:
         return 0
 
     def _should_add_issue_or_mr_to_workunit(
-        self, item: WorkUnit, issue_or_mr: Union[ProjectMergeRequest, ProjectIssue]
+        self, item: WorkUnit, issue_or_mr: ProjectMergeRequest | ProjectIssue
     ):
         """Add to items_by_ref and return true if you should finish adding this mr/issue."""
         short_ref = issue_or_mr.references["short"]
@@ -362,7 +349,7 @@ class WorkUnitCollection:
 
     def add_mr(
         self, _proj: gitlab.v4.objects.Project, mr: ProjectMergeRequest
-    ) -> Optional[WorkUnit]:
+    ) -> WorkUnit | None:
         item = self._add_item(mr)
         if not item:
             return None

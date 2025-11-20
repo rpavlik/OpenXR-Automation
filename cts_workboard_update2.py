@@ -29,7 +29,7 @@ from work_item_and_collection import WorkUnit, WorkUnitCollection, get_short_ref
 
 
 def _make_api_item_text(
-    api_item: Union[ProjectIssue, ProjectMergeRequest],
+    api_item: ProjectIssue | ProjectMergeRequest,
 ) -> str:
     state, suffix = compute_api_item_state_and_suffix(api_item)
     state_str = " ".join(state)
@@ -66,11 +66,11 @@ class WorkboardUpdate:
         self.oxr_gitlab = oxr_gitlab
         self.proj = oxr_gitlab.main_proj
         self._log = logging.getLogger("WorkboardUpdate")
-        self.board: dict[str, Union[str, dict, list]] = dict()
+        self.board: dict[str, str | dict | list] = dict()
 
     def load_board(self, in_filename):
         self._log.info("Reading %s", in_filename)
-        with open(in_filename, "r", encoding="utf-8") as fp:
+        with open(in_filename, encoding="utf-8") as fp:
             self.board = json.load(fp)
 
         self._log.info("Parsing board loaded from %s", in_filename)

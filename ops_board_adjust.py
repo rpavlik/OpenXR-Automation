@@ -54,7 +54,7 @@ class OpsBoardProcessing:
                 iterator=True,
             )
         ]
-        self.title: Optional[str] = None
+        self.title: str | None = None
 
     def log_title(self):
         if self.title is not None:

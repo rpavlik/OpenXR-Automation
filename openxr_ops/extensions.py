@@ -53,10 +53,10 @@ _EXT_TITLE_DECOMP = re.compile(
 _EXT_DECOMP_RE = re.compile(r"XR_" + TAG_DECOMP_RE.pattern + r"_.*")
 
 
-def compute_vendor_name_and_tag(title, vendors) -> tuple[Optional[str], Optional[str]]:
+def compute_vendor_name_and_tag(title, vendors) -> tuple[str | None, str | None]:
     m = _EXT_DECOMP_RE.match(title)
-    vendor: Optional[str] = None
-    tag: Optional[str] = None
+    vendor: str | None = None
+    tag: str | None = None
     if m is not None:
         tag = m.group("tag")
         assert tag is not None
@@ -132,7 +132,7 @@ class ExtensionNameGuesser:
         self.names = set()
         self.extensions = []
 
-    def handle_path(self, path_modified: str) -> Optional[ExtensionData]:
+    def handle_path(self, path_modified: str) -> ExtensionData | None:
         data = ExtensionData.try_from_adoc_path(path_modified)
         if not data:
             return None

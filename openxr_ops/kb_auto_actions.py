@@ -9,9 +9,10 @@
 import abc
 import asyncio
 import logging
+from collections.abc import Sequence
 from dataclasses import dataclass
 from pprint import pformat
-from typing import Any, Literal, Optional, Sequence, Union
+from typing import Any, Literal, Optional, Union
 
 import kanboard
 
@@ -113,13 +114,13 @@ class SubtasksFromCategory(AutoSubtasksBase, AutoActionABC):
     """
 
     event: AutoActionEvents
-    category: Optional[TaskCategory]
+    category: TaskCategory | None
 
     @classmethod
     def create(
         cls,
         event: AutoActionEvents,
-        category: Optional[TaskCategory],
+        category: TaskCategory | None,
         subtasks: list[str],
         allow_duplicate_subtasks: bool = False,
     ):
@@ -133,9 +134,9 @@ class SubtasksFromCategory(AutoSubtasksBase, AutoActionABC):
     @classmethod
     def yield_for_events(
         cls,
-        category: Optional[TaskCategory],
+        category: TaskCategory | None,
         subtasks: list[str],
-        events: Optional[list[AutoActionEvents]],
+        events: list[AutoActionEvents] | None,
         allow_duplicate_subtasks: bool = False,
     ):
         if not events:
@@ -222,7 +223,7 @@ class SubtasksFromColumn(AutoSubtasksBase, AutoActionABC):
         cls,
         column: TaskColumn,
         subtasks: list[str],
-        events: Optional[list[AutoActionEvents]],
+        events: list[AutoActionEvents] | None,
         allow_duplicate_subtasks: bool = False,
     ):
         if not events:
@@ -285,14 +286,14 @@ class SubtasksFromColumnAndCategory(AutoSubtasksBase, AutoActionABC):
 
     event: AutoActionEvents
     column: TaskColumn
-    category: Optional[TaskCategory]
+    category: TaskCategory | None
 
     @classmethod
     def create(
         cls,
         event: AutoActionEvents,
         column: TaskColumn,
-        category: Optional[TaskCategory],
+        category: TaskCategory | None,
         subtasks: list[str],
         allow_duplicate_subtasks: bool = False,
     ):
@@ -307,9 +308,9 @@ class SubtasksFromColumnAndCategory(AutoSubtasksBase, AutoActionABC):
     @classmethod
     def yield_for_events(
         cls,
-        events: Optional[list[AutoActionEvents]],
+        events: list[AutoActionEvents] | None,
         column: TaskColumn,
-        category: Optional[TaskCategory],
+        category: TaskCategory | None,
         subtasks: list[str],
         allow_duplicate_subtasks: bool = False,
     ):
@@ -405,7 +406,7 @@ class SubtasksFromColumnAndSwimlane(AutoSubtasksBase, AutoActionABC):
         column: TaskColumn,
         swimlane: TaskSwimlane,
         subtasks: list[str],
-        events: Optional[list[AutoActionEvents]],
+        events: list[AutoActionEvents] | None,
         allow_duplicate_subtasks: bool = False,
     ):
         if not events:
@@ -474,7 +475,7 @@ class SubtasksFromColumnAndSwimlaneAndCategory(AutoSubtasksBase, AutoActionABC):
     event: AutoActionEvents
     column: TaskColumn
     swimlane: TaskSwimlane
-    category: Optional[TaskCategory]
+    category: TaskCategory | None
 
     @classmethod
     def create(
@@ -482,7 +483,7 @@ class SubtasksFromColumnAndSwimlaneAndCategory(AutoSubtasksBase, AutoActionABC):
         event: AutoActionEvents,
         column: TaskColumn,
         swimlane: TaskSwimlane,
-        category: Optional[TaskCategory],
+        category: TaskCategory | None,
         subtasks: list[str],
         allow_duplicate_subtasks: bool = False,
     ):
@@ -500,9 +501,9 @@ class SubtasksFromColumnAndSwimlaneAndCategory(AutoSubtasksBase, AutoActionABC):
         cls,
         column: TaskColumn,
         swimlane: TaskSwimlane,
-        category: Optional[TaskCategory],
+        category: TaskCategory | None,
         subtasks: list[str],
-        events: Optional[list[AutoActionEvents]],
+        events: list[AutoActionEvents] | None,
         allow_duplicate_subtasks: bool = False,
     ):
         if not events:
@@ -571,7 +572,7 @@ class SubtasksFromColumnAndSwimlaneAndCategory(AutoSubtasksBase, AutoActionABC):
 
 def actions_from_subtask_group(
     group: ConfigSubtaskGroup,
-) -> Optional[Sequence[AutoActionABC]]:
+) -> Sequence[AutoActionABC] | None:
     log = logging.getLogger(f"{__name__}.from_migration_subtasks_group")
     subtask_names = [subtask.get_full_subtask_name(group) for subtask in group.subtasks]
 
@@ -692,7 +693,7 @@ class TagFromColumnAndSwimlane(AutoActionABC):
         tag: str,
         column: TaskColumn,
         swimlane: TaskSwimlane,
-        events: Optional[list[AutoActionEvents]],
+        events: list[AutoActionEvents] | None,
     ):
         if not events:
             events = [cls.default_event_name()]
@@ -776,7 +777,7 @@ class TagFromColumn(AutoActionABC):
         cls,
         tag: str,
         column: TaskColumn,
-        events: Optional[list[AutoActionEvents]],
+        events: list[AutoActionEvents] | None,
     ):
         if not events:
             events = [cls.default_event_name()]
@@ -896,9 +897,7 @@ async def get_and_parse_actions_from_named_project(
     kb: kanboard.Client, project_name: str
 ):
     log = logging.getLogger(f"{__name__}.get_and_parse_actions_from_named_project")
-    proj: Union[dict, Literal[False]] = await kb.get_project_by_name_async(
-        name=project_name
-    )
+    proj: dict | Literal[False] = await kb.get_project_by_name_async(name=project_name)
     if not proj:
         log.warning("Project '%s' not found, skipping", project_name)
         return None, None

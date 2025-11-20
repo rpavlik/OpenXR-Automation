@@ -102,13 +102,13 @@ class OperationsTaskBase:
     task_id: int
     column: TaskColumn
     swimlane: TaskSwimlane
-    category: Optional[TaskCategory]
+    category: TaskCategory | None
     title: str
     description: str
-    task_dict: Optional[dict]
+    task_dict: dict | None
 
     @property
-    def url(self) -> Optional[str]:
+    def url(self) -> str | None:
         if self.task_dict:
             return self.task_dict["url"]
         return None
@@ -135,8 +135,8 @@ class OperationsTaskBase:
         swimlane: TaskSwimlane = TaskSwimlane.from_swimlane_id(
             kb_project, swimlane_id=int(swimlane_id)
         )
-        category_id: Optional[int] = None
-        category: Optional[TaskCategory] = None
+        category_id: int | None = None
+        category: TaskCategory | None = None
         if task["category_id"] is not None:
             category_id = int(task["category_id"])
             category = TaskCategory.from_category_id_maybe_none(kb_project, category_id)
@@ -155,11 +155,11 @@ class OperationsTaskBase:
 class OperationsTask(OperationsTaskBase):
     """Like OperationsTaskBase but this requires additional queries"""
 
-    main_mr: Optional[int]
+    main_mr: int | None
 
     ext_links_list: list[dict[str, Any]]
 
-    flags: Optional[OperationsTaskFlags]
+    flags: OperationsTaskFlags | None
 
     tags_dict: dict[str, Any]
 
@@ -170,7 +170,7 @@ class OperationsTask(OperationsTaskBase):
         ext_links_future = kb.get_all_external_task_links_async(task_id=base.task_id)
         tags_future = kb.get_task_tags_async(task_id=base.task_id)
 
-        main_mr: Optional[int] = None
+        main_mr: int | None = None
         ext_links = await ext_links_future
         for ext_link in ext_links:
             main_mr = extract_mr_number(ext_link["url"])
@@ -219,14 +219,14 @@ class OperationsTaskCreationData:
     title: str
     description: str
 
-    flags: Optional[OperationsTaskFlags]
-    issue_url: Optional[str] = None
+    flags: OperationsTaskFlags | None
+    issue_url: str | None = None
 
-    category: Optional[TaskCategory] = None
+    category: TaskCategory | None = None
 
-    date_started: Optional[datetime.datetime] = None
+    date_started: datetime.datetime | None = None
 
-    async def create_task(self, kb_project: KanboardProject) -> Optional[int]:
+    async def create_task(self, kb_project: KanboardProject) -> int | None:
         swimlane_id = self.swimlane.to_swimlane_id(kb_project)
         if swimlane_id is None:
             return None
@@ -235,15 +235,15 @@ class OperationsTaskCreationData:
         if column_id is None:
             return None
 
-        category_id: Optional[int] = None
+        category_id: int | None = None
         if self.category is not None:
             category_id = self.category.to_category_id(kb_project)
 
-        tags: Optional[list[str]] = None
+        tags: list[str] | None = None
         if self.flags is not None:
             tags = self.flags.to_string_list()
 
-        date_started: Optional[str] = None
+        date_started: str | None = None
         if self.date_started is not None:
             date_started = self.date_started.strftime("%Y-%m-%d %H:%M")
 

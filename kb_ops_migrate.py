@@ -12,9 +12,10 @@ import datetime
 import itertools
 import logging
 import re
+from collections.abc import Iterable
 from dataclasses import dataclass
 from pprint import pformat
-from typing import Any, Iterable, Optional, Union
+from typing import Any, Optional, Union
 
 import gitlab
 import gitlab.v4.objects
@@ -213,7 +214,7 @@ class OperationsGitLabToKanboard:
         self.config = get_config_data()
 
         self.log = logging.getLogger(f"{__name__}.{self.__class__.__name__}")
-        self.dates: list[dict[str, Union[str, int]]] = []
+        self.dates: list[dict[str, str | int]] = []
         """Rows for a CSV file."""
 
         self.mr_to_task_id: dict[int, int] = {}
@@ -381,7 +382,7 @@ class OperationsGitLabToKanboard:
         if data is None:
             return None
 
-        task_id: Optional[int] = None
+        task_id: int | None = None
         kb_task = self.task_collection.get_task_by_mr(mr_num)
 
         if kb_task is not None:
@@ -440,7 +441,7 @@ class OperationsGitLabToKanboard:
             mark_old_as_obsolete=self.update_options.mark_old_links_obsolete,
         )
 
-    async def process_all_mrs(self, limit: Optional[int] = None):
+    async def process_all_mrs(self, limit: int | None = None):
         collection: Iterable[int] = self.gl_collection.issue_to_mr.values()
         if limit is not None:
             collection = itertools.islice(
@@ -487,7 +488,7 @@ async def async_main(
     oxr_gitlab: OpenXRGitlab,
     gl_collection: ReleaseChecklistCollection,
     project_name: str,
-    limit: Optional[int],
+    limit: int | None,
     dry_run: bool,
     write_dates: bool,
 ):
@@ -528,7 +529,7 @@ def _should_apply_subtask_group(
     return True
 
 
-def get_category(checklist_issue: ReleaseChecklistIssue) -> Optional[TaskCategory]:
+def get_category(checklist_issue: ReleaseChecklistIssue) -> TaskCategory | None:
     """Get KB category from checklist issue."""
 
     category = None
@@ -558,7 +559,7 @@ def get_latency_date(checklist_issue: ReleaseChecklistIssue):
 _KANBOARD_DATE_FORMAT = "%Y-%m-%d %H:%M"
 
 
-def get_dates(checklist_issue: ReleaseChecklistIssue) -> dict[str, Union[str, int]]:
+def get_dates(checklist_issue: ReleaseChecklistIssue) -> dict[str, str | int]:
     latency_date = get_latency_date(checklist_issue)
     issue_created_at = datetime.datetime.fromisoformat(
         checklist_issue.issue_obj.attributes["created_at"]
@@ -675,7 +676,7 @@ def make_checklist_issue(
     gl_collection,
     mr_num,
     issue_obj: gitlab.v4.objects.ProjectIssue,
-) -> Optional[ReleaseChecklistIssue]:
+) -> ReleaseChecklistIssue | None:
     log = logging.getLogger(__name__)
     if issue_obj.attributes["state"] == "closed":
         # skip it
@@ -696,7 +697,7 @@ def make_checklist_issue(
 def populate_data_from_gitlab(
     checklist_issue: ReleaseChecklistIssue,
     mr_num,
-) -> Optional[OperationsTaskCreationData]:
+) -> OperationsTaskCreationData | None:
     """
     Return KB task creation/update data for a gitlab ops issue.
     """
@@ -759,7 +760,7 @@ def load_gitlab_ops(for_real: bool = True):
 
     try:
         collection.load_config("ops_issues.toml")
-    except IOError:
+    except OSError:
         print("Could not load config")
 
     collection.load_initial_data(deep=False)
@@ -807,7 +808,7 @@ if __name__ == "__main__":
 
     args = parser.parse_args()
 
-    limit: Optional[int] = None
+    limit: int | None = None
     if args.limit:
         limit = args.limit
         logging.info("got a limit %s %d", type(args.limit), args.limit)

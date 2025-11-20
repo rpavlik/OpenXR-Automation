@@ -30,7 +30,7 @@ class LinkIdMapping:
     async def fetch_link_types(self) -> None:
         """Retrieve names and IDs for link types."""
 
-        links: Union[Literal[False], list[dict[str, str]]] = (
+        links: Literal[False] | list[dict[str, str]] = (
             await self.kb.get_all_links_async()  # type: ignore
         )
         if not links:

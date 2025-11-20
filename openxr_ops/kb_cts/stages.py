@@ -21,7 +21,7 @@ class TaskColumn(Enum):
     NEEDS_REVIEW = "Needs Review"
     DONE = "Done"
 
-    def to_column_id(self, kb_project) -> Optional[int]:
+    def to_column_id(self, kb_project) -> int | None:
         # depends on data cached by kb_project
         return kb_project.col_titles.get(self.value)
 
@@ -63,14 +63,14 @@ class TaskCategory(Enum):
     CONTRACTOR = "CTS Contractor"
     NOT_CTS = "Non-CTS Task"
 
-    def to_category_id(self, kb_project: KanboardProject) -> Optional[int]:
+    def to_category_id(self, kb_project: KanboardProject) -> int | None:
         # depends on data cached by kb_project
         return kb_project.category_title_to_id.get(self.value)
 
     @classmethod
     def optional_to_category_id(
         cls, kb_project: KanboardProject, category: Optional["TaskCategory"]
-    ) -> Optional[int]:
+    ) -> int | None:
         if category is None:
             return 0
         # depends on data cached by kb_project
@@ -105,7 +105,7 @@ class TaskSwimlane(Enum):
     GENERAL = "General CTS Work"
     CTS_CONTRACTOR = "Approved CTS Contractor Work"
 
-    def to_swimlane_id(self, kb_project: KanboardProject) -> Optional[int]:
+    def to_swimlane_id(self, kb_project: KanboardProject) -> int | None:
         # depends on data cached by kb_project
         return kb_project.swimlane_titles.get(self.value)
 

@@ -14,22 +14,22 @@ from typing import Dict, List, Optional
 @dataclass
 class CommonMarkOutline:
     current_indent_level: int = 0
-    lines: List[str] = field(default_factory=list)
+    lines: list[str] = field(default_factory=list)
     indent_size: int = 2
 
-    def _indentation(self, level: Optional[int] = None) -> str:
+    def _indentation(self, level: int | None = None) -> str:
         if level is None:
             level = self.current_indent_level
         return " " * (self.indent_size * level)
 
-    def add_item(self, s: str, override_indent_level: Optional[int] = None):
+    def add_item(self, s: str, override_indent_level: int | None = None):
         self.lines.append(f"{self._indentation(override_indent_level)}* {s}")
 
     def __str__(self):
         return "{}\n".format("\n".join(self.lines))
 
 
-def _list_to_md(nb_list: Dict):
+def _list_to_md(nb_list: dict):
     outline = CommonMarkOutline()
     outline.add_item(nb_list["title"])
     outline.current_indent_level = 1
@@ -59,7 +59,7 @@ def _list_to_md(nb_list: Dict):
     return str(outline)
 
 
-def _nb_to_md(nb_board: Dict):
+def _nb_to_md(nb_board: dict):
     chunks = [f"# {nb_board['title']}", ""]
     chunks.extend(_list_to_md(nb_list) for nb_list in nb_board["lists"])
     return "\n".join(chunks)
@@ -71,7 +71,7 @@ def main(in_filename, out_md_filename):
     log = logging.getLogger(__name__)
 
     log.info("Reading %s", in_filename)
-    with open(in_filename, "r") as fp:
+    with open(in_filename) as fp:
         existing_board = json.load(fp)
 
     log.info("Converting to Markdown/CommonMark outline")

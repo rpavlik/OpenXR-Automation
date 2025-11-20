@@ -19,7 +19,7 @@ _ISSUE_URL_RE = re.compile(
 )
 
 
-def extract_mr_number(uri: Optional[str]) -> Optional[int]:
+def extract_mr_number(uri: str | None) -> int | None:
     """Pull out the merge request number from a URI."""
     if not uri:
         return None
@@ -31,7 +31,7 @@ def extract_mr_number(uri: Optional[str]) -> Optional[int]:
     return int(m.group("num"))
 
 
-def extract_issue_number(uri: Optional[str]) -> Optional[int]:
+def extract_issue_number(uri: str | None) -> int | None:
     """Pull out the issue number from a URI."""
     if not uri:
         return None

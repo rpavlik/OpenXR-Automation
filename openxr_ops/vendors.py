@@ -89,14 +89,12 @@ class VendorNames:
             and canonical_vendor not in self.not_runtime_vendors
         )
 
-    def get_vendor_name(self, vendor_tag: str) -> Optional[str]:
+    def get_vendor_name(self, vendor_tag: str) -> str | None:
         """Get the vendor's name from their author tag, if possible."""
         _, name = self._clean_and_lookup_tag_and_name(vendor_tag)
         return name
 
-    def _clean_and_lookup_tag_and_name(
-        self, vendor_tag: str
-    ) -> tuple[str, Optional[str]]:
+    def _clean_and_lookup_tag_and_name(self, vendor_tag: str) -> tuple[str, str | None]:
         # try tag to name
         name = self.known.get(vendor_tag)
         if not name:
@@ -119,7 +117,7 @@ class VendorNames:
         # return the (maybe cleaned) provided tag
         return vendor_tag
 
-    def vendor_name_to_canonical_tag(self, name: str) -> Optional[str]:
+    def vendor_name_to_canonical_tag(self, name: str) -> str | None:
         return self.name_to_tag.get(name)
 
     def canonicalize_and_categorize(

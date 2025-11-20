@@ -110,7 +110,7 @@ if __name__ == "__main__":
 
     try:
         collection.load_config("ops_issues.toml")
-    except IOError:
+    except OSError:
         print("Could not load config")
 
     collection.load_initial_data()

@@ -29,7 +29,7 @@ _COMPANY_MAP = {
 
 def _find_thumb_companies(
     api_item: ProjectMergeRequest,
-) -> Optional[str]:
+) -> str | None:
     companies = []
     awards = api_item.awardemojis.list(get_all=True)
     for award in awards:
@@ -49,7 +49,7 @@ def _find_thumb_companies(
 
 
 def compute_api_item_state_and_suffix(
-    api_item: Union[ProjectIssue, ProjectMergeRequest],
+    api_item: ProjectIssue | ProjectMergeRequest,
 ) -> tuple[list[str], str]:
 
     state = []
@@ -95,13 +95,11 @@ def compute_api_item_state_and_suffix(
 
 # Must have at least one of these labels to show up on this board
 # since there are now two projects using "Contractor:Approved"
-REQUIRED_LABEL_SET = set(
-    (
-        MainProjectLabels.CONFORMANCE_IMPLEMENTATION,
-        MainProjectLabels.CONFORMANCE_IN_THE_WILD,
-        MainProjectLabels.CONFORMANCE_QUESTION,
-    )
-)
+REQUIRED_LABEL_SET = {
+    MainProjectLabels.CONFORMANCE_IMPLEMENTATION,
+    MainProjectLabels.CONFORMANCE_IN_THE_WILD,
+    MainProjectLabels.CONFORMANCE_QUESTION,
+}
 
 # List stuff that causes undesired merging here
 # Anything on this list will be excluded from the board

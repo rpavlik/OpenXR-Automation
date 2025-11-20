@@ -10,9 +10,10 @@ import asyncio
 import datetime
 import logging
 import tomllib
+from collections.abc import Iterable, Sequence
 from dataclasses import dataclass
 from functools import cached_property
-from typing import Iterable, List, Optional, Sequence, Union
+from typing import List, Optional, Union
 
 import gitlab
 import gitlab.v4.objects
@@ -44,8 +45,8 @@ class KBChecklistItem(ReleaseChecklistMRData):
 
     mr: gitlab.v4.objects.ProjectMergeRequest
 
-    vendor_name: Optional[str] = None
-    vendor_tag: Optional[str] = None
+    vendor_name: str | None = None
+    vendor_tag: str | None = None
 
     offset: int = 0
     """Corrective latency offset"""
@@ -178,7 +179,7 @@ def load_needs_review(
     vendors: VendorNames,
     column: TaskColumn = TaskColumn.AWAITING_REVIEW,
     swimlane: TaskSwimlane = TaskSwimlane.SPEC_REVIEW_PHASE,
-) -> List[ReleaseChecklistIssue]:
+) -> list[ReleaseChecklistIssue]:
     log.info("Loading items that need review")
     items = []
     for task in tasks:
@@ -207,8 +208,8 @@ def make_html(
     spec_results: PriorityResults,
     sort_desc: Iterable[str],
     fn: str,
-    extra: Optional[str],
-    extra_safe: Optional[str],
+    extra: str | None,
+    extra_safe: str | None,
 ):
     from jinja2 import Environment, PackageLoader, select_autoescape
 

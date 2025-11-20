@@ -6,14 +6,15 @@
 #
 # Author: Rylie Pavlik <rylie.pavlik@collabora.com>
 import logging
+from collections.abc import Generator
 from dataclasses import dataclass
-from typing import Generator, Optional, Union
+from typing import Optional, Union
 
 
 @dataclass
 class NoteData:
     list_title: str
-    subhead: Optional[str]
+    subhead: str | None
     note_text: str
 
     @classmethod
@@ -22,7 +23,7 @@ class NoteData:
         for notelist in board["lists"]:
             list_title = notelist["title"]
             log.info("In list %s", list_title)
-            subhead: Optional[str] = None
+            subhead: str | None = None
             for note in notelist["notes"]:
                 if note.get("raw"):
                     subhead = note["text"]

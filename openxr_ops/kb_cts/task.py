@@ -71,14 +71,14 @@ class CTSTaskBase:
     task_id: int
     column: TaskColumn
     swimlane: TaskSwimlane
-    category: Optional[TaskCategory]
+    category: TaskCategory | None
     title: str
     description: str
     color_id: str
-    task_dict: Optional[dict]
+    task_dict: dict | None
 
     @property
-    def url(self) -> Optional[str]:
+    def url(self) -> str | None:
         if self.task_dict:
             return self.task_dict["url"]
         return None
@@ -105,8 +105,8 @@ class CTSTaskBase:
         swimlane: TaskSwimlane = TaskSwimlane.from_swimlane_id(
             kb_project, swimlane_id=int(swimlane_id)
         )
-        category_id: Optional[int] = None
-        category: Optional[TaskCategory] = None
+        category_id: int | None = None
+        category: TaskCategory | None = None
         if task["category_id"] is not None:
             category_id = int(task["category_id"])
             category = TaskCategory.from_category_id_maybe_none(kb_project, category_id)
@@ -127,10 +127,10 @@ class CTSTaskBase:
 class CTSTask(CTSTaskBase):
     """Like CTSTaskBase but this requires additional queries"""
 
-    mr_num: Optional[int]
+    mr_num: int | None
     """MR number. If None, then issue_num must not be None."""
 
-    issue_num: Optional[int]
+    issue_num: int | None
     """Issue number. If None, then mr_num must not be None."""
 
     internal_links: list[InternalLinkData]
@@ -142,7 +142,7 @@ class CTSTask(CTSTaskBase):
     internal_links_list: list[dict[str, Any]]
     """Raw internal links data from API"""
 
-    flags: Optional[CTSTaskFlags]
+    flags: CTSTaskFlags | None
 
     tags_dict: dict[str, Any]
     """Raw tags data from API."""
@@ -154,7 +154,7 @@ class CTSTask(CTSTaskBase):
         return self.issue_num is not None
 
     @property
-    def gitlab_link(self) -> Optional[str]:
+    def gitlab_link(self) -> str | None:
         if self.is_mr():
             return f"{MR_URL_BASE}{self.mr_num}"
         if self.is_issue():
@@ -162,7 +162,7 @@ class CTSTask(CTSTaskBase):
         return None
 
     @property
-    def gitlab_link_title(self) -> Optional[str]:
+    def gitlab_link_title(self) -> str | None:
         if self.is_mr():
             return f"MR !{self.mr_num}"
         if self.is_issue():
@@ -184,8 +184,8 @@ class CTSTask(CTSTaskBase):
         tags_future = kb.get_task_tags_async(task_id=base.task_id)
         int_links_future = kb.get_all_task_links_async(task_id=base.task_id)
 
-        mr_num: Optional[int] = None
-        issue_num: Optional[int] = None
+        mr_num: int | None = None
+        issue_num: int | None = None
         ext_links = await ext_links_future
         for ext_link in ext_links:
             mr_num = extract_mr_number(ext_link["url"])
@@ -198,7 +198,7 @@ class CTSTask(CTSTaskBase):
         if mr_num is None and issue_num is None:
             raise RuntimeError(
                 "No external links are an issue or MR! "
-                + " ".join((ext_link["url"] for ext_link in ext_links))
+                + " ".join(ext_link["url"] for ext_link in ext_links)
             )
         tags = await tags_future
         flags = CTSTaskFlags.from_task_tags_result(tags)
@@ -242,24 +242,24 @@ class CTSTask(CTSTaskBase):
 
 @dataclass
 class CTSTaskCreationData:
-    mr_num: Optional[int]
-    issue_num: Optional[int]
+    mr_num: int | None
+    issue_num: int | None
 
     column: TaskColumn
     swimlane: TaskSwimlane
     title: str
     description: str
 
-    flags: Optional[CTSTaskFlags]
+    flags: CTSTaskFlags | None
 
-    category: Optional[TaskCategory] = None
+    category: TaskCategory | None = None
 
-    date_started: Optional[datetime.datetime] = None
+    date_started: datetime.datetime | None = None
 
     color_id: str = "blue"
 
     @property
-    def gitlab_link(self) -> Optional[str]:
+    def gitlab_link(self) -> str | None:
         if self.mr_num is not None:
             return f"{MR_URL_BASE}{self.mr_num}"
         if self.issue_num is not None:
@@ -267,14 +267,14 @@ class CTSTaskCreationData:
         return None
 
     @property
-    def gitlab_link_title(self) -> Optional[str]:
+    def gitlab_link_title(self) -> str | None:
         if self.mr_num is not None:
             return f"MR !{self.mr_num}"
         if self.issue_num is not None:
             return f"Issue #{self.issue_num}"
         return None
 
-    async def create_task(self, kb_project: KanboardProject) -> Optional[int]:
+    async def create_task(self, kb_project: KanboardProject) -> int | None:
         log = logging.getLogger(f"{__name__}.{self.__class__.__name__}.create_task")
         swimlane_id = self.swimlane.to_swimlane_id(kb_project)
         if swimlane_id is None:
@@ -286,15 +286,15 @@ class CTSTaskCreationData:
             log.error("Could not find ID for column %s", self.column.value)
             return None
 
-        category_id: Optional[int] = None
+        category_id: int | None = None
         if self.category is not None:
             category_id = self.category.to_category_id(kb_project)
 
-        tags: Optional[list[str]] = None
+        tags: list[str] | None = None
         if self.flags is not None:
             tags = self.flags.to_string_list()
 
-        date_started: Optional[str] = None
+        date_started: str | None = None
         if self.date_started is not None:
             date_started = self.date_started.strftime("%Y-%m-%d %H:%M")
 

@@ -10,9 +10,10 @@ import datetime
 import logging
 import re
 from collections import defaultdict
+from collections.abc import Iterable
 from dataclasses import dataclass
 from functools import cached_property
-from typing import Iterable, Optional, cast
+from typing import Optional, cast
 
 import gitlab
 import gitlab.v4.objects
@@ -80,7 +81,7 @@ class ReleaseChecklistMRData:
     def _last_author_revision_push_with_date(
         self,
     ) -> tuple[
-        Optional[gitlab.v4.objects.ProjectMergeRequestNote], Optional[datetime.datetime]
+        gitlab.v4.objects.ProjectMergeRequestNote | None, datetime.datetime | None
     ]:
         """The system note and date for the last non-bot, non-spec-editor/contractor push to the MR."""
 
@@ -104,7 +105,7 @@ class ReleaseChecklistMRData:
     @cached_property
     def last_push(
         self,
-    ) -> Optional[gitlab.v4.objects.ProjectMergeRequestNote]:
+    ) -> gitlab.v4.objects.ProjectMergeRequestNote | None:
         """The system note for the last push to the MR."""
         pushes = [
             cast(gitlab.v4.objects.ProjectMergeRequestNote, n)
@@ -154,8 +155,8 @@ class ReleaseChecklistIssue(ReleaseChecklistMRData):
 
     # mr: gitlab.v4.objects.ProjectMergeRequest
 
-    vendor_name: Optional[str] = None
-    vendor_tag: Optional[str] = None
+    vendor_name: str | None = None
+    vendor_tag: str | None = None
 
     offset: int = 0
     """Corrective latency offset"""
