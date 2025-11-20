@@ -12,7 +12,7 @@ import dataclasses
 import logging
 from dataclasses import dataclass
 from pprint import pformat
-from typing import Any, Awaitable, Optional, Union, cast
+from typing import Any, Awaitable, Optional, Sequence, Union, cast
 
 import kanboard
 from gitlab.v4.objects import ProjectIssue, ProjectMergeRequest
@@ -82,9 +82,8 @@ async def add_link(
     b: CTSTask,
     link_type: InternalLinkRelation,
     dry_run: bool = False,
-):
+) -> bool:
     # Assumes a and b both have their links populated.
-    # await asyncio.gather(a.refresh_internal_links(kb), b.refresh_internal_links(kb))
     log = logging.getLogger(f"{__name__}.add_link")
     if a.task_id == b.task_id:
         log.warning(
@@ -92,7 +91,7 @@ async def add_link(
             a.task_id,
             link_type.value,
         )
-        return
+        return False
     matching_links = [
         link_data
         for link_data in a.internal_links_list
@@ -105,7 +104,7 @@ async def add_link(
             b.task_id,
             str([link_data["label"] for link_data in matching_links]),
         )
-        return
+        return False
 
     link_type_id = link_type.to_link_id(link_mapping)
     if dry_run:
@@ -116,10 +115,11 @@ async def add_link(
             a.task_id,
             b.task_id,
         )
-        return
+        return False
     await kb.create_task_link_async(
         task_id=a.task_id, opposite_task_id=b.task_id, link_id=link_type_id
     )
+    return True
 
 
 @dataclass
@@ -173,6 +173,8 @@ class CTSBoardUpdater:
 
         self.gitlab_mrs: dict[int, ProjectMergeRequest] = {}
         self.gitlab_issues: dict[int, ProjectIssue] = {}
+
+        self.changes_made: bool = False
 
         # these are populated later in prepare
         self.kb_project: KanboardProject
@@ -299,6 +301,8 @@ class CTSBoardUpdater:
             self.log.error("Failed to create task for %s!", short_ref)
             return None
 
+        self.changes_made = True
+
         self.log.debug("Task ID for %s: %d", short_ref, task_id)
         await self.task_collection.load_task_id(task_id)
         return task_id
@@ -349,6 +353,7 @@ class CTSBoardUpdater:
                 new_title,
             )
             await self.kb.update_task_async(id=task.task_id, title=new_title)
+            self.changes_made = True
 
         labels = set(gl_item.attributes["labels"])
 
@@ -378,6 +383,7 @@ class CTSBoardUpdater:
                     self.kb_project, new_category
                 ),
             )
+            self.changes_made = True
 
         assert task.flags
         new_flags = dataclasses.replace(task.flags)
@@ -405,6 +411,7 @@ class CTSBoardUpdater:
             await self.kb.update_task_async(
                 id=task.task_id, tags=new_flags.to_string_list()
             )
+            self.changes_made = True
 
         # Color
         color_id = _color_id_from_ref_type(ref_type)
@@ -427,6 +434,7 @@ class CTSBoardUpdater:
                 color_id,
             )
             await self.kb.update_task_async(id=task.task_id, color_id=color_id)
+            self.changes_made = True
 
     async def update_issue(self, task: CTSTask, gl_issue: ProjectIssue):
         await self._update_either(task, ReferenceType.ISSUE, gl_issue)
@@ -519,7 +527,7 @@ class CTSBoardSearchUpdater:
         self.kb_project = self.base.kb_project
         self.task_collection = self.base.task_collection
 
-    async def process(self, filter_out_refs: set[str]) -> None:
+    async def process(self, filter_out_refs: set[str]) -> bool:
         # First, fetch everything from gitlab if possible. Serially.
         self.base.fetch_all_from_gitlab()
 
@@ -527,12 +535,12 @@ class CTSBoardSearchUpdater:
         await self.base.update_existing_tasks()
 
         new_issue_futures = self.search_issues(filter_out_refs)
-
-        # we can do the remaining part in parallel.
         await asyncio.gather(*new_issue_futures)
 
         new_mr_futures = self.search_mrs(filter_out_refs)
         await asyncio.gather(*new_mr_futures)
+
+        return self.base.changes_made
 
     def search_issues(
         self, filter_out_refs: set[str]
@@ -581,6 +589,13 @@ class CTSBoardSearchUpdater:
     def _handle_cts_mr(
         self, proj_mr: ProjectMergeRequest, filter_out_refs: set[str]
     ) -> Optional[Awaitable[Any]]:
+        """
+        Return a future to perform Kanboard operations associated with the MR.
+
+        (Or, return None, if nothing to do.)
+
+        GitLab operations are performed synchronously in this function.
+        """
 
         mr_num = proj_mr.get_id()
         assert isinstance(mr_num, int)
@@ -620,6 +635,15 @@ class CTSBoardSearchUpdater:
     def _handle_approved_issue(
         self, proj_issue: ProjectIssue, filter_out_refs: set[str]
     ) -> Optional[Awaitable[Any]]:
+        """
+        Return a future to perform Kanboard operations associated with the issue.
+
+        This includes adding MRs that are listed as "closing" it.
+
+        (Or, return None, if nothing to do.)
+
+        GitLab operations are performed synchronously in this function.
+        """
 
         num = proj_issue.get_id()
         assert isinstance(num, int)
@@ -642,17 +666,17 @@ class CTSBoardSearchUpdater:
             )
             return None
 
-        self.log.info(
-            "GitLab Issue Search: %s: %s",
-            ref,
-            proj_issue.title,
-        )
         task = self.task_collection.get_task_by_issue(num)
 
         create_future: Optional[Awaitable[Any]] = None
 
         if task is None:
 
+            self.log.info(
+                "GitLab Issue Search: %s: %s - needs task",
+                ref,
+                proj_issue.title,
+            )
             data = self.base.compute_creation_data_for_item(
                 ReferenceType.ISSUE,
                 num,
@@ -706,8 +730,11 @@ class CTSBoardSearchUpdater:
             if task is None:
                 return
 
+            # Make or get all appropriate tasks
             related_mr_tasks = await asyncio.gather(*related_mr_futures)
-            await asyncio.gather(
+
+            # Add the links, if applicable.
+            add_link_results: Sequence[bool] = await asyncio.gather(
                 *(
                     add_link(
                         self.kb,
@@ -721,6 +748,8 @@ class CTSBoardSearchUpdater:
                     if mr_task is not None
                 )
             )
+            if any(add_link_results):
+                self.base.changes_made = True
 
         return create_and_link(task)
 
@@ -746,7 +775,12 @@ async def main(
     )
 
     await obj.prepare()
-    await obj.process(FILTER_OUT)
+    changes_made = await obj.process(FILTER_OUT)
+
+    if changes_made:
+        log.info("Changes made!")
+    else:
+        log.info("No changes made")
 
 
 if __name__ == "__main__":
