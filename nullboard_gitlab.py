@@ -15,6 +15,7 @@ import gitlab
 import gitlab.v4.objects
 from gitlab.v4.objects import ProjectIssue, ProjectMergeRequest
 
+from openxr_ops.labels import MainProjectLabels
 from work_item_and_collection import WorkUnit, WorkUnitCollection, is_mr
 
 _REF_RE = re.compile(r"([!#][0-9]+)\b")
@@ -35,7 +36,7 @@ def guess_list(item: WorkUnit) -> str:
         # merge request
         if mr.work_in_progress:
             return ListName.DOING
-        if "Needs Action" in mr.labels:
+        if MainProjectLabels.NEEDS_AUTHOR_ACTION in mr.labels:
             return ListName.DOING
         return ListName.REVIEW
     return ListName.TODO
