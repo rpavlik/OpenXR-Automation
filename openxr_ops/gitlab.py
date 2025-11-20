@@ -9,12 +9,10 @@
 import os
 from dataclasses import dataclass
 from enum import Enum
-from typing import Union
 
 import gitlab
 import gitlab.v4.objects
 from gitlab.v4.objects import ProjectIssue, ProjectMergeRequest
-from requests_cache import Optional
 
 GITLAB_SERVER = "https://gitlab.khronos.org"
 
@@ -33,7 +31,7 @@ class OpenXRGitlab:
 
     gl: gitlab.Gitlab
 
-    group: Optional[gitlab.v4.objects.Group]
+    group: gitlab.v4.objects.Group | None
     main_proj: gitlab.v4.objects.Project
     operations_proj: gitlab.v4.objects.Project
 
@@ -52,7 +50,7 @@ class OpenXRGitlab:
         job_token = os.environ.get("CI_JOB_TOKEN")
         private_token = os.environ.get("GL_ACCESS_TOKEN")
 
-        group: Optional[gitlab.v4.objects.Group] = None
+        group: gitlab.v4.objects.Group | None = None
 
         if private_token:
             gl = gitlab.Gitlab(url=url, private_token=private_token)
