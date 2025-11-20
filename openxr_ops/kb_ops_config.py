@@ -10,7 +10,6 @@ import importlib
 import importlib.resources
 import tomllib
 from dataclasses import dataclass
-from typing import Optional
 
 from .kb_enums import AutoActionEvents
 from .kb_ops_stages import TaskCategory, TaskColumn, TaskSwimlane

@@ -6,7 +6,7 @@
 # Author: Rylie Pavlik <rylie.pavlik@collabora.com>
 
 import asyncio
-from typing import Any, Dict, Optional
+from typing import Any
 
 from .kanboard_helpers import KanboardProject
 from .kb_ops_task import OperationsTask

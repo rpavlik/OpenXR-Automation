@@ -8,7 +8,7 @@
 import datetime
 import re
 from collections.abc import Iterable
-from typing import Any, Optional
+from typing import Any
 
 from openxr_ops.gitlab import OpenXRGitlab
 

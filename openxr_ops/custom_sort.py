@@ -9,7 +9,7 @@
 import logging
 from collections import defaultdict
 from dataclasses import dataclass, field
-from typing import Any, Optional
+from typing import Any
 
 from .priority_results import ReleaseChecklistIssue
 from .vendors import VendorNames

@@ -15,7 +15,7 @@ import re
 from collections.abc import Iterable
 from dataclasses import dataclass
 from pprint import pformat
-from typing import Any, Optional, Union
+from typing import Any
 
 import gitlab
 import gitlab.v4.objects

@@ -15,7 +15,6 @@ import logging
 from collections.abc import Awaitable, Iterable
 from dataclasses import dataclass
 from enum import Enum
-from typing import Optional
 
 import kanboard
 

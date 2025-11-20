@@ -10,7 +10,7 @@
 import itertools
 import json
 import logging
-from typing import Union, cast
+from typing import cast
 
 import gitlab
 import gitlab.v4.objects

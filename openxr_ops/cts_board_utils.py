@@ -8,7 +8,7 @@
 """Utilities related to a CTS workboard."""
 
 import re
-from typing import Optional, Union, cast
+from typing import cast
 
 from gitlab.v4.objects import ProjectIssue, ProjectMergeRequest
 

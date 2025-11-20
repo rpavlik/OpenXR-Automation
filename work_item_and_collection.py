@@ -8,7 +8,7 @@
 import dataclasses
 import logging
 from collections.abc import Generator, Iterable, Sequence
-from typing import Dict, List, Optional, Set, Tuple, Union, assert_never, cast
+from typing import assert_never, cast
 
 import gitlab
 import gitlab.v4.objects

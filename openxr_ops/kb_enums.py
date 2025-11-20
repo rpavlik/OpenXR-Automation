@@ -7,7 +7,6 @@
 # Author: Rylie Pavlik <rylie.pavlik@collabora.com>
 
 from enum import Enum
-from typing import Optional
 
 from .kanboard_helpers import LinkIdMapping
 

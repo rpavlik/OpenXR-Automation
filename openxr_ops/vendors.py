@@ -6,7 +6,6 @@
 # Author: Rylie Pavlik <rylie.pavlik@collabora.com>
 
 import xml.etree.ElementTree as ElementTree
-from typing import Optional
 
 import gitlab
 import gitlab.v4.objects

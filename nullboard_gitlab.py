@@ -10,7 +10,7 @@ import re
 import time
 from collections.abc import Callable, Generator
 from dataclasses import dataclass
-from typing import Any, Dict, List, Optional, Set, Tuple, Union
+from typing import Any
 
 import gitlab
 import gitlab.v4.objects

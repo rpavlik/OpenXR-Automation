@@ -5,7 +5,7 @@
 #
 # Author: Rylie Pavlik <rylie.pavlik@collabora.com>
 from dataclasses import dataclass
-from typing import Any, Optional
+from typing import Any
 
 from .kb_enums import InternalLinkRelation
 

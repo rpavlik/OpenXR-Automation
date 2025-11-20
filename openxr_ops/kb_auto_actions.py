@@ -12,7 +12,7 @@ import logging
 from collections.abc import Sequence
 from dataclasses import dataclass
 from pprint import pformat
-from typing import Any, Literal, Optional, Union
+from typing import Any, Literal, Optional
 
 import kanboard
 

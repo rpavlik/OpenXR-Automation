@@ -11,7 +11,7 @@ import logging
 from dataclasses import dataclass
 from enum import Enum
 from pprint import pformat
-from typing import Any, Literal, Optional, Union
+from typing import Any, Literal
 
 import kanboard
 

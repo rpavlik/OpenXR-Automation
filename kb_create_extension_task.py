@@ -10,7 +10,6 @@
 import importlib
 import importlib.resources
 import logging
-from typing import Optional
 
 import gitlab
 import gitlab.v4.objects

@@ -17,7 +17,7 @@ Process the operations board, auto-updating where applicable.
 
 import logging
 import re
-from typing import Optional, cast
+from typing import cast
 
 import gitlab
 import gitlab.v4.objects

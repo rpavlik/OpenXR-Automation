@@ -6,7 +6,7 @@
 # Author: Rylie Pavlik <rylie.pavlik@collabora.com>
 import asyncio
 from dataclasses import dataclass
-from typing import Literal, Union
+from typing import Literal
 
 import kanboard
 

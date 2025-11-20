@@ -6,7 +6,6 @@
 #
 # Author: Rylie Pavlik <rylie.pavlik@collabora.com>
 import re
-from typing import Optional
 
 from .gitlab import GITLAB_SERVER, MAIN_PROJECT_NAME
 

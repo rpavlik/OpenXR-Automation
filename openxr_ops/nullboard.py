@@ -8,7 +8,7 @@
 import logging
 from collections.abc import Generator
 from dataclasses import dataclass
-from typing import Optional, Union
+from typing import Union
 
 
 @dataclass

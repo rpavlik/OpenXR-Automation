@@ -9,7 +9,6 @@
 import logging
 from collections.abc import Iterable
 from pathlib import Path
-from typing import List, Optional, Tuple, cast
 
 from .checklists import ColumnName, ReleaseChecklistCollection
 from .custom_sort import SorterBase

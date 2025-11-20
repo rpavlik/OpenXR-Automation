@@ -13,7 +13,7 @@ from collections import defaultdict
 from collections.abc import Iterable
 from dataclasses import dataclass
 from functools import cached_property
-from typing import Optional, cast
+from typing import cast
 
 import gitlab
 import gitlab.v4.objects
