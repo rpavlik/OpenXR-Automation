@@ -66,6 +66,15 @@ def _category_from_labels(labels: set[str]) -> Optional[TaskCategory]:
     return None
 
 
+def _guess_mr_column(mr):
+    column = TaskColumn.NEEDS_REVIEW
+    if mr["work_in_progress"]:
+        column = TaskColumn.IN_PROGRESS
+    if MainProjectLabels.NEEDS_AUTHOR_ACTION in mr["labels"]:
+        column = TaskColumn.IN_PROGRESS
+    return column
+
+
 async def add_link(
     kb: kanboard.Client,
     link_mapping: LinkIdMapping,
@@ -474,6 +483,17 @@ async def load_kb_ops(project_name: str = CTS_PROJ_NAME, only_open: bool = True)
     return kb_project, task_collection
 
 
+_CONTRACTOR_USERNAMES = {"rpavlik", "safarimonkey", "haagch", "simonz"}
+
+
+def _guess_mr_swimlane(mr):
+    if MainProjectLabels.CONTRACTOR_APPROVED in mr["labels"]:
+        return TaskSwimlane.CTS_CONTRACTOR
+    if mr["author"]["username"] in _CONTRACTOR_USERNAMES:
+        return TaskSwimlane.CTS_CONTRACTOR
+    return TaskSwimlane.GENERAL
+
+
 class CTSBoardSearchUpdater:
 
     def __init__(
@@ -511,12 +531,15 @@ class CTSBoardSearchUpdater:
         # we can do the remaining part in parallel.
         await asyncio.gather(*new_issue_futures)
 
+        new_mr_futures = self.search_mrs(filter_out_refs)
+        await asyncio.gather(*new_mr_futures)
+
     def search_issues(
         self, filter_out_refs: set[str]
-    ) -> list[Awaitable[Optional[int]]]:
+    ) -> list[Awaitable[Optional[Any]]]:
         # Grab all "Contractor:Approved" issues that are CTS related
 
-        self.log.info("Looking for new relevant GitLab issues")
+        self.log.info("Looking for relevant GitLab issues")
 
         futures = []
         for issue in self.oxr_gitlab.main_proj.issues.list(
@@ -535,50 +558,64 @@ class CTSBoardSearchUpdater:
 
         return futures
 
-    # def search_mrs(self, filter_out_refs: set[str]):
-    #     # Grab all "Contractor:Approved" MRs as well as all
-    #     # CTS ones (whether or not written
-    #     # by contractor, as part of maintaining the cts)
-    #     for mr in itertools.chain(
-    #         *[
-    #             self.oxr_gitlab.main_proj.mergerequests.list(
-    #                 labels=[label], state="opened", iterator=True
-    #             )
-    #             for label in (
-    #                 MainProjectLabels.CONTRACTOR_APPROVED,
-    #                 MainProjectLabels.CONFORMANCE_IMPLEMENTATION,
-    #             )
-    #         ]
-    #     ):
-    #         proj_mr = cast(ProjectMergeRequest, mr)
-    #         ref = get_short_ref(proj_mr)
-    #         if ref in filter_out_refs:
-    #             self.log.info(
-    #                 "Skipping filtered out MR: %s: %s",
-    #                 ref,
-    #                 proj_mr.title,
-    #             )
-    #             continue
+    def search_mrs(self, filter_out_refs: set[str]) -> list[Awaitable[Optional[Any]]]:
+        # Grab all "Contractor:Approved" MRs as well as all
+        # CTS ones (whether or not written
+        # by contractor, as part of maintaining the cts)
+        self.log.info("Looking for relevant GitLab merge requests")
 
-    #         labels = set(proj_mr.attributes["labels"])
-    #         if not labels.intersection(REQUIRED_LABEL_SET):
-    #             self.log.info(
-    #                 "Skipping contractor approved but non-CTS MR: %s: %s  %s",
-    #                 ref,
-    #                 proj_mr.title,
-    #                 proj_mr.attributes["web_url"],
-    #             )
-    #             continue
+        futures = []
+        for mr in self.oxr_gitlab.main_proj.mergerequests.list(
+            labels=[MainProjectLabels.CONFORMANCE_IMPLEMENTATION],
+            state="opened",
+            iterator=True,
+        ):
+            proj_mr = cast(ProjectMergeRequest, mr)
+            ret = self._handle_cts_mr(proj_mr, filter_out_refs)
+            if ret is not None:
+                futures.append(ret)
+        return futures
 
-    #         if "candidate" in proj_mr.title.casefold():
-    #             self.log.info(
-    #                 "Skipping release candidate MR %s: %s", ref, proj_mr.title
-    #             )
-    #             continue
-
-    #         self.log.info("GitLab MR Search: %s: %s", ref, proj_mr.title)
-    #         self.base.create_task_for_ref()
     # self.work.add_refs(self.proj, [ref])
+
+    def _handle_cts_mr(
+        self, proj_mr: ProjectMergeRequest, filter_out_refs: set[str]
+    ) -> Optional[Awaitable[Any]]:
+
+        mr_num = proj_mr.get_id()
+        assert isinstance(mr_num, int)
+        ref = get_short_ref(proj_mr)
+        if ref in filter_out_refs:
+            self.log.info(
+                "Skipping filtered out MR: %s: %s",
+                ref,
+                proj_mr.title,
+            )
+            return None
+
+        if "candidate" in proj_mr.title.casefold():
+            self.log.info("Skipping release candidate MR %s: %s", ref, proj_mr.title)
+            return None
+
+        task = self.task_collection.get_task_by_mr(mr_num)
+        if task is not None:
+            self.log.debug(
+                "Skipping already handled MR: %s: %s",
+                ref,
+                proj_mr.title,
+            )
+            return None
+
+        self.log.info("GitLab MR : %s: %s", ref, proj_mr.title)
+        mr_data = self.base.compute_creation_data_for_item(
+            ReferenceType.MERGE_REQUEST,
+            mr_num,
+            proj_mr,
+            column=_guess_mr_column(proj_mr),
+            swimlane=_guess_mr_swimlane(proj_mr),
+            starting_flags=CTSTaskFlags(),
+        )
+        return self.base.create_task_from_data(ref, mr_data)
 
     def _handle_approved_issue(
         self, proj_issue: ProjectIssue, filter_out_refs: set[str]
@@ -642,16 +679,11 @@ class CTSBoardSearchUpdater:
             if task is not None:
                 return task
 
-            column = TaskColumn.NEEDS_REVIEW
-            if mr["work_in_progress"]:
-                column = TaskColumn.IN_PROGRESS
-            if MainProjectLabels.NEEDS_AUTHOR_ACTION in mr["labels"]:
-                column = TaskColumn.IN_PROGRESS
             mr_data = self.base.compute_creation_data_for_item(
                 ReferenceType.MERGE_REQUEST,
                 mr_num,
                 mr,
-                column=column,
+                column=_guess_mr_column(mr),
                 swimlane=TaskSwimlane.CTS_CONTRACTOR,
                 starting_flags=CTSTaskFlags(),
             )
