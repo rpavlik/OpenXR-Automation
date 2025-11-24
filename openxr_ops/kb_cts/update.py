@@ -13,7 +13,7 @@ import logging
 from collections.abc import Awaitable, Sequence
 from dataclasses import dataclass
 from pprint import pformat
-from typing import Any, Optional, Union, cast
+from typing import Any, cast
 
 import kanboard
 from gitlab.v4.objects import ProjectIssue, ProjectMergeRequest
