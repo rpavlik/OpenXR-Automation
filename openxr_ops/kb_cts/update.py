@@ -358,6 +358,12 @@ class CTSBoardUpdater:
             self.log.debug(
                 "No %s task category update needed for: '%s'", issue_or_mr, task.title
             )
+        elif new_category is None and task.category == TaskCategory.NOT_CTS:
+            self.log.debug(
+                "No %s task category update needed for: '%s' - will not remove the not-cts category.",
+                issue_or_mr,
+                task.title,
+            )
         elif not self.options.update_category:
             self.log.info(
                 "Skipping %s task category update by request: would have changed '%s' to '%s'",
