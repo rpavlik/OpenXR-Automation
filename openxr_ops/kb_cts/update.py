@@ -475,17 +475,17 @@ class CTSBoardUpdater:
         await asyncio.gather(*mr_update_futures)
 
     async def prepare(self):
-        self.kb_project, self.task_collection = await load_kb_ops(self.kb_project_name)
+        self.kb_project, self.task_collection = await load_kb_cts(self.kb_project_name)
         self.kb = self.kb_project.kb
 
 
-async def load_kb_ops(project_name: str = CTS_PROJ_NAME, only_open: bool = True):
+async def load_kb_cts(project_name: str = CTS_PROJ_NAME, only_open: bool = True):
     log = logging.getLogger(__name__)
 
     kb, proj = await connect_and_get_project(project_name)
 
     kb_project = KanboardProject(kb, int(proj["id"]))
-    log.info("Getting columns, swimlanes, and categories")
+    log.info("Getting columns, swimlanes, categories, etc")
     await kb_project.fetch_all_id_maps()
 
     log.info("Loading KB tasks")

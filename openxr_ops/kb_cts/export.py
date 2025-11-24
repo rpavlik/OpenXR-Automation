@@ -13,8 +13,6 @@ import logging
 
 import kanboard
 
-from .update import load_kb_ops
-
 from ..gitlab import OpenXRGitlab
 from ..kanboard_helpers import KanboardProject
 from ..kb_defaults import CTS_PROJ_NAME
@@ -22,6 +20,7 @@ from ..kb_enums import InternalLinkRelation
 from .collection import TaskCollection
 from .stages import TaskColumn, TaskSwimlane
 from .task import CTSTask
+from .update import load_kb_cts
 
 # Link types to omit from the exported text
 _OMIT_LINK_TYPES = {
@@ -49,7 +48,7 @@ class CTSBoardExporter:
         self.kb: kanboard.Client
 
     async def prepare(self):
-        self.kb_project, self.task_collection = await load_kb_ops(
+        self.kb_project, self.task_collection = await load_kb_cts(
             self.kb_project_name, only_open=True
         )
         self.kb = self.kb_project.kb
