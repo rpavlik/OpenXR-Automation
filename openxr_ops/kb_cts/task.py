@@ -1,3 +1,11 @@
+#!/usr/bin/env python3
+# Copyright 2022-2024, Collabora, Ltd.
+# Copyright 2025, The Khronos Group Inc.
+#
+# SPDX-License-Identifier: BSL-1.0
+#
+# Author: Rylie Pavlik <rylie.pavlik@collabora.com>
+"""CTS workboard task flags and task data."""
 import datetime
 import logging
 from dataclasses import dataclass
