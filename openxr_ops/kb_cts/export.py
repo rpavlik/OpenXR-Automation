@@ -73,9 +73,9 @@ class CTSBoardExporter:
         contractor.sort(key=key_func)
         noncontractor.sort(key=key_func)
 
-        lines = ["* Needs Review: Contractor"]
+        lines = ["* Needs Review: Contractor-Authored"]
         lines.extend(itertools.chain(*(self.mr_to_lines(mr) for mr in contractor)))
-        lines.append("* Needs Review: Non-Contractor")
+        lines.append("* Needs Review: Non-Contractor-Authored")
         lines.extend(itertools.chain(*(self.mr_to_lines(mr) for mr in noncontractor)))
         return "\n".join(lines)
 
