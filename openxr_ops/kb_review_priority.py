@@ -236,6 +236,7 @@ if __name__ == "__main__":
 
     parser = argparse.ArgumentParser()
 
+    parser.add_help = True
     parser.add_argument("--html", type=str, help="Output HTML to filename")
     parser.add_argument("--extra", type=str, help="Extra text to add to HTML footer")
     parser.add_argument(
@@ -249,9 +250,20 @@ if __name__ == "__main__":
         type=str,
         help="Extra text to add to HTML footer without escaping special characters",
     )
+    parser.add_argument(
+        "-v",
+        "--verbose",
+        action="store_true",
+        help="Higher log level",
+        default=False,
+    )
 
     args = parser.parse_args()
-    logging.basicConfig(level=logging.INFO)
+
+    if args.verbose:
+        logging.basicConfig(level=logging.DEBUG)
+    else:
+        logging.basicConfig(level=logging.INFO)
 
     log = logging.getLogger(__name__)
 
