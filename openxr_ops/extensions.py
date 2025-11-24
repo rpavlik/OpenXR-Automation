@@ -50,7 +50,7 @@ _EXT_TITLE_DECOMP = re.compile(
     _(?P<undecorated>[^.]+)""",  # rest of name
     re.VERBOSE,
 )
-_EXT_DECOMP_RE = re.compile(r"XR_" + TAG_DECOMP_RE.pattern + r"_.*")
+_EXT_DECOMP_RE = re.compile(r"XR_" + TAG_DECOMP_RE.pattern + r"_.*", re.VERBOSE)
 
 
 def compute_vendor_name_and_tag(title, vendors) -> tuple[str | None, str | None]:

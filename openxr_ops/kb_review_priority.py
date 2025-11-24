@@ -199,7 +199,7 @@ def load_needs_review(
 
         mr = proj.mergerequests.get(mr_num)
 
-        items.append(KBChecklistItem.create(task, mr, vendor_names))
+        items.append(KBChecklistItem.create(task, mr, vendors))
     return items
 
 
