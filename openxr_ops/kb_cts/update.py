@@ -489,10 +489,10 @@ async def load_kb_ops(project_name: str = CTS_PROJ_NAME, only_open: bool = True)
 _CONTRACTOR_USERNAMES = {"rpavlik", "safarimonkey", "haagch", "simonz"}
 
 
-def _guess_mr_swimlane(mr):
-    if MainProjectLabels.CONTRACTOR_APPROVED in mr["labels"]:
+def _guess_mr_swimlane(mr: ProjectMergeRequest):
+    if MainProjectLabels.CONTRACTOR_APPROVED in mr.attributes["labels"]:
         return TaskSwimlane.CTS_CONTRACTOR
-    if mr["author"]["username"] in _CONTRACTOR_USERNAMES:
+    if mr.attributes["author"]["username"] in _CONTRACTOR_USERNAMES:
         return TaskSwimlane.CTS_CONTRACTOR
     return TaskSwimlane.GENERAL
 
