@@ -491,11 +491,19 @@ async def async_main(
     limit: int | None,
     dry_run: bool,
     write_dates: bool,
+    ignore_columns: bool,
+    ignore_flags: bool,
 ):
     options = UpdateOptions()
     if options.update_mr_desc:
         # for safety, only update MRs when the project name is the real project.
         options.update_mr_desc = project_name == "OpenXRExtensions"
+
+    if ignore_columns:
+        options.update_column_and_swimlane = False
+
+    if ignore_flags:
+        options.update_tags = False
 
     if dry_run:
         logging.info("Dry run - no changes will be made!")
@@ -805,6 +813,18 @@ if __name__ == "__main__":
         help="Write CSV file containing date/timestamps to update the tasks in the database directly",
         default=False,
     )
+    parser.add_argument(
+        "--ignore-columns",
+        action="store_true",
+        help="Ignore mismatched columns between the old board and new",
+        default=False,
+    )
+    parser.add_argument(
+        "--ignore-flags",
+        action="store_true",
+        help="Ignore mismatched flags between the old board and new",
+        default=False,
+    )
 
     args = parser.parse_args()
 
@@ -824,5 +844,7 @@ if __name__ == "__main__":
             limit=limit,
             dry_run=args.dry_run,
             write_dates=args.write_dates,
+            ignore_columns=args.ignore_columns,
+            ignore_flags=args.ignore_flags,
         )
     )
