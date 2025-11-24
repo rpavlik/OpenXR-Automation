@@ -358,7 +358,7 @@ class CTSBoardUpdater:
             self.log.debug(
                 "No %s task category update needed for: '%s'", issue_or_mr, task.title
             )
-        elif not self.options.update_title:
+        elif not self.options.update_category:
             self.log.info(
                 "Skipping %s task category update by request: would have changed '%s' to '%s'",
                 issue_or_mr,
