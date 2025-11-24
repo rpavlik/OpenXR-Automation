@@ -386,6 +386,8 @@ class CTSBoardUpdater:
             )
             self.changes_made = True
 
+        # We start with the existing flags, to preserve
+        # manually-added blocked_on_spec, contractor_reviewed
         assert task.flags
         new_flags = dataclasses.replace(task.flags)
         new_flags.update_from_gitlab_labels(labels)
