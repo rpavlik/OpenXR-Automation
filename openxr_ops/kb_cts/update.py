@@ -61,11 +61,11 @@ def _category_from_labels(labels: set[str]) -> TaskCategory | None:
     return None
 
 
-def _guess_mr_column(mr):
+def _guess_mr_column(mr: ProjectMergeRequest):
     column = TaskColumn.NEEDS_REVIEW
-    if mr["work_in_progress"]:
+    if mr.attributes["work_in_progress"]:
         column = TaskColumn.IN_PROGRESS
-    if MainProjectLabels.NEEDS_AUTHOR_ACTION in mr["labels"]:
+    if MainProjectLabels.NEEDS_AUTHOR_ACTION in mr.attributes["labels"]:
         column = TaskColumn.IN_PROGRESS
     return column
 
