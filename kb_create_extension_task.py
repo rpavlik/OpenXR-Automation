@@ -35,6 +35,24 @@ from openxr_ops.labels import GroupLabels, MainProjectLabels
 from openxr_ops.vendors import VendorNames
 
 
+def task_to_labels(task: OperationsTask):
+    labels = {MainProjectLabels.EXTENSION}
+    if task.flags and task.flags.single_vendor_extension:
+        labels.add(GroupLabels.VENDOR_EXT)
+        labels.add(GroupLabels.OUTSIDE_IPR_FRAMEWORK)
+
+    if task.flags and task.flags.khr_extension:
+        labels.add(GroupLabels.KHR_EXT)
+
+    if task.category == TaskCategory.OUTSIDE_IPR_POLICY:
+        labels.add(GroupLabels.OUTSIDE_IPR_FRAMEWORK)
+
+    if task.column == TaskColumn.NEEDS_REVISIONS:
+        labels.add(MainProjectLabels.NEEDS_AUTHOR_ACTION)
+
+    return labels
+
+
 def get_gitlab_comment(
     task_link: str,
     author_kind: CanonicalExtensionAuthorKind,
@@ -165,6 +183,19 @@ class ExtensionTaskCreator:
             task_id=task.task_id,
             save_changes=True,
         )
+
+        desired_labels = task_to_labels(task)
+        labels = set(mr.attributes["labels"])
+
+        missing_labels = desired_labels - labels
+        if missing_labels:
+            self.log.info(
+                "%s : Adding missing labels %s",
+                mr.attributes["web_url"],
+                str(missing_labels),
+            )
+            mr.labels.extend(missing_labels)
+            mr.save()
 
         flagged = [
             note_contains_sentinel(note) for note in mr.notes.list(iterator=True)
