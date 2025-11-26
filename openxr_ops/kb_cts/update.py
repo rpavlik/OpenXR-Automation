@@ -636,7 +636,7 @@ class CTSBoardUpdater:
         for mr_num in self.task_collection.mr_to_task_id.keys():
             self.get_or_fetch_gitlab_mr(mr_num)
 
-    async def update_existing_tasks(self):
+    async def update_existing_tasks(self) -> None:
         self.log.info("Updating issue tasks")
         issue_update_futures = []
         for issue_num, task_id in self.task_collection.issue_to_task_id.items():

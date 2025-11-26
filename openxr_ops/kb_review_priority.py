@@ -279,7 +279,7 @@ if __name__ == "__main__":
 
     # spec_review_items = load_needs_review(collection)
 
-    async def async_main():
+    async def async_main() -> None:
         kb, proj = await connect_and_get_project()
 
         kb_project = KanboardProject(kb, int(proj["id"]))
