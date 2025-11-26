@@ -70,6 +70,10 @@ def _guess_mr_column(mr: ProjectMergeRequest):
     return column
 
 
+# If something is assigned to one of these, we just skip updating assignee
+_BOT_USERNAMES = {"realitymerger"}
+
+
 async def add_link(
     kb: kanboard.Client,
     link_mapping: LinkIdMapping,
@@ -125,6 +129,7 @@ class BaseOptions:
     update_category: bool
     update_tags: bool
     update_color: bool
+    update_owner: bool
     create_task: bool
     add_internal_links: bool
 
@@ -135,6 +140,7 @@ class BaseOptions:
             update_category=True,
             update_tags=True,
             update_color=True,
+            update_owner=True,
             create_task=True,
             add_internal_links=True,
         )
@@ -146,9 +152,33 @@ class BaseOptions:
             update_category=False,
             update_tags=False,
             update_color=False,
+            update_owner=False,
             create_task=False,
             add_internal_links=False,
         )
+
+
+def _assignee_from_task_and_item(
+    task: CTSTask,
+    gl_item: ProjectIssue | ProjectMergeRequest,
+) -> tuple[str | None, str | None]:
+    active_assignees = [
+        assignee
+        for assignee in gl_item.attributes["assignees"]
+        if assignee["state"] == "active"
+    ]
+
+    if active_assignees:
+        assignee = active_assignees[0]
+        return assignee["username"], assignee["name"]
+
+    # If this is an MR, assume it's assigned to the author by default.
+    if task.is_mr():
+        author = gl_item.attributes["author"]
+        if author["state"] == "active":
+            return author["username"], author["name"]
+
+    return None, None
 
 
 class CTSBoardUpdater:
@@ -437,6 +467,71 @@ class CTSBoardUpdater:
                 color_id,
             )
             await self.kb.update_task_async(id=task.task_id, color_id=color_id)
+            self.changes_made = True
+
+        await self._try_update_owner(issue_or_mr, task, gl_item)
+
+    async def _try_update_owner(
+        self,
+        issue_or_mr: str,
+        task: CTSTask,
+        gl_item: ProjectIssue | ProjectMergeRequest,
+    ):
+
+        if not task.task_dict:
+            return
+
+        if gl_item.attributes["state"] in {"closed", "merged"}:
+            # Don't update old news.
+            return
+
+        owner_username = task.get_owner_username(self.kb_project)
+
+        username, name = _assignee_from_task_and_item(task, gl_item)
+
+        if username in _BOT_USERNAMES:
+            # Early out, no need to update owner if it's assigned to the marge bot.
+            self.log.debug("%s - assigned to bot user %s", task.gitlab_link, username)
+            return
+
+        if owner_username == username:
+            # Already assigned correctly
+            return
+
+        desired_owner_id: int | None = self.kb_project.lookup_user_id_for_username(
+            username
+        )
+
+        if desired_owner_id is None:
+            # Could not be found
+            self.log.warning(
+                "Could not find Kanboard user ID for user %s (%s) - "
+                "probably has not logged in yet",
+                username,
+                name,
+            )
+            return
+
+        if not self.options.update_owner:
+            self.log.info(
+                "Skipping %s (%s) task owner update by request: "
+                "would have changed '%s' to '%s' - see %s: %s",
+                issue_or_mr,
+                task.gitlab_link_title,
+                str(owner_username),
+                str(username),
+                gl_item.attributes["title"],
+                task.gitlab_link,
+            )
+        else:
+            self.log.info(
+                "Updating %s (%s) task owner : '%s' to '%s'",
+                issue_or_mr,
+                task.gitlab_link_title,
+                str(owner_username),
+                str(username),
+            )
+            await self.kb.update_task_async(id=task.task_id, owner_id=desired_owner_id)
             self.changes_made = True
 
     async def update_issue(self, task: CTSTask, gl_issue: ProjectIssue):
