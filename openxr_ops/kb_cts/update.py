@@ -23,7 +23,7 @@ from ..cts_board_utils import (
     REQUIRED_LABEL_SET,
     compute_api_item_state_and_suffix,
 )
-from ..gitlab import OpenXRGitlab, ReferenceType, get_short_ref
+from ..gitlab import STATES_CLOSED_MERGED, OpenXRGitlab, ReferenceType, get_short_ref
 from ..kanboard_helpers import KanboardProject, LinkIdMapping
 from ..kb_defaults import CTS_PROJ_NAME, connect_and_get_project
 from ..kb_enums import InternalLinkRelation
@@ -491,7 +491,7 @@ class CTSBoardUpdater:
         if not task.task_dict:
             return
 
-        if gl_item.attributes["state"] in {"closed", "merged"}:
+        if gl_item.attributes["state"] in STATES_CLOSED_MERGED:
             # Don't update old news.
             return
 

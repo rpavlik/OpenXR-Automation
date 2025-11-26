@@ -22,7 +22,7 @@ import gitlab.v4.objects
 import kanboard
 
 from openxr_ops.checklists import ReleaseChecklistCollection
-from openxr_ops.gitlab import OpenXRGitlab
+from openxr_ops.gitlab import STATE_CLOSED, STATES_CLOSED_MERGED, OpenXRGitlab
 from openxr_ops.kanboard_helpers import KanboardProject
 from openxr_ops.kb_defaults import REAL_PROJ_NAME, connect_and_get_project
 from openxr_ops.kb_ops_collection import TaskCollection
@@ -686,11 +686,11 @@ def make_checklist_issue(
     issue_obj: gitlab.v4.objects.ProjectIssue,
 ) -> ReleaseChecklistIssue | None:
     log = logging.getLogger(__name__)
-    if issue_obj.attributes["state"] == "closed":
+    if issue_obj.attributes["state"] == STATE_CLOSED:
         # skip it
         return None
     mr_obj = oxr_gitlab.main_proj.mergerequests.get(mr_num)
-    if mr_obj.attributes["state"] in ("closed", "merged"):
+    if mr_obj.attributes["state"] in STATES_CLOSED_MERGED:
         # skip it
         return None
     statuses = [

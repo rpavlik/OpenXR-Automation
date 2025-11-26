@@ -16,6 +16,7 @@ import gitlab
 import gitlab.v4.objects
 from gitlab.v4.objects import ProjectIssue, ProjectMergeRequest
 
+from openxr_ops.gitlab import STATE_CLOSED, STATE_MERGED, STATES_CLOSED_MERGED
 from openxr_ops.labels import MainProjectLabels
 from work_item_and_collection import WorkUnit, WorkUnitCollection, is_mr
 
@@ -30,7 +31,7 @@ class ListName:
 
 
 def guess_list(item: WorkUnit) -> str:
-    if item.key_item.state in ("merged", "closed"):
+    if item.key_item.state in STATES_CLOSED_MERGED:
         return ListName.DONE
     mr = item.get_key_item_as_mr()
     if mr:
@@ -50,9 +51,9 @@ def _make_api_item_text(
     show_objection_window: bool = False,
 ) -> str:
     state = []
-    if api_item.state == "closed":
+    if api_item.state == STATE_CLOSED:
         state.append("(CLOSED)")
-    elif api_item.state == "merged":
+    elif api_item.state == STATE_MERGED:
         state.append("(MERGED)")
 
     is_item_mr = is_mr(api_item)
