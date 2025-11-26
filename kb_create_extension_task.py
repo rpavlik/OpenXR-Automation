@@ -21,46 +21,31 @@ from openxr_ops.checklists import ChecklistData, ReleaseChecklistTemplate
 from openxr_ops.ext_author_kind import CanonicalExtensionAuthorKind
 from openxr_ops.gitlab import STATES_CLOSED_MERGED, OpenXRGitlab
 from openxr_ops.kanboard_helpers import KanboardProject
-from openxr_ops.kb_defaults import (
-    REAL_HUMAN_BOARD_URL,
-    REAL_HUMAN_OVERVIEW_URL,
-    REAL_PROJ_NAME,
-)
+from openxr_ops.kb_defaults import REAL_PROJ_NAME
 from openxr_ops.kb_ops_collection import TaskCollection
 from openxr_ops.kb_ops_config import get_config_data
-from openxr_ops.kb_ops_gitlab import update_mr_desc
+from openxr_ops.kb_ops_gitlab import note_contains_sentinel, update_mr_desc
 from openxr_ops.kb_ops_stages import TaskCategory, TaskColumn, TaskSwimlane
 from openxr_ops.kb_ops_task import OperationsTaskCreationData, OperationsTaskFlags
 from openxr_ops.labels import GroupLabels
 from openxr_ops.vendors import VendorNames
 
 
-def get_gitlab_comment(
-    data: OperationsTaskCreationData, task_link: str, username: str
-) -> str:
+def get_gitlab_comment(task_link: str, category: TaskCategory | None, username: str):
 
-    may_or_must = "may also want to"
-    reviews_suffix = ""
-    if data.category != TaskCategory.OUTSIDE_IPR_POLICY:
-        may_or_must = "must also"
-        reviews_suffix = " as well as discussion in weekly calls"
+    from jinja2 import Environment, PackageLoader, select_autoescape
 
-    return (
-        f"A release tracking task for this extension has been opened at {task_link}. "
-        f"@{username} please update it to reflect the "
-        "current state of this extension merge request and request review, "
-        "if applicable.\n\n"
-        "You should also update the [OpenXR Extensions Workboard]"
-        f"({REAL_HUMAN_BOARD_URL}) "
-        "according to the status of your extension: most likely this means "
-        "moving it to 'NeedsReview' once you complete the self-review steps in "
-        "the checklist.\n\n"
-        "See the [OpenXRExtensions Overview]("
-        f"{REAL_HUMAN_OVERVIEW_URL}"
-        ") for a flowchart showing the extension workboard process, "
-        "and hover over the 'Info' icons on the board for specific details.\n\n"
-        f"You {may_or_must} request feedback from other WG members through our "
-        f"chat at <https://chat.khronos.org>{reviews_suffix}."
+    env = Environment(
+        loader=PackageLoader("openxr_ops"),
+        autoescape=select_autoescape(),
+    )
+
+    template = env.get_template("new_ext_comment.md")
+
+    return template.render(
+        outside_ipr_policy=category == TaskCategory.OUTSIDE_IPR_POLICY,
+        task_link=task_link,
+        username=username,
     )
 
 
@@ -154,7 +139,7 @@ class ExtensionTaskCreator:
             date_started=datetime.datetime.fromisoformat(mr.attributes["created_at"]),
         )
 
-    def handle_gitlab_mr_sync(self, mr_num):
+    def handle_gitlab_mr_sync(self, mr_num: int) -> None:
         task = self.task_collection.get_task_by_mr(mr_num)
         if not task:
             raise RuntimeError("We should know this MR by now")
@@ -166,14 +151,28 @@ class ExtensionTaskCreator:
             save_changes=True,
         )
 
+        flagged = [
+            note_contains_sentinel(note) for note in mr.notes.list(iterator=True)
+        ]
+        if not any(flagged):
+            # we need our initial comment.
+            username = mr.attributes["author"]["username"]
+            task_link = task.url
+            assert task_link
+            message = get_gitlab_comment(
+                username=username, task_link=task_link, category=task.category
+            )
+            self.log.info("Posting comment on %s", mr.attributes["web_url"])
+            mr.notes.create({"body": message})
+
     def prefetch(self, mr_num):
         self.mr_num_to_mr[mr_num] = self.oxr_gitlab.main_proj.mergerequests.get(mr_num)
 
     async def handle_mr_if_needed(
         self,
-        mr_num,
+        mr_num: int,
         **kwargs,
-    ):
+    ) -> None:
 
         task = self.task_collection.get_task_by_mr(mr_num)
         if task is not None:
@@ -259,13 +258,16 @@ if __name__ == "__main__":
         await creator.prepare()
 
         # Serialized: Gitlab access
+        log.info("Fetch specified MRs from Gitlab")
         for num in args.mr:
             creator.prefetch(num)
 
+        log.info("Process Kanboard changes for MRs")
         for num in args.mr:
             await creator.handle_mr_if_needed(num, **kwargs)
 
         # Serialized: Gitlab access
+        log.info("Update description and/or comment, if applicable, on MRs")
         for num in args.mr:
             creator.handle_gitlab_mr_sync(num)
 
