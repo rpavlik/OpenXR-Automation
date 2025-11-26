@@ -9,31 +9,27 @@
 import asyncio
 import datetime
 import logging
-import tomllib
-from collections.abc import Iterable, Sequence
+from collections.abc import Iterable
 from dataclasses import dataclass
 from functools import cached_property
-from typing import List, Optional, Union
 
 import gitlab
 import gitlab.v4.objects
 
-from .checklists import ColumnName, ReleaseChecklistCollection
-from .custom_sort import SORTERS, BasicDesignReviewSort, BasicSpecReviewSort, SorterBase
+from .checklists import ReleaseChecklistCollection
+from .custom_sort import BasicDesignReviewSort, SorterBase
 from .extensions import compute_vendor_name_and_tag
 from .gitlab import OpenXRGitlab
 from .kanboard_helpers import KanboardProject
 from .kb_defaults import connect_and_get_project
 from .kb_ops_collection import TaskCollection
 from .kb_ops_stages import TaskCategory, TaskColumn, TaskSwimlane
-from .kb_ops_task import OperationsTask, OperationsTaskBase
-from .labels import OpsProjectLabels
+from .kb_ops_task import OperationsTask
 from .priority_results import (
     NOW,
     PriorityResults,
     ReleaseChecklistIssue,
     ReleaseChecklistMRData,
-    apply_offsets,
 )
 from .review_priority import ReviewPriorityConfig
 from .vendors import VendorNames
