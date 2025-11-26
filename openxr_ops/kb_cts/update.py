@@ -430,8 +430,8 @@ class CTSBoardUpdater:
             issue_or_mr = "mr"
 
         # Title
-        new_title = _title_from_gitlab_item(gl_item)
-        if new_title == task.title:
+        new_title = _title_from_gitlab_item(gl_item).strip()
+        if new_title == task.title.strip():
             self.log.debug(
                 "No %s task title update needed for: '%s'", issue_or_mr, task.title
             )
