@@ -24,6 +24,11 @@ OPERATIONS_PROJECT_NAME = "openxr/openxr-operations"
 
 GROUP_NAME = "openxr"
 
+STATE_CLOSED = "closed"
+STATE_MERGED = "merged"
+
+STATES_CLOSED_MERGED = {STATE_CLOSED, STATE_MERGED}
+
 
 @dataclass
 class OpenXRGitlab:

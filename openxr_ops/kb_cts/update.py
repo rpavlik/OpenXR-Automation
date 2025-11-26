@@ -9,7 +9,9 @@
 
 import asyncio
 import dataclasses
+import datetime
 import logging
+import re
 from collections.abc import Awaitable, Sequence
 from dataclasses import dataclass
 from pprint import pformat
@@ -23,7 +25,7 @@ from ..cts_board_utils import (
     REQUIRED_LABEL_SET,
     compute_api_item_state_and_suffix,
 )
-from ..gitlab import OpenXRGitlab, ReferenceType, get_short_ref
+from ..gitlab import STATES_CLOSED_MERGED, OpenXRGitlab, ReferenceType, get_short_ref
 from ..kanboard_helpers import KanboardProject, LinkIdMapping
 from ..kb_defaults import CTS_PROJ_NAME, connect_and_get_project
 from ..kb_enums import InternalLinkRelation
@@ -68,6 +70,66 @@ def _guess_mr_column(mr: ProjectMergeRequest):
     if MainProjectLabels.NEEDS_AUTHOR_ACTION in mr.attributes["labels"]:
         column = TaskColumn.IN_PROGRESS
     return column
+
+
+# If something is assigned to one of these, we just skip updating assignee
+_BOT_USERNAMES = {"realitymerger"}
+
+_TASK_BASE_URL = "https://openxr-boards.khronos.org/task/"
+
+
+_CTS_BOARD_LINK = re.compile(
+    r"CTS Board Tracking Task: " + re.escape(_TASK_BASE_URL) + r"(?P<task_id>[0-9]+)"
+)
+
+
+def _make_cts_board_link(task_id):
+    return f"CTS Board Tracking Task: {_TASK_BASE_URL}{task_id}"
+
+
+def update_item_desc(
+    item: ProjectIssue | ProjectMergeRequest,
+    task: CTSTask,
+    *,
+    save_changes: bool,
+) -> bool:
+    log = logging.getLogger(f"{__name__}.update_item_desc")
+
+    new_front = _make_cts_board_link(task.task_id)
+    prepend = f"{new_front}\n\n"
+
+    if item.description.strip() == new_front:
+        # minimal desc
+        return False
+
+    desc: str = item.description
+    new_desc: str = desc
+
+    m = _CTS_BOARD_LINK.search(desc)
+    if m:
+        replaced_desc = prepend + _CTS_BOARD_LINK.sub("", desc, 1).strip()
+        if not m.group(0).startswith(new_front):
+            log.info(f"{task.gitlab_link_title} description starts with the wrong link")
+            new_desc = replaced_desc
+    else:
+        new_desc = prepend + desc
+        log.info("%s needs task link", task.gitlab_link_title)
+
+    if new_desc != desc:
+        if save_changes:
+            log.info("Saving change to %s", task.gitlab_link_title)
+            item.description = new_desc
+            item.save()
+            return True
+        log.info(
+            "Would have made changes to %s description but skipping that by request.",
+            task.gitlab_link_title,
+        )
+        log.debug(
+            "Updated description would have been:\n%s",
+            new_desc,
+        )
+    return False
 
 
 async def add_link(
@@ -125,8 +187,11 @@ class BaseOptions:
     update_category: bool
     update_tags: bool
     update_color: bool
+    update_owner: bool
     create_task: bool
     add_internal_links: bool
+
+    modify_gitlab_desc: bool
 
     @classmethod
     def all_true(cls):
@@ -135,8 +200,10 @@ class BaseOptions:
             update_category=True,
             update_tags=True,
             update_color=True,
+            update_owner=True,
             create_task=True,
             add_internal_links=True,
+            modify_gitlab_desc=True,
         )
 
     @classmethod
@@ -146,9 +213,44 @@ class BaseOptions:
             update_category=False,
             update_tags=False,
             update_color=False,
+            update_owner=False,
             create_task=False,
             add_internal_links=False,
+            modify_gitlab_desc=False,
         )
+
+
+def _assignee_from_task_and_item(
+    task: CTSTask,
+    gl_item: ProjectIssue | ProjectMergeRequest,
+) -> tuple[str | None, str | None]:
+    active_assignees = [
+        assignee
+        for assignee in gl_item.attributes["assignees"]
+        if assignee["state"] == "active"
+    ]
+    reviewer: str | None = None
+
+    if task.is_mr() and len(gl_item.attributes["reviewers"]) > 0:
+        rev = gl_item.attributes["reviewers"][0]
+        if rev["state"] == "active":
+            reviewer = rev["username"]
+
+    if active_assignees:
+        assignee = active_assignees[0]
+        # Do not return the reviewer for the common case where somebody
+        # assigns an MR to the reviewer.
+        if reviewer is None or reviewer != assignee["username"]:
+            return assignee["username"], assignee["name"]
+
+    # If this is an MR, assume it is assigned to the author by default,
+    # if the assignee is not useful
+    if task.is_mr():
+        author = gl_item.attributes["author"]
+        if author["state"] == "active":
+            return author["username"], author["name"]
+
+    return None, None
 
 
 class CTSBoardUpdater:
@@ -439,11 +541,90 @@ class CTSBoardUpdater:
             await self.kb.update_task_async(id=task.task_id, color_id=color_id)
             self.changes_made = True
 
+        await self._try_update_owner(issue_or_mr, task, gl_item)
+
+    async def _try_update_owner(
+        self,
+        issue_or_mr: str,
+        task: CTSTask,
+        gl_item: ProjectIssue | ProjectMergeRequest,
+    ):
+
+        if not task.task_dict:
+            return
+
+        if gl_item.attributes["state"] in STATES_CLOSED_MERGED:
+            # Don't update old news.
+            return
+
+        owner_username = task.get_owner_username(self.kb_project)
+
+        username, name = _assignee_from_task_and_item(task, gl_item)
+
+        if username in _BOT_USERNAMES:
+            # Early out, no need to update owner if it's assigned to the marge bot.
+            self.log.debug("%s - assigned to bot user %s", task.gitlab_link, username)
+            return
+
+        if owner_username == username:
+            # Already assigned correctly
+            return
+
+        desired_owner_id: int | None = self.kb_project.lookup_user_id_for_username(
+            username
+        )
+
+        if desired_owner_id is None:
+            # Could not be found
+            self.log.warning(
+                "Could not find Kanboard user ID for user %s (%s) - "
+                "probably has not logged in yet",
+                username,
+                name,
+            )
+            return
+
+        if not self.options.update_owner:
+            self.log.info(
+                "Skipping %s (%s) task owner update by request: "
+                "would have changed '%s' to '%s' - see %s: %s",
+                issue_or_mr,
+                task.gitlab_link_title,
+                str(owner_username),
+                str(username),
+                gl_item.attributes["title"],
+                task.gitlab_link,
+            )
+        else:
+            self.log.info(
+                "Updating %s (%s) task owner : '%s' to '%s'",
+                issue_or_mr,
+                task.gitlab_link_title,
+                str(owner_username),
+                str(username),
+            )
+            await self.kb.update_task_async(id=task.task_id, owner_id=desired_owner_id)
+            self.changes_made = True
+
     async def update_issue(self, task: CTSTask, gl_issue: ProjectIssue):
         await self._update_either(task, ReferenceType.ISSUE, gl_issue)
 
     async def update_mr(self, task: CTSTask, gl_mr: ProjectMergeRequest):
         await self._update_either(task, ReferenceType.MERGE_REQUEST, gl_mr)
+
+    def _process_gitlab_desc(
+        self, task_id: int, gl_item: ProjectIssue | ProjectMergeRequest
+    ):
+        if gl_item.attributes["state"] in STATES_CLOSED_MERGED:
+            # Let bygones be bygones
+            return
+        did_update = update_item_desc(
+            gl_item,
+            self.task_collection.tasks[task_id],
+            save_changes=self.options.modify_gitlab_desc,
+        )
+        if did_update:
+            self.changes_made = True
 
     def fetch_all_from_gitlab(self) -> None:
         # First, fetch everything from gitlab if possible. Serially.
@@ -455,7 +636,7 @@ class CTSBoardUpdater:
         for mr_num in self.task_collection.mr_to_task_id.keys():
             self.get_or_fetch_gitlab_mr(mr_num)
 
-    async def update_existing_tasks(self):
+    async def update_existing_tasks(self) -> None:
         self.log.info("Updating issue tasks")
         issue_update_futures = []
         for issue_num, task_id in self.task_collection.issue_to_task_id.items():
@@ -473,6 +654,27 @@ class CTSBoardUpdater:
                 self.update_mr(self.task_collection.tasks[task_id], gl_mr)
             )
         await asyncio.gather(*mr_update_futures)
+
+        self.log.info("Updating issue and MR descriptions on GitLab")
+        task_id_and_gl_item_list: list[
+            tuple[int, ProjectIssue | ProjectMergeRequest]
+        ] = []
+        for issue_num, task_id in self.task_collection.issue_to_task_id.items():
+            gl_issue = self.get_or_fetch_gitlab_issue(issue_num)
+            task_id_and_gl_item_list.append((task_id, gl_issue))
+
+        for mr_num, task_id in self.task_collection.mr_to_task_id.items():
+            gl_mr = self.get_or_fetch_gitlab_mr(mr_num)
+            task_id_and_gl_item_list.append((task_id, gl_mr))
+
+        # Sort so that we keep the order of recently updated a little tidier.
+
+        def sort_key(task_id_and_item) -> datetime.datetime:
+            _, gl_item = task_id_and_item
+            return datetime.datetime.fromisoformat(gl_item.attributes["updated_at"])
+
+        for task_id, gl_item in sorted(task_id_and_gl_item_list, key=sort_key):
+            self._process_gitlab_desc(task_id, gl_item)
 
     async def prepare(self):
         self.kb_project, self.task_collection = await load_kb_cts(self.kb_project_name)

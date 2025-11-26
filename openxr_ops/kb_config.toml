@@ -6,14 +6,14 @@
 
 [[auto_tag]]
 tag = "Initial Design Review Complete"
-# events = ["TASK_CREATE", "TASK_MOVE_COLUMN"]
+events = ["TASK_CREATE", "TASK_MOVE_COLUMN"]
 [auto_tag.condition]
 swimlane = "Design Review phase"
 column = "Needs Revisions"
 
 [[auto_tag]]
 tag = "Initial Spec Review Complete"
-# events = ["TASK_CREATE", "TASK_MOVE_COLUMN"]
+events = ["TASK_CREATE", "TASK_MOVE_COLUMN"]
 [auto_tag.condition]
 swimlane = "Spec Review phase"
 column = "Needs Revisions"
@@ -21,7 +21,7 @@ column = "Needs Revisions"
 [[auto_tag]]
 # Moving it into the Awaiting Review column is requesting a review.
 tag = "Editor Review Requested"
-events = ["TASK_MOVE_COLUMN"]
+events = ["TASK_CREATE", "TASK_MOVE_COLUMN"]
 [auto_tag.condition]
 column = "Awaiting Review"
 

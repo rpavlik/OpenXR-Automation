@@ -114,9 +114,27 @@ class KanboardProject:
 
     async def get_all_tasks(self, only_open: bool = True):
         """Wrapper for https://docs.kanboard.org/v1/api/task_procedures/#getalltasks async."""
-        status_id = 0
         if only_open:
-            status_id = 1
+            return await self.kb.get_all_tasks_async(
+                project_id=self.project_id, status_id=1
+            )
+
         return await self.kb.get_all_tasks_async(
-            project_id=self.project_id, status_id=status_id
-        )
+            project_id=self.project_id, status_id=1
+        ) + await self.kb.get_all_tasks_async(project_id=self.project_id, status_id=0)
+
+    def lookup_user_id_for_username(self, username: str | None) -> int | None:
+        """
+        Return user ID for a username, if known, otherwise None.
+
+        Input of None returns 0, to match behavior of APIs like ownership (0 means no owner).
+        """
+
+        if username is None:
+            return 0
+
+        corresponding_user_id = self.username_to_id.get(username)
+        if corresponding_user_id is not None:
+            return corresponding_user_id
+
+        return None

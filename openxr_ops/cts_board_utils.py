@@ -12,6 +12,7 @@ from typing import cast
 
 from gitlab.v4.objects import ProjectIssue, ProjectMergeRequest
 
+from .gitlab import STATE_CLOSED, STATE_MERGED
 from .labels import MainProjectLabels
 
 _THUMBSUP = "thumbsup"
@@ -54,9 +55,9 @@ def compute_api_item_state_and_suffix(
 
     state = []
     suffix = ""
-    if api_item.state == "closed":
+    if api_item.state == STATE_CLOSED:
         state.append("(CLOSED)")
-    elif api_item.state == "merged":
+    elif api_item.state == STATE_MERGED:
         state.append("(MERGED)")
 
     is_mr = hasattr(api_item, "target_branch")

@@ -18,6 +18,7 @@ import gitlab
 import gitlab.v4.objects
 
 from .extensions import ExtensionNameGuesser
+from .gitlab import STATE_CLOSED, STATES_CLOSED_MERGED
 from .labels import ColumnName, GroupLabels, MainProjectLabels
 from .vendors import VendorNames
 
@@ -360,7 +361,7 @@ class ReleaseChecklistCollection:
         if deep:
             queries.append(
                 self.ops_proj.issues.list(
-                    state="closed",
+                    state=STATE_CLOSED,
                     label=ColumnName.RELEASE_PENDING.value,
                     iterator=True,
                 ),
@@ -453,7 +454,7 @@ class ReleaseChecklistCollection:
             if not match:
                 url = merge_request.attributes["web_url"]
                 _log.info(f"MR does not mention its issue: {url}")
-                if merge_request.attributes["state"] not in ("closed", "merged"):
+                if merge_request.attributes["state"] not in STATES_CLOSED_MERGED:
                     _log.info("Updating it")
                     merge_request.description = prepend + merge_request.description
                     _log.info(merge_request.description)

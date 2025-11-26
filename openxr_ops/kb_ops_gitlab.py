@@ -9,8 +9,7 @@
 import logging
 import re
 
-import gitlab
-import gitlab.v4.objects
+from gitlab.v4.objects import ProjectMergeRequest, ProjectMergeRequestNote
 
 from .checklists import CHECKLIST_RE
 
@@ -27,11 +26,11 @@ def _make_ops_board_link(task_id):
 
 
 def update_mr_desc(
-    merge_request: gitlab.v4.objects.ProjectMergeRequest,
+    merge_request: ProjectMergeRequest,
     task_id: int,
     *,
     save_changes: bool,
-    mark_old_as_obsolete: bool,
+    mark_old_as_obsolete: bool = False,
 ):
     log = logging.getLogger(f"{__name__}.update_mr_desc")
     new_front = _make_ops_board_link(task_id)
@@ -84,3 +83,12 @@ def update_mr_desc(
                 "Updated description would have been:\n%s",
                 new_desc,
             )
+
+
+OLD_CHECKLIST_CREATED_MARKER = "release checklist for this extension"
+TASK_CREATED_COMMENT_SENTINEL = "<!-- task-created-comment -->"
+
+
+def note_contains_sentinel(note: ProjectMergeRequestNote):
+    body = note.attributes["body"]
+    return OLD_CHECKLIST_CREATED_MARKER in body or TASK_CREATED_COMMENT_SENTINEL in body

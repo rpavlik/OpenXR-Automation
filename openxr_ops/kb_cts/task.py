@@ -91,6 +91,15 @@ class CTSTaskBase:
             return self.task_dict["url"]
         return None
 
+    def get_owner_username(self, kb_project: KanboardProject) -> str | None:
+        if not self.task_dict:
+            return None
+        owner_id_int = int(self.task_dict["owner_id"])
+        owner_username = None
+        if owner_id_int > 0:
+            owner_username = kb_project.user_id_to_username[owner_id_int]
+        return owner_username
+
     @classmethod
     def from_task_dict(
         cls, kb_project: KanboardProject, task: dict[str, Any]
