@@ -64,7 +64,7 @@ class UpdateOptions:
 
     # Changes affecting GitLab MRs
     update_mr_desc: bool = True
-    mark_old_links_obsolete: bool = False
+    mark_old_links_obsolete: bool = True
 
     def make_dry_run(self):
         self.create_task = False
