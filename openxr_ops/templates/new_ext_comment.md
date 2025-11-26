@@ -6,7 +6,19 @@ process. You are welcome to add your own sub-tasks for your own usage.)
 
 You should also update the [OpenXR Extensions Workboard][board] according to
 the status of your extension: most likely this means moving it to 'NeedsReview'
-once you complete the self-review steps in the checklist.
+once you complete the self-review steps in the checklist
+{%- if not review_required %} if you choose to request spec editor/support review
+{%- endif -%}.
+
+{% if not review_required -%}
+
+Spec editor/support review is optional but recommended for this extension. To
+opt-in to review, go to the task, choose "Edit Task", and add the "Editor Review
+Requested" tag. Otherwise, moving the task to the "Needs Review" column is
+taken as a signal that you want it reviewed, and the tag will be added
+automatically.
+
+{%- endif %}
 
 See the [OpenXR Extensions Board Overview][overview] for the flowchart showing
 the extension workboard process, and hover over the 'Info' 🛈 icons on the board

@@ -102,6 +102,15 @@ class OperationsTaskFlags:
     def to_string_list(self) -> list[str]:
         return [tag.value for tag in self.to_enum_list()]
 
+    def get_author_kind(self) -> CanonicalExtensionAuthorKind:
+        if self.khr_extension:
+            return CanonicalExtensionAuthorKind.KHR
+        if self.multivendor_extension:
+            return CanonicalExtensionAuthorKind.EXT
+        if self.single_vendor_extension:
+            return CanonicalExtensionAuthorKind.SINGLE_VENDOR
+        raise RuntimeError("None of the author kind flags are set!")
+
 
 @dataclass
 class OperationsTaskBase:

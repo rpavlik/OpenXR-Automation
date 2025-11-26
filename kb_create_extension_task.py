@@ -26,12 +26,21 @@ from openxr_ops.kb_ops_collection import TaskCollection
 from openxr_ops.kb_ops_config import get_config_data
 from openxr_ops.kb_ops_gitlab import note_contains_sentinel, update_mr_desc
 from openxr_ops.kb_ops_stages import TaskCategory, TaskColumn, TaskSwimlane
-from openxr_ops.kb_ops_task import OperationsTaskCreationData, OperationsTaskFlags
-from openxr_ops.labels import GroupLabels
+from openxr_ops.kb_ops_task import (
+    OperationsTask,
+    OperationsTaskCreationData,
+    OperationsTaskFlags,
+)
+from openxr_ops.labels import GroupLabels, MainProjectLabels
 from openxr_ops.vendors import VendorNames
 
 
-def get_gitlab_comment(task_link: str, category: TaskCategory | None, username: str):
+def get_gitlab_comment(
+    task_link: str,
+    author_kind: CanonicalExtensionAuthorKind,
+    category: TaskCategory | None,
+    username: str,
+):
 
     from jinja2 import Environment, PackageLoader, select_autoescape
 
@@ -42,8 +51,14 @@ def get_gitlab_comment(task_link: str, category: TaskCategory | None, username: 
 
     template = env.get_template("new_ext_comment.md")
 
+    review_required = author_kind in (
+        CanonicalExtensionAuthorKind.KHR,
+        CanonicalExtensionAuthorKind.EXT,
+    )
+
     return template.render(
         outside_ipr_policy=category == TaskCategory.OUTSIDE_IPR_POLICY,
+        review_required=review_required,
         task_link=task_link,
         username=username,
     )
@@ -158,9 +173,16 @@ class ExtensionTaskCreator:
             # we need our initial comment.
             username = mr.attributes["author"]["username"]
             task_link = task.url
+
             assert task_link
+            assert task.flags
+            author_kind = task.flags.get_author_kind()
+
             message = get_gitlab_comment(
-                username=username, task_link=task_link, category=task.category
+                username=username,
+                author_kind=author_kind,
+                task_link=task_link,
+                category=task.category,
             )
             self.log.info("Posting comment on %s", mr.attributes["web_url"])
             mr.notes.create({"body": message})
