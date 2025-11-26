@@ -167,12 +167,22 @@ def _assignee_from_task_and_item(
         for assignee in gl_item.attributes["assignees"]
         if assignee["state"] == "active"
     ]
+    reviewer: str | None = None
+
+    if task.is_mr() and len(gl_item.attributes["reviewers"]) > 0:
+        rev = gl_item.attributes["reviewers"][0]
+        if rev["state"] == "active":
+            reviewer = rev["username"]
 
     if active_assignees:
         assignee = active_assignees[0]
-        return assignee["username"], assignee["name"]
+        # Do not return the reviewer for the common case where somebody
+        # assigns an MR to the reviewer.
+        if reviewer is None or reviewer != assignee["username"]:
+            return assignee["username"], assignee["name"]
 
-    # If this is an MR, assume it's assigned to the author by default.
+    # If this is an MR, assume it is assigned to the author by default,
+    # if the assignee is not useful
     if task.is_mr():
         author = gl_item.attributes["author"]
         if author["state"] == "active":
