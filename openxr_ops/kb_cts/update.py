@@ -9,7 +9,9 @@
 
 import asyncio
 import dataclasses
+import datetime
 import logging
+import re
 from collections.abc import Awaitable, Sequence
 from dataclasses import dataclass
 from pprint import pformat
@@ -73,6 +75,62 @@ def _guess_mr_column(mr: ProjectMergeRequest):
 # If something is assigned to one of these, we just skip updating assignee
 _BOT_USERNAMES = {"realitymerger"}
 
+_TASK_BASE_URL = "https://openxr-boards.khronos.org/task/"
+
+
+_CTS_BOARD_LINK = re.compile(
+    r"CTS Board Tracking Task: " + re.escape(_TASK_BASE_URL) + r"(?P<task_id>[0-9]+)"
+)
+
+
+def _make_cts_board_link(task_id):
+    return f"CTS Board Tracking Task: {_TASK_BASE_URL}{task_id}"
+
+
+def update_item_desc(
+    item: ProjectIssue | ProjectMergeRequest,
+    task: CTSTask,
+    *,
+    save_changes: bool,
+) -> bool:
+    log = logging.getLogger(f"{__name__}.update_item_desc")
+
+    new_front = _make_cts_board_link(task.task_id)
+    prepend = f"{new_front}\n\n"
+
+    if item.description.strip() == new_front:
+        # minimal desc
+        return False
+
+    desc: str = item.description
+    new_desc: str = desc
+
+    m = _CTS_BOARD_LINK.search(desc)
+    if m:
+        replaced_desc = prepend + _CTS_BOARD_LINK.sub("", desc, 1).strip()
+        if not m.group(0).startswith(new_front):
+            log.info(f"{task.gitlab_link_title} description starts with the wrong link")
+            new_desc = replaced_desc
+    else:
+        new_desc = prepend + desc
+        log.info("%s needs task link", task.gitlab_link_title)
+
+    if new_desc != desc:
+        if save_changes:
+            log.info("Saving change to %s", task.gitlab_link_title)
+            item.description = new_desc
+            item.save()
+            return True
+        log.info(
+            "Would have made changes to %s description but skipping that by request.",
+            task.gitlab_link_title,
+        )
+        log.debug(
+            "Updated description would have been:\n%s",
+            new_desc,
+        )
+    return False
+
 
 async def add_link(
     kb: kanboard.Client,
@@ -133,6 +191,8 @@ class BaseOptions:
     create_task: bool
     add_internal_links: bool
 
+    modify_gitlab_desc: bool
+
     @classmethod
     def all_true(cls):
         return cls(
@@ -143,6 +203,7 @@ class BaseOptions:
             update_owner=True,
             create_task=True,
             add_internal_links=True,
+            modify_gitlab_desc=True,
         )
 
     @classmethod
@@ -155,6 +216,7 @@ class BaseOptions:
             update_owner=False,
             create_task=False,
             add_internal_links=False,
+            modify_gitlab_desc=False,
         )
 
 
@@ -550,6 +612,20 @@ class CTSBoardUpdater:
     async def update_mr(self, task: CTSTask, gl_mr: ProjectMergeRequest):
         await self._update_either(task, ReferenceType.MERGE_REQUEST, gl_mr)
 
+    def _process_gitlab_desc(
+        self, task_id: int, gl_item: ProjectIssue | ProjectMergeRequest
+    ):
+        if gl_item.attributes["state"] in STATES_CLOSED_MERGED:
+            # Let bygones be bygones
+            return
+        did_update = update_item_desc(
+            gl_item,
+            self.task_collection.tasks[task_id],
+            save_changes=self.options.modify_gitlab_desc,
+        )
+        if did_update:
+            self.changes_made = True
+
     def fetch_all_from_gitlab(self) -> None:
         # First, fetch everything from gitlab if possible. Serially.
         self.log.info("Fetching data on known issues with tasks from GitLab")
@@ -578,6 +654,27 @@ class CTSBoardUpdater:
                 self.update_mr(self.task_collection.tasks[task_id], gl_mr)
             )
         await asyncio.gather(*mr_update_futures)
+
+        self.log.info("Updating issue and MR descriptions on GitLab")
+        task_id_and_gl_item_list: list[
+            tuple[int, ProjectIssue | ProjectMergeRequest]
+        ] = []
+        for issue_num, task_id in self.task_collection.issue_to_task_id.items():
+            gl_issue = self.get_or_fetch_gitlab_issue(issue_num)
+            task_id_and_gl_item_list.append((task_id, gl_issue))
+
+        for mr_num, task_id in self.task_collection.mr_to_task_id.items():
+            gl_mr = self.get_or_fetch_gitlab_mr(mr_num)
+            task_id_and_gl_item_list.append((task_id, gl_mr))
+
+        # Sort so that we keep the order of recently updated a little tidier.
+
+        def sort_key(task_id_and_item) -> datetime.datetime:
+            _, gl_item = task_id_and_item
+            return datetime.datetime.fromisoformat(gl_item.attributes["updated_at"])
+
+        for task_id, gl_item in sorted(task_id_and_gl_item_list, key=sort_key):
+            self._process_gitlab_desc(task_id, gl_item)
 
     async def prepare(self):
         self.kb_project, self.task_collection = await load_kb_cts(self.kb_project_name)

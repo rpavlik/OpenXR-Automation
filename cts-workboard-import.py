@@ -75,6 +75,7 @@ class UpdateOptions:
             update_owner=self.update_owner,
             create_task=self.create_task,
             add_internal_links=self.add_internal_links,
+            modify_gitlab_desc=self.update_mr_desc,
         )
 
 
