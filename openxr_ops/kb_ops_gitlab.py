@@ -31,7 +31,7 @@ def update_mr_desc(
     task_id: int,
     *,
     save_changes: bool,
-    mark_old_as_obsolete: bool,
+    mark_old_as_obsolete: bool = False,
 ):
     log = logging.getLogger(f"{__name__}.update_mr_desc")
     new_front = _make_ops_board_link(task_id)

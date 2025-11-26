@@ -7,24 +7,19 @@
 # Author: Rylie Pavlik <rylie.pavlik@collabora.com>
 
 
+import asyncio
+import datetime
 import importlib
 import importlib.resources
 import logging
 
-import gitlab
-import gitlab.v4.objects
 import kanboard
+from gitlab.v4.objects import ProjectMergeRequest
 
 from kb_ops_migrate import load_kb_ops
-from openxr_ops.checklists import (
-    ChecklistData,
-    ReleaseChecklistCollection,
-    ReleaseChecklistFactory,
-    ReleaseChecklistTemplate,
-    get_extension_names_for_mr,
-)
+from openxr_ops.checklists import ChecklistData, ReleaseChecklistTemplate
 from openxr_ops.ext_author_kind import CanonicalExtensionAuthorKind
-from openxr_ops.gitlab import OpenXRGitlab
+from openxr_ops.gitlab import STATES_CLOSED_MERGED, OpenXRGitlab
 from openxr_ops.kanboard_helpers import KanboardProject
 from openxr_ops.kb_defaults import (
     REAL_HUMAN_BOARD_URL,
@@ -33,12 +28,10 @@ from openxr_ops.kb_defaults import (
 )
 from openxr_ops.kb_ops_collection import TaskCollection
 from openxr_ops.kb_ops_config import get_config_data
+from openxr_ops.kb_ops_gitlab import update_mr_desc
 from openxr_ops.kb_ops_stages import TaskCategory, TaskColumn, TaskSwimlane
-from openxr_ops.kb_ops_task import (
-    OperationsTask,
-    OperationsTaskCreationData,
-    OperationsTaskFlags,
-)
+from openxr_ops.kb_ops_task import OperationsTaskCreationData, OperationsTaskFlags
+from openxr_ops.labels import GroupLabels
 from openxr_ops.vendors import VendorNames
 
 
@@ -76,19 +69,16 @@ class ExtensionTaskCreator:
         self,
         oxr_gitlab: OpenXRGitlab,
         vendor_names: VendorNames,
-        # gl_collection: ReleaseChecklistCollection,
     ):
         self.oxr_gitlab: OpenXRGitlab = oxr_gitlab
-        # self.gl_collection: ReleaseChecklistCollection = gl_collection
         self.kb_project_name: str = REAL_PROJ_NAME
-        # self.update_options: UpdateOptions = update_options
         self.vendor_names = vendor_names
 
         self.config = get_config_data()
 
         self.log = logging.getLogger(f"{__name__}.{self.__class__.__name__}")
 
-        self.mr_num_to_mr: dict[int, gitlab.v4.objects.ProjectMergeRequest] = {}
+        self.mr_num_to_mr: dict[int, ProjectMergeRequest] = {}
         self.update_subtask_futures: list = []
 
         # these are populated later in prepare
@@ -122,7 +112,7 @@ class ExtensionTaskCreator:
         self,
         checklist_data: ChecklistData,
         mr_num: int,
-        mr: gitlab.v4.objects.ProjectMergeRequest,
+        mr: ProjectMergeRequest,
     ) -> OperationsTaskCreationData:
 
         author_kind = self.vendor_names.canonicalize_and_categorize(
@@ -144,6 +134,15 @@ class ExtensionTaskCreator:
         template.fill_in_mr(mr_num)
         template.fill_in_champion(mr.author["name"], mr.author["username"])
 
+        category: TaskCategory | None = None
+        if author_kind == CanonicalExtensionAuthorKind.SINGLE_VENDOR:
+            category = TaskCategory.OUTSIDE_IPR_POLICY
+        elif (
+            author_kind == CanonicalExtensionAuthorKind.EXT
+            and GroupLabels.OUTSIDE_IPR_FRAMEWORK in mr.attributes["labels"]
+        ):
+            category = TaskCategory.OUTSIDE_IPR_POLICY
+
         return OperationsTaskCreationData(
             main_mr=mr_num,
             column=TaskColumn.IN_PREPARATION,
@@ -151,13 +150,28 @@ class ExtensionTaskCreator:
             title=checklist_data.ext_names,
             description=str(template),
             flags=OperationsTaskFlags.from_author_kind(author_kind),
+            category=category,
+            date_started=datetime.datetime.fromisoformat(mr.attributes["created_at"]),
         )
+
+    def handle_gitlab_mr_sync(self, mr_num):
+        task = self.task_collection.get_task_by_mr(mr_num)
+        if not task:
+            raise RuntimeError("We should know this MR by now")
+
+        mr: ProjectMergeRequest = self.mr_num_to_mr[mr_num]
+        update_mr_desc(
+            merge_request=mr,
+            task_id=task.task_id,
+            save_changes=True,
+        )
+
+    def prefetch(self, mr_num):
+        self.mr_num_to_mr[mr_num] = self.oxr_gitlab.main_proj.mergerequests.get(mr_num)
 
     async def handle_mr_if_needed(
         self,
         mr_num,
-        # ext_name: Optional[str] = None,
-        # vendor_ids: Optional[list[str]] = None,
         **kwargs,
     ):
 
@@ -166,25 +180,40 @@ class ExtensionTaskCreator:
             self.log.warning("Already have a task for !%d: %s", mr_num, task.url)
             return
 
-        mr = self.oxr_gitlab.main_proj.mergerequests.get(mr_num)
+        mr: ProjectMergeRequest = self.mr_num_to_mr[mr_num]
+        if mr.attributes["state"] in STATES_CLOSED_MERGED:
+            self.log.warning("Closed/merged already: !%d", mr_num)
+            return
+
         checklist_data = ChecklistData.lookup(
             self.oxr_gitlab.main_proj, mr_num, **kwargs
         )
         data = self.populate_data(checklist_data, mr_num=mr_num, mr=mr)
 
-        # if checklist_data.vendor_id == ("KHR")
-        pass
+        if data is None:
+            return
+
+        new_task_id = await data.create_task(kb_project=self.kb_project)
+
+        if new_task_id is not None:
+            self.log.info(
+                "Created new task ID %d: %s",
+                new_task_id,
+                data.title,
+            )
+            await self.task_collection.load_task_id(new_task_id)
 
 
 if __name__ == "__main__":
     import argparse
 
     parser = argparse.ArgumentParser()
+    parser.add_help = True
     parser.add_argument(
         "mr",
         type=int,
         nargs="+",
-        help="MR number to generate a kanboard task for",
+        help="MR number(s) to generate a kanboard task for",
     )
     parser.add_argument(
         "--extname",
@@ -198,9 +227,19 @@ if __name__ == "__main__":
         action="append",
         help="Specify the vendor ID",
     )
+    parser.add_argument(
+        "-v",
+        "--verbose",
+        action="store_true",
+        help="Higher log level",
+        default=False,
+    )
 
     args = parser.parse_args()
-    logging.basicConfig(level=logging.INFO)
+    if args.verbose:
+        logging.basicConfig(level=logging.DEBUG)
+    else:
+        logging.basicConfig(level=logging.INFO)
 
     log = logging.getLogger(__name__)
 
@@ -208,20 +247,26 @@ if __name__ == "__main__":
 
     log.info("Performing startup queries")
     vendor_names = VendorNames.from_git(oxr.main_proj)
-    # collection = ReleaseChecklistCollection(
-    #     oxr.main_proj,
-    #     oxr.operations_proj,
-    #     checklist_factory=ReleaseChecklistFactory(oxr.operations_proj),
-    #     vendor_names=,
-    # )
 
-    # collection.load_initial_data()
     async def async_main():
-        kb_project, task_collection = await load_kb_ops(only_open=False)
         kwargs = {}
         if "extname" in args and args.extname:
             kwargs["ext_names"] = [args.extname]
         if "vendorid" in args and args.vendorid:
             kwargs["vendor_ids"] = args.vendorid
+
+        creator = ExtensionTaskCreator(oxr_gitlab=oxr, vendor_names=vendor_names)
+        await creator.prepare()
+
+        # Serialized: Gitlab access
         for num in args.mr:
-            collection.handle_mr_if_needed(num, **kwargs)
+            creator.prefetch(num)
+
+        for num in args.mr:
+            await creator.handle_mr_if_needed(num, **kwargs)
+
+        # Serialized: Gitlab access
+        for num in args.mr:
+            creator.handle_gitlab_mr_sync(num)
+
+    asyncio.run(async_main())

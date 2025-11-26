@@ -31,6 +31,10 @@ class TaskCollection:
         self.tasks[task.task_id] = task
 
         if task.main_mr is not None:
+            existing_id = self.mr_to_task_id.get(task.main_mr)
+            if existing_id is not None and task.task_id >= existing_id:
+                # Skip this one, it's a dupe
+                return
             self.mr_to_task_id[task.main_mr] = task.task_id
 
     async def _load_task(self, task_data: dict[str, Any]):
