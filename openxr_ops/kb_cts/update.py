@@ -188,6 +188,7 @@ class BaseOptions:
     update_tags: bool
     update_color: bool
     update_owner: bool
+    update_column: bool
     create_task: bool
     add_internal_links: bool
 
@@ -201,6 +202,7 @@ class BaseOptions:
             update_tags=True,
             update_color=True,
             update_owner=True,
+            update_column=True,
             create_task=True,
             add_internal_links=True,
             modify_gitlab_desc=True,
@@ -214,6 +216,7 @@ class BaseOptions:
             update_tags=False,
             update_color=False,
             update_owner=False,
+            update_column=False,
             create_task=False,
             add_internal_links=False,
             modify_gitlab_desc=False,
@@ -542,6 +545,30 @@ class CTSBoardUpdater:
             self.changes_made = True
 
         await self._try_update_owner(issue_or_mr, task, gl_item)
+
+        # The only auto-move we do is moving into "DONE" when corresponding item is closed/merged.
+        is_closed_or_merged = gl_item.attributes["state"] in STATES_CLOSED_MERGED
+        if is_closed_or_merged and not task.column == TaskColumn.DONE:
+            if self.options.update_column:
+                self.log.info("Moving %s task to DONE", issue_or_mr)
+                column_id = TaskColumn.DONE.to_column_id(self.kb_project)
+                assert column_id is not None
+                swimlane_id = task.swimlane.to_swimlane_id(self.kb_project)
+                assert swimlane_id is not None
+                await self.kb.move_task_position_async(
+                    project_id=self.kb_project.project_id,
+                    task_id=task.task_id,
+                    column_id=column_id,
+                    swimlane_id=swimlane_id,
+                    position=1,
+                )
+                self.changes_made = True
+            else:
+                self.log.info(
+                    "Skipping %s task column update by request: would have moved from '%s' to DONE",
+                    issue_or_mr,
+                    task.column,
+                )
 
     async def _try_update_owner(
         self,

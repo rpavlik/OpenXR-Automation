@@ -73,6 +73,7 @@ class UpdateOptions:
             update_tags=self.update_tags,
             update_color=self.update_color,
             update_owner=self.update_owner,
+            update_column=self.update_column_and_swimlane,
             create_task=self.create_task,
             add_internal_links=self.add_internal_links,
             modify_gitlab_desc=self.update_mr_desc,
