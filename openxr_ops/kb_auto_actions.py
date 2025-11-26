@@ -33,6 +33,15 @@ def _to_multitasktitles(tasks: list[str]):
     return "\r\n".join(tasks)
 
 
+def _check_valid_events(
+    events: list[AutoActionEvents], valid_events: set[AutoActionEvents]
+):
+    invalid = [evt for evt in events if evt not in valid_events]
+
+    if invalid:
+        raise RuntimeError(f"Cannot create this auto action for event(s) {invalid}")
+
+
 class AutoActionABC(abc.ABC):
 
     @abc.abstractmethod
@@ -79,6 +88,10 @@ class AutoSubtasksBase:
         }
 
     @classmethod
+    def valid_events(cls):
+        return {AutoActionEvents.TASK_CREATE, AutoActionEvents.TASK_MOVE_COLUMN}
+
+    @classmethod
     def base_try_from_json(cls, action: dict[str, Any]) -> "Optional[AutoSubtasksBase]":
         log = logging.getLogger(f"{__name__}.{cls.__name__}")
         params = action["params"]
@@ -117,6 +130,10 @@ class SubtasksFromCategory(AutoSubtasksBase, AutoActionABC):
     category: TaskCategory | None
 
     @classmethod
+    def valid_events(cls):
+        return {AutoActionEvents.TASK_CREATE_UPDATE}
+
+    @classmethod
     def create(
         cls,
         event: AutoActionEvents,
@@ -136,11 +153,11 @@ class SubtasksFromCategory(AutoSubtasksBase, AutoActionABC):
         cls,
         category: TaskCategory | None,
         subtasks: list[str],
-        events: list[AutoActionEvents] | None,
+        events: list[AutoActionEvents],
         allow_duplicate_subtasks: bool = False,
     ):
-        if not events:
-            events = [cls.default_event_name()]
+        _check_valid_events(events, cls.valid_events())
+
         for event in events:
             yield cls.create(
                 event=event,
@@ -152,10 +169,6 @@ class SubtasksFromCategory(AutoSubtasksBase, AutoActionABC):
     @classmethod
     def action_name(cls):
         return AutoActionTypes.SUBTASKS_FROM_CATEGORY
-
-    @classmethod
-    def default_event_name(cls):
-        return AutoActionEvents.TASK_CREATE_UPDATE
 
     def to_arg_dict(self, kb_project: KanboardProject):
         return self.make_args(
@@ -223,11 +236,11 @@ class SubtasksFromColumn(AutoSubtasksBase, AutoActionABC):
         cls,
         column: TaskColumn,
         subtasks: list[str],
-        events: list[AutoActionEvents] | None,
+        events: list[AutoActionEvents],
         allow_duplicate_subtasks: bool = False,
     ):
-        if not events:
-            events = [cls.default_event_name()]
+        _check_valid_events(events, cls.valid_events())
+
         for event in events:
             yield cls.create(
                 event=event,
@@ -239,10 +252,6 @@ class SubtasksFromColumn(AutoSubtasksBase, AutoActionABC):
     @classmethod
     def action_name(cls):
         return AutoActionTypes.SUBTASKS_FROM_COLUMN
-
-    @classmethod
-    def default_event_name(cls):
-        return AutoActionEvents.TASK_MOVE_COLUMN
 
     def to_arg_dict(self, kb_project: KanboardProject):
         return self.make_args(
@@ -308,14 +317,14 @@ class SubtasksFromColumnAndCategory(AutoSubtasksBase, AutoActionABC):
     @classmethod
     def yield_for_events(
         cls,
-        events: list[AutoActionEvents] | None,
+        events: list[AutoActionEvents],
         column: TaskColumn,
         category: TaskCategory | None,
         subtasks: list[str],
         allow_duplicate_subtasks: bool = False,
     ):
-        if not events:
-            events = [cls.default_event_name()]
+        _check_valid_events(events, cls.valid_events())
+
         for event in events:
             yield cls.create(
                 event=event,
@@ -328,10 +337,6 @@ class SubtasksFromColumnAndCategory(AutoSubtasksBase, AutoActionABC):
     @classmethod
     def action_name(cls):
         return AutoActionTypes.SUBTASKS_FROM_COLUMN_AND_CATEGORY
-
-    @classmethod
-    def default_event_name(cls):
-        return AutoActionEvents.TASK_MOVE_COLUMN
 
     def to_arg_dict(self, kb_project: KanboardProject):
         return self.make_args(
@@ -406,11 +411,11 @@ class SubtasksFromColumnAndSwimlane(AutoSubtasksBase, AutoActionABC):
         column: TaskColumn,
         swimlane: TaskSwimlane,
         subtasks: list[str],
-        events: list[AutoActionEvents] | None,
+        events: list[AutoActionEvents],
         allow_duplicate_subtasks: bool = False,
     ):
-        if not events:
-            events = [cls.default_event_name()]
+        _check_valid_events(events, cls.valid_events())
+
         for event in events:
             yield cls.create(
                 event=event,
@@ -423,10 +428,6 @@ class SubtasksFromColumnAndSwimlane(AutoSubtasksBase, AutoActionABC):
     @classmethod
     def action_name(cls):
         return AutoActionTypes.SUBTASKS_FROM_COLUMN_AND_SWIMLANE
-
-    @classmethod
-    def default_event_name(cls):
-        return AutoActionEvents.TASK_MOVE_COLUMN
 
     def to_arg_dict(self, kb_project: KanboardProject):
         return self.make_args(
@@ -503,11 +504,11 @@ class SubtasksFromColumnAndSwimlaneAndCategory(AutoSubtasksBase, AutoActionABC):
         swimlane: TaskSwimlane,
         category: TaskCategory | None,
         subtasks: list[str],
-        events: list[AutoActionEvents] | None,
+        events: list[AutoActionEvents],
         allow_duplicate_subtasks: bool = False,
     ):
-        if not events:
-            events = [cls.default_event_name()]
+        _check_valid_events(events, cls.valid_events())
+
         for event in events:
             yield cls.create(
                 event=event,
@@ -521,10 +522,6 @@ class SubtasksFromColumnAndSwimlaneAndCategory(AutoSubtasksBase, AutoActionABC):
     @classmethod
     def action_name(cls):
         return AutoActionTypes.SUBTASKS_FROM_COLUMN_AND_SWIMLANE_AND_CATEGORY
-
-    @classmethod
-    def default_event_name(cls):
-        return AutoActionEvents.TASK_MOVE_COLUMN
 
     def to_arg_dict(self, kb_project: KanboardProject):
         return self.make_args(
@@ -579,6 +576,9 @@ def actions_from_subtask_group(
     if not group.condition:
         log.warning("No condition provided for %s", group.group_name)
         return None
+
+    if group.events is None:
+        group.events = [AutoActionEvents.TASK_MOVE_COLUMN]
 
     if (
         group.condition.column
@@ -673,6 +673,10 @@ class TagFromColumnAndSwimlane(AutoActionABC):
     swimlane: TaskSwimlane
 
     @classmethod
+    def valid_events(cls):
+        return {AutoActionEvents.TASK_CREATE, AutoActionEvents.TASK_MOVE_COLUMN}
+
+    @classmethod
     def create(
         cls,
         event: AutoActionEvents,
@@ -693,10 +697,10 @@ class TagFromColumnAndSwimlane(AutoActionABC):
         tag: str,
         column: TaskColumn,
         swimlane: TaskSwimlane,
-        events: list[AutoActionEvents] | None,
+        events: list[AutoActionEvents],
     ):
-        if not events:
-            events = [cls.default_event_name()]
+        _check_valid_events(events, cls.valid_events())
+
         for event in events:
             yield cls.create(
                 event=event,
@@ -708,10 +712,6 @@ class TagFromColumnAndSwimlane(AutoActionABC):
     @classmethod
     def action_name(cls):
         return AutoActionTypes.TAG_FROM_COLUMN_AND_SWIMLANE
-
-    @classmethod
-    def default_event_name(cls):
-        return AutoActionEvents.TASK_MOVE_COLUMN
 
     def to_arg_dict(self, kb_project: KanboardProject):
         return {
@@ -760,6 +760,10 @@ class TagFromColumn(AutoActionABC):
     column: TaskColumn
 
     @classmethod
+    def valid_events(cls):
+        return {AutoActionEvents.TASK_CREATE, AutoActionEvents.TASK_MOVE_COLUMN}
+
+    @classmethod
     def create(
         cls,
         event: AutoActionEvents,
@@ -777,10 +781,10 @@ class TagFromColumn(AutoActionABC):
         cls,
         tag: str,
         column: TaskColumn,
-        events: list[AutoActionEvents] | None,
+        events: list[AutoActionEvents],
     ):
-        if not events:
-            events = [cls.default_event_name()]
+        _check_valid_events(events, cls.valid_events())
+
         for event in events:
             yield cls.create(
                 event=event,
@@ -791,10 +795,6 @@ class TagFromColumn(AutoActionABC):
     @classmethod
     def action_name(cls):
         return AutoActionTypes.TAG_FROM_COLUMN
-
-    @classmethod
-    def default_event_name(cls):
-        return AutoActionEvents.TASK_MOVE_COLUMN
 
     def to_arg_dict(self, kb_project: KanboardProject):
         return {
@@ -830,6 +830,8 @@ def actions_from_auto_tag(autotag: ConfigAutoTag) -> Sequence[AutoActionABC]:
     if not autotag.condition:
         log.warning("No condition provided for %s", autotag.tag)
         return []
+    if autotag.events is None:
+        autotag.events = [AutoActionEvents.TASK_MOVE_COLUMN]
     if autotag.condition.column and autotag.condition.swimlane:
         return list(
             TagFromColumnAndSwimlane.yield_for_events(
