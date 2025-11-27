@@ -121,6 +121,8 @@ category = "Not Subject to IPR Policy"
 [[subtask_group.subtask]]
 name = "CTS tests written (optional)"
 migration_prefix = "CTS tests written"
+[[subtask_group.subtask]]
+name = "Champion approved to merge (since last editor push)"
 
 [[subtask_group]]
 group_name = "ratification submission"
