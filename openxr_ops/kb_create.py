@@ -11,7 +11,7 @@ import logging
 from dataclasses import dataclass
 from enum import Enum
 from pprint import pformat
-from typing import Any, Literal
+from typing import Any, Awaitable, Coroutine, Literal, TypedDict, cast
 
 import kanboard
 
@@ -19,15 +19,26 @@ from .kanboard_helpers import KanboardProject
 from .kb_auto_actions import AutoActionABC, get_and_parse_actions
 
 
+class NameIdResults(TypedDict):
+    name: str
+    id: int
+
+
 async def populate_columns_general(
     kb: kanboard.Client, project_id: int, enum: type[Enum], descriptions: dict[Any, str]
 ):
+    class ColumnsResultEntry(TypedDict):
+        title: str
+        id: int
+
     log = logging.getLogger(f"{__name__}.populate_columns_general")
-    cols = await kb.get_columns_async(project_id=project_id)
+    cols = cast(
+        list[ColumnsResultEntry], await kb.get_columns_async(project_id=project_id)
+    )
 
-    col_titles = {col["title"] for col in cols}
+    col_titles: set[str] = {col["title"] for col in cols}
 
-    futures = [
+    futures: list[Awaitable[Any]] = [
         kb.add_column_async(
             project_id=project_id,
             title=col.value,
@@ -41,7 +52,7 @@ async def populate_columns_general(
         for future in futures:
             await future
 
-    desired = {col.value for col in enum}
+    desired: set[str] = {col.value for col in enum}
 
     # Remove extra columns
     futures = [
@@ -53,8 +64,10 @@ async def populate_columns_general(
         log.info("Removing %d unneeded columns", len(futures))
         await asyncio.gather(*futures)
 
-    updated_cols = await kb.get_columns_async(project_id=project_id)
-    col_ids = {col["title"]: col["id"] for col in updated_cols}
+    updated_cols = cast(
+        list[ColumnsResultEntry], await kb.get_columns_async(project_id=project_id)
+    )
+    col_ids: dict[str, int] = {col["title"]: col["id"] for col in updated_cols}
 
     desired_order = [col.value for col in enum]
 
@@ -75,7 +88,11 @@ async def populate_swimlanes_general(
     kb: kanboard.Client, project_id: int, enum: type[Enum], descriptions: dict[Any, str]
 ):
     log = logging.getLogger(f"{__name__}.populate_swimlanes_general")
-    lanes = await kb.get_all_swimlanes_async(project_id=project_id)
+
+    lanes = cast(
+        list[NameIdResults],
+        await kb.get_all_swimlanes_async(project_id=project_id),
+    )
 
     lane_names = {sl["name"] for sl in lanes}
 
@@ -93,7 +110,7 @@ async def populate_swimlanes_general(
         # Avoid adding it again below.
         lane_names.add(first_lane.value)
 
-    futures = [
+    futures: list[Awaitable[Any]] = [
         kb.add_swimlane_async(
             project_id=project_id,
             name=lane.value,
@@ -114,11 +131,15 @@ async def populate_categories_general(
     kb: kanboard.Client, project_id: int, enum: type[Enum], colors: dict[Any, str]
 ):
     log = logging.getLogger(f"{__name__}.populate_categories_general")
-    cats = await kb.get_all_categories_async(project_id=project_id)
+
+    cats = cast(
+        list[NameIdResults],
+        await kb.get_all_categories_async(project_id=project_id),
+    )
 
     cat_names = {cat["name"] for cat in cats}
 
-    futures = [
+    futures: list[Awaitable[Any]] = [
         kb.create_category_async(
             project_id=project_id,
             name=category.value,
@@ -137,11 +158,13 @@ async def populate_tags_general(
     kb: kanboard.Client, project_id: int, enum: type[Enum], colors: dict[Any, str]
 ):
     log = logging.getLogger(f"{__name__}.populate_tags_general")
-    tags = await kb.get_tags_by_project_async(project_id=project_id)
+    tags = cast(
+        list[NameIdResults], await kb.get_tags_by_project_async(project_id=project_id)
+    )
 
     tag_names = {tag["name"] for tag in tags}
 
-    futures = [
+    futures: list[Coroutine[Any, Any, Any]] = [
         kb.create_tag_async(
             project_id=project_id,
             tag=tag.value,
@@ -149,14 +172,17 @@ async def populate_tags_general(
         )
         for tag in enum
         if tag.value not in tag_names and tag in colors
-    ] + [
-        kb.create_tag_async(
-            project_id=project_id,
-            tag=tag.value,
-        )
-        for tag in enum
-        if tag.value not in tag_names and tag not in colors
     ]
+    futures.extend(
+        [
+            kb.create_tag_async(
+                project_id=project_id,
+                tag=tag.value,
+            )
+            for tag in enum
+            if tag.value not in tag_names and tag not in colors
+        ]
+    )
 
     if futures:
         log.info("Creating %d tag(s)", len(futures))
@@ -226,13 +252,13 @@ async def populate_actions(
         log.info("Removing %d automatic actions", len(to_destroy))
         await asyncio.gather(*to_destroy)
 
-    to_create = []
+    to_create: list[Awaitable[None]] = []
     for expected_index, expected_action in enumerate(expected_auto_actions):
         if expected_index in discovered_expected_indices:
             continue
         to_create.append(
             kb.create_action_async(
-                project_id=project_id, **expected_action.to_arg_dict(kb_project)
+                project_id=project_id, **expected_action.to_arg_dict(kb_project)  # type: ignore
             )
         )
 

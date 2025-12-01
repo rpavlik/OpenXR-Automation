@@ -10,6 +10,8 @@ import importlib
 import importlib.resources
 import tomllib
 from dataclasses import dataclass
+from enum import Enum
+from typing import TypeVar
 
 from .kb_enums import AutoActionEvents
 from .kb_ops_stages import TaskCategory, TaskColumn, TaskSwimlane
@@ -26,18 +28,21 @@ class ConfigSubtaskEntry:
     """String to search for in old checklist to determine the subtask state."""
 
     @classmethod
-    def from_dict(cls, d: dict):
+    def from_dict(cls, d: dict[str, str]):
         name = d["name"]
         migration_prefix = d.get("migration_prefix", name)
         return cls(name=name, migration_prefix=migration_prefix)
 
-    def get_full_subtask_name(self, group):
+    def get_full_subtask_name(self, group: "ConfigSubtaskGroup"):
         if group.prefix:
             return f"{group.prefix} {self.name}"
         return self.name
 
 
-def parse_into(enum_type, s: str | None):
+T = TypeVar("T", bound=Enum)
+
+
+def parse_into(enum_type: type[T], s: str | int | None):
     if s is None:
         return None
     return enum_type(s)
@@ -57,7 +62,7 @@ class ConfigActionCondition:
     exclude_categories: bool = False
 
     @classmethod
-    def from_dict(cls, d: dict):
+    def from_dict(cls, d: dict[str, str | int | bool]):
         swimlane = parse_into(TaskSwimlane, d.get("swimlane"))
 
         column = parse_into(TaskColumn, d.get("column"))
@@ -68,7 +73,7 @@ class ConfigActionCondition:
             swimlane=swimlane,
             column=column,
             category=category,
-            exclude_categories=d.get("exclude_categories", False),
+            exclude_categories=bool(d.get("exclude_categories", False)),
         )
 
     def has_category_predicate(self):

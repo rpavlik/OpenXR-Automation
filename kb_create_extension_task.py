@@ -12,6 +12,7 @@ import datetime
 import importlib
 import importlib.resources
 import logging
+from typing import Awaitable
 
 import kanboard
 from gitlab.v4.objects import ProjectMergeRequest
@@ -97,7 +98,7 @@ class ExtensionTaskCreator:
         self.log = logging.getLogger(f"{__name__}.{self.__class__.__name__}")
 
         self.mr_num_to_mr: dict[int, ProjectMergeRequest] = {}
-        self.update_subtask_futures: list = []
+        self.update_subtask_futures: list[Awaitable[None]] = []
 
         # these are populated later in prepare
         self.kb_project: KanboardProject
@@ -218,7 +219,7 @@ class ExtensionTaskCreator:
             self.log.info("Posting comment on %s", mr.attributes["web_url"])
             mr.notes.create({"body": message})
 
-    def prefetch(self, mr_num):
+    def prefetch(self, mr_num: int):
         self.mr_num_to_mr[mr_num] = self.oxr_gitlab.main_proj.mergerequests.get(mr_num)
 
     async def handle_mr_if_needed(
@@ -241,9 +242,6 @@ class ExtensionTaskCreator:
             self.oxr_gitlab.main_proj, mr_num, **kwargs
         )
         data = self.populate_data(checklist_data, mr_num=mr_num, mr=mr)
-
-        if data is None:
-            return
 
         new_task_id = await data.create_task(kb_project=self.kb_project)
 

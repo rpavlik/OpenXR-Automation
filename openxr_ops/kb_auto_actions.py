@@ -12,7 +12,7 @@ import logging
 from collections.abc import Sequence
 from dataclasses import dataclass
 from pprint import pformat
-from typing import Any, Literal, Optional
+from typing import Any, Literal, Mapping, Optional, TypedDict, cast
 
 import kanboard
 
@@ -42,16 +42,27 @@ def _check_valid_events(
         raise RuntimeError(f"Cannot create this auto action for event(s) {invalid}")
 
 
+class GetActionsResultElt(TypedDict):
+    id: str
+    project_id: str
+    event_name: str
+    action_name: str
+    params: dict[str, str]
+
+
+CreateActionParamsDict = Mapping[str, str | Mapping[str, int | str]]
+
+
 class AutoActionABC(abc.ABC):
 
     @abc.abstractmethod
-    def to_arg_dict(self, kb_project: KanboardProject) -> dict[str, Any]:
+    def to_arg_dict(self, kb_project: KanboardProject) -> CreateActionParamsDict:
         pass
 
     @classmethod
     @abc.abstractmethod
     def try_from_json(
-        cls, kb_project, action: dict[str, Any]
+        cls, kb_project: KanboardProject, action: GetActionsResultElt
     ) -> Optional["AutoActionABC"]:
         pass
 
@@ -70,7 +81,7 @@ class AutoSubtasksBase:
         action: AutoActionTypes,
         event: AutoActionEvents,
         params: dict[str, Any],
-    ):
+    ) -> CreateActionParamsDict:
         params.update(
             {
                 "user_id": 0,  # not using this for now
@@ -92,7 +103,9 @@ class AutoSubtasksBase:
         return {AutoActionEvents.TASK_CREATE, AutoActionEvents.TASK_MOVE_COLUMN}
 
     @classmethod
-    def base_try_from_json(cls, action: dict[str, Any]) -> "Optional[AutoSubtasksBase]":
+    def base_try_from_json(
+        cls, action: GetActionsResultElt
+    ) -> "Optional[AutoSubtasksBase]":
         log = logging.getLogger(f"{__name__}.{cls.__name__}")
         params = action["params"]
 
@@ -170,7 +183,7 @@ class SubtasksFromCategory(AutoSubtasksBase, AutoActionABC):
     def action_name(cls):
         return AutoActionTypes.SUBTASKS_FROM_CATEGORY
 
-    def to_arg_dict(self, kb_project: KanboardProject):
+    def to_arg_dict(self, kb_project: KanboardProject) -> CreateActionParamsDict:
         return self.make_args(
             action=self.action_name(),
             event=self.event,
@@ -182,9 +195,8 @@ class SubtasksFromCategory(AutoSubtasksBase, AutoActionABC):
         )
 
     @classmethod
-    def try_from_json(cls, kb_project, action: dict[str, Any]):
+    def try_from_json(cls, kb_project: KanboardProject, action: GetActionsResultElt):
         """Create from API return value."""
-        log = logging.getLogger(f"{__name__}.{cls.__name__}")
         if action["action_name"] != cls.action_name().value:
             return None
         event = AutoActionEvents(action["event_name"])
@@ -264,7 +276,7 @@ class SubtasksFromColumn(AutoSubtasksBase, AutoActionABC):
         )
 
     @classmethod
-    def try_from_json(cls, kb_project, action: dict[str, Any]):
+    def try_from_json(cls, kb_project: KanboardProject, action: GetActionsResultElt):
         log = logging.getLogger(f"{__name__}.{cls.__name__}")
         if action["action_name"] != cls.action_name().value:
             log.debug("action_name mismatch: %s", action["action_name"])
@@ -351,7 +363,7 @@ class SubtasksFromColumnAndCategory(AutoSubtasksBase, AutoActionABC):
         )
 
     @classmethod
-    def try_from_json(cls, kb_project, action: dict[str, Any]):
+    def try_from_json(cls, kb_project: KanboardProject, action: GetActionsResultElt):
         log = logging.getLogger(f"{__name__}.{cls.__name__}")
         if action["action_name"] != cls.action_name().value:
             log.debug("action_name mismatch: %s", action["action_name"])
@@ -440,7 +452,7 @@ class SubtasksFromColumnAndSwimlane(AutoSubtasksBase, AutoActionABC):
         )
 
     @classmethod
-    def try_from_json(cls, kb_project, action: dict[str, Any]):
+    def try_from_json(cls, kb_project: KanboardProject, action: GetActionsResultElt):
         log = logging.getLogger(f"{__name__}.{cls.__name__}")
         if action["action_name"] != cls.action_name().value:
             log.debug("action_name mismatch: %s", action["action_name"])
@@ -537,7 +549,7 @@ class SubtasksFromColumnAndSwimlaneAndCategory(AutoSubtasksBase, AutoActionABC):
         )
 
     @classmethod
-    def try_from_json(cls, kb_project, action: dict[str, Any]):
+    def try_from_json(cls, kb_project: KanboardProject, action: GetActionsResultElt):
         """Create from API return value."""
         log = logging.getLogger(f"{__name__}.{cls.__name__}")
         if action["action_name"] != cls.action_name().value:
@@ -713,19 +725,19 @@ class TagFromColumnAndSwimlane(AutoActionABC):
     def action_name(cls):
         return AutoActionTypes.TAG_FROM_COLUMN_AND_SWIMLANE
 
-    def to_arg_dict(self, kb_project: KanboardProject):
+    def to_arg_dict(self, kb_project: KanboardProject) -> CreateActionParamsDict:
         return {
             EVENT_NAME: self.event.value,
             ACTION_NAME: self.action_name().value,
             "params": {
-                "column_id": self.column.to_column_id(kb_project),
-                "swimlane_id": self.swimlane.to_swimlane_id(kb_project),
+                "column_id": self.column.to_required_column_id(kb_project),
+                "swimlane_id": self.swimlane.to_required_swimlane_id(kb_project),
                 "tag": self.tag,
             },
         }
 
     @classmethod
-    def try_from_json(cls, kb_project, action: dict[str, Any]):
+    def try_from_json(cls, kb_project: KanboardProject, action: GetActionsResultElt):
         """Create from API return value."""
         log = logging.getLogger(f"{__name__}.{cls.__name__}")
         if action["action_name"] != cls.action_name().value:
@@ -796,18 +808,18 @@ class TagFromColumn(AutoActionABC):
     def action_name(cls):
         return AutoActionTypes.TAG_FROM_COLUMN
 
-    def to_arg_dict(self, kb_project: KanboardProject):
+    def to_arg_dict(self, kb_project: KanboardProject) -> CreateActionParamsDict:
         return {
             EVENT_NAME: self.event.value,
             ACTION_NAME: self.action_name().value,
             "params": {
-                "column_id": self.column.to_column_id(kb_project),
+                "column_id": self.column.to_required_column_id(kb_project),
                 "tag": self.tag,
             },
         }
 
     @classmethod
-    def try_from_json(cls, kb_project, action: dict[str, Any]):
+    def try_from_json(cls, kb_project: KanboardProject, action: GetActionsResultElt):
         """Create from API return value."""
         log = logging.getLogger(f"{__name__}.{cls.__name__}")
         if action["action_name"] != cls.action_name().value:
@@ -857,7 +869,7 @@ def actions_from_auto_tag(autotag: ConfigAutoTag) -> Sequence[AutoActionABC]:
     return []
 
 
-AUTO_ACTION_TYPES = [
+AUTO_ACTION_TYPES: list[type[AutoActionABC]] = [
     SubtasksFromColumnAndSwimlaneAndCategory,
     SubtasksFromColumnAndSwimlane,
     SubtasksFromColumnAndCategory,
@@ -868,7 +880,7 @@ AUTO_ACTION_TYPES = [
 ]
 
 
-def from_json(kb_project, action: dict[str, Any]):
+def from_json(kb_project: KanboardProject, action: GetActionsResultElt):
     for t in AUTO_ACTION_TYPES:
         result = t.try_from_json(kb_project, action)
 
@@ -879,18 +891,20 @@ def from_json(kb_project, action: dict[str, Any]):
 
 
 async def get_and_parse_actions(
-    kb: kanboard.Client, kb_project, proj_id: int
-) -> tuple[list, dict[int, AutoActionABC]]:
-    unparsed = []
+    kb: kanboard.Client, kb_project: KanboardProject, proj_id: int
+) -> tuple[list[GetActionsResultElt], dict[int, AutoActionABC]]:
+    unparsed: list[GetActionsResultElt] = []
     all_parsed: dict[int, AutoActionABC] = dict()
 
-    actions = await kb.get_actions_async(project_id=proj_id)
+    actions = cast(
+        list[GetActionsResultElt], await kb.get_actions_async(project_id=proj_id)
+    )
     for action in actions:
         parsed = from_json(kb_project=kb_project, action=action)
         if parsed is None:
             unparsed.append(action)
         else:
-            all_parsed[action["id"]] = parsed
+            all_parsed[int(action["id"])] = parsed
 
     return unparsed, all_parsed
 

@@ -20,6 +20,7 @@ from typing import Any
 import gitlab
 import gitlab.v4.objects
 import kanboard
+from gitlab.v4.objects import ProjectIssue
 
 from openxr_ops.checklists import ReleaseChecklistCollection
 from openxr_ops.gitlab import STATE_CLOSED, STATES_CLOSED_MERGED, OpenXRGitlab
@@ -628,18 +629,13 @@ def _find_checkboxes(lines: list[str]):
             yield m.group("content") == "x", line
 
 
-def _line_contains_placeholder(line: str) -> bool:
-    # Only for the placeholders in the status/dates section!
-    return "(_date, or remove" in line or "(_N/A or" in line
-
-
-def _format_mr(m: re.Match):
+def _format_mr(m: re.Match[str]):
     num = m.group("mrnum")
     match = m.group(0)
     return f"[{match}](https://gitlab.khronos.org/openxr/openxr/-/merge_requests/{num})"
 
 
-def get_description(issue_obj) -> str:
+def get_description(issue_obj: ProjectIssue) -> str:
     """Get initial KB description from ops issue."""
     # Truncate it to the first section.
     full_desc: str = issue_obj.attributes["description"]
@@ -680,9 +676,9 @@ def get_flags(checklist_issue: ReleaseChecklistIssue):
 
 
 def make_checklist_issue(
-    oxr_gitlab,
+    oxr_gitlab: OpenXRGitlab,
     gl_collection,
-    mr_num,
+    mr_num: int,
     issue_obj: gitlab.v4.objects.ProjectIssue,
 ) -> ReleaseChecklistIssue | None:
     log = logging.getLogger(__name__)
@@ -704,7 +700,7 @@ def make_checklist_issue(
 
 def populate_data_from_gitlab(
     checklist_issue: ReleaseChecklistIssue,
-    mr_num,
+    mr_num: int,
 ) -> OperationsTaskCreationData | None:
     """
     Return KB task creation/update data for a gitlab ops issue.
@@ -737,7 +733,9 @@ def populate_data_from_gitlab(
     )
 
 
-async def load_kb_ops(project_name: str = REAL_PROJ_NAME, only_open: bool = True):
+async def load_kb_ops(
+    project_name: str = REAL_PROJ_NAME, only_open: bool = True
+) -> tuple[KanboardProject, TaskCollection]:
     log = logging.getLogger(__name__)
 
     kb, proj = await connect_and_get_project(project_name)
