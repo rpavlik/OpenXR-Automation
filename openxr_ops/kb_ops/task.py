@@ -12,12 +12,12 @@ from typing import cast
 
 import kanboard
 
-from .ext_author_kind import CanonicalExtensionAuthorKind
-from .gitlab import MR_URL_BASE
-from .kanboard_helpers import KanboardProject
-from .kb_ops_stages import TaskCategory, TaskColumn, TaskSwimlane, TaskTags
-from .kb_result_types import GetAllExternalTaskLinksResultElt, GetTaskResult, IdOrFalse
-from .parse import extract_mr_number
+from ..ext_author_kind import CanonicalExtensionAuthorKind
+from ..gitlab import MR_URL_BASE
+from ..kanboard_helpers import KanboardProject
+from ..kb_result_types import GetAllExternalTaskLinksResultElt, GetTaskResult, IdOrFalse
+from ..parse import extract_mr_number
+from .stages import TaskCategory, TaskColumn, TaskSwimlane, TaskTags
 
 
 @dataclass

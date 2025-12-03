@@ -11,7 +11,7 @@ import re
 
 from gitlab.v4.objects import ProjectMergeRequest, ProjectMergeRequestNote
 
-from .checklists import CHECKLIST_RE
+from ..checklists import CHECKLIST_RE
 
 _TASK_BASE_URL = "https://openxr-boards.khronos.org/task/"
 

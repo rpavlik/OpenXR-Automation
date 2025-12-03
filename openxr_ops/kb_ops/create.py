@@ -12,15 +12,15 @@ from pprint import pformat
 
 import kanboard
 
-from .kb_auto_actions import AutoActionABC, auto_actions_from_config
-from .kb_create import (
+from ..kb_auto_actions import AutoActionABC, auto_actions_from_config
+from ..kb_create import (
     ProjectData,
     create_or_populate_project_general,
     populate_project_general,
 )
-from .kb_defaults import USERNAME, get_kb_api_token, get_kb_api_url
-from .kb_ops_config import get_config_data
-from .kb_ops_stages import (
+from ..kb_defaults import USERNAME, get_kb_api_token, get_kb_api_url
+from .config import get_config_data
+from .stages import (
     CATEGORY_COLORS,
     COLUMN_DESCRIPTIONS,
     SWIMLANE_DESCRIPTIONS,

@@ -13,8 +13,8 @@ from dataclasses import dataclass
 from enum import Enum
 from typing import TypeVar
 
-from .kb_enums import AutoActionEvents
-from .kb_ops_stages import TaskCategory, TaskColumn, TaskSwimlane
+from ..kb_enums import AutoActionEvents
+from .stages import TaskCategory, TaskColumn, TaskSwimlane
 
 
 @dataclass

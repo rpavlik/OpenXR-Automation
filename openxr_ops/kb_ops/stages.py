@@ -9,7 +9,7 @@
 from enum import Enum
 from typing import Optional
 
-from .kanboard_helpers import KanboardProject
+from ..kanboard_helpers import KanboardProject
 
 
 class TaskColumn(Enum):

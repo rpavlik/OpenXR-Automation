@@ -26,16 +26,16 @@ from openxr_ops.checklists import ReleaseChecklistCollection
 from openxr_ops.gitlab import STATE_CLOSED, STATES_CLOSED_MERGED, OpenXRGitlab
 from openxr_ops.kanboard_helpers import KanboardProject
 from openxr_ops.kb_defaults import REAL_PROJ_NAME, connect_and_get_project
-from openxr_ops.kb_ops_collection import TaskCollection
-from openxr_ops.kb_ops_config import (
+from openxr_ops.kb_ops.collection import TaskCollection
+from openxr_ops.kb_ops.config import (
     ConfigSubtaskEntry,
     ConfigSubtaskGroup,
     get_config_data,
 )
-from openxr_ops.kb_ops_gitlab import update_mr_desc
-from openxr_ops.kb_ops_queue import COLUMN_CONVERSION, COLUMN_TO_SWIMLANE
-from openxr_ops.kb_ops_stages import TaskCategory
-from openxr_ops.kb_ops_task import (
+from openxr_ops.kb_ops.conversions import COLUMN_CONVERSION, COLUMN_TO_SWIMLANE
+from openxr_ops.kb_ops.gitlab import update_mr_desc
+from openxr_ops.kb_ops.stages import TaskCategory
+from openxr_ops.kb_ops.task import (
     OperationsTask,
     OperationsTaskCreationData,
     OperationsTaskFlags,

@@ -22,9 +22,9 @@ from .extensions import compute_vendor_name_and_tag
 from .gitlab import OpenXRGitlab
 from .kanboard_helpers import KanboardProject
 from .kb_defaults import connect_and_get_project
-from .kb_ops_collection import TaskCollection
-from .kb_ops_stages import TaskCategory, TaskColumn, TaskSwimlane
-from .kb_ops_task import OperationsTask
+from .kb_ops.collection import TaskCollection
+from .kb_ops.stages import TaskCategory, TaskColumn, TaskSwimlane
+from .kb_ops.task import OperationsTask
 from .priority_results import (
     NOW,
     PriorityResults,

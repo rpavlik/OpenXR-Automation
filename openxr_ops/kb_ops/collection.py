@@ -7,9 +7,9 @@
 
 import asyncio
 
-from .kanboard_helpers import KanboardProject
-from .kb_ops_task import OperationsTask
-from .kb_result_types import GetTaskResult
+from ..kanboard_helpers import KanboardProject
+from ..kb_result_types import GetTaskResult
+from .task import OperationsTask
 
 
 class TaskCollection:

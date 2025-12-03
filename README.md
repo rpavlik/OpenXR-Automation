@@ -41,7 +41,7 @@ By now there are far more tools in here than just the below.
   - `./cts-workboard-import.py` to import the old "Nullboard" export json into a
     Kanboard project.
 - OpenXRExtensions (Operations) Kanboard project:
-  - `python3 -m openxr_ops.kb_ops_create` to automatically create most of the
+  - `python3 -m openxr_ops.kb_ops.create` to automatically create most of the
     structure for the OpenXRExtensions board. Idempotent. `--help` available.
     Requires the following plugins for Kanboard:
     - https://github.com/rpavlik/kanboard-plugin-auto-tag - developed for this

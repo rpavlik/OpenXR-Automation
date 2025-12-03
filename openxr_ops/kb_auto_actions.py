@@ -19,8 +19,8 @@ import kanboard
 from .kanboard_helpers import KanboardProject
 from .kb_defaults import USERNAME, get_kb_api_token, get_kb_api_url
 from .kb_enums import ACTION_NAME, EVENT_NAME, AutoActionEvents, AutoActionTypes
-from .kb_ops_config import ConfigAutoTag, ConfigData, ConfigSubtaskGroup
-from .kb_ops_stages import TaskCategory, TaskColumn, TaskSwimlane
+from .kb_ops.config import ConfigAutoTag, ConfigData, ConfigSubtaskGroup
+from .kb_ops.stages import TaskCategory, TaskColumn, TaskSwimlane
 from .kb_result_types import GetProjectByNameResult
 
 

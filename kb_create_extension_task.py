@@ -23,11 +23,11 @@ from openxr_ops.ext_author_kind import CanonicalExtensionAuthorKind
 from openxr_ops.gitlab import STATES_CLOSED_MERGED, OpenXRGitlab
 from openxr_ops.kanboard_helpers import KanboardProject
 from openxr_ops.kb_defaults import REAL_PROJ_NAME
-from openxr_ops.kb_ops_collection import TaskCollection
-from openxr_ops.kb_ops_config import get_config_data
-from openxr_ops.kb_ops_gitlab import note_contains_sentinel, update_mr_desc
-from openxr_ops.kb_ops_stages import TaskCategory, TaskColumn, TaskSwimlane
-from openxr_ops.kb_ops_task import (
+from openxr_ops.kb_ops.collection import TaskCollection
+from openxr_ops.kb_ops.config import get_config_data
+from openxr_ops.kb_ops.gitlab import note_contains_sentinel, update_mr_desc
+from openxr_ops.kb_ops.stages import TaskCategory, TaskColumn, TaskSwimlane
+from openxr_ops.kb_ops.task import (
     OperationsTask,
     OperationsTaskCreationData,
     OperationsTaskFlags,
