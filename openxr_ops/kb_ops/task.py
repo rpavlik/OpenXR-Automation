@@ -174,6 +174,7 @@ class OperationsTask(OperationsTaskBase):
     """Like OperationsTaskBase but this requires additional queries"""
 
     main_mr: int | None
+    """Main extension MR number."""
 
     ext_links_list: list[GetAllExternalTaskLinksResultElt]
     """Raw external links data from API"""

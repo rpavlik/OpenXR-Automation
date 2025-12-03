@@ -22,8 +22,6 @@ class TaskCollection:
         self.kb_project = kb_project
         """Object referencing an Kanboard project."""
 
-        # self.ignore_issues: Set[str] = set()
-        # self.include_issues: List[int] = []
         self.issue_to_task_id: dict[int, int] = dict()
         self.mr_to_task_id: dict[int, int] = dict()
         self.tasks: dict[int, CTSTask] = dict()

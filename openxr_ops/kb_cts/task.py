@@ -8,7 +8,7 @@
 import datetime
 import logging
 from dataclasses import dataclass
-from typing import Literal, cast
+from typing import cast
 
 import kanboard
 
@@ -20,6 +20,7 @@ from ..kb_result_types import (
     GetAllExternalTaskLinksResultElt,
     GetAllTaskLinksResultElt,
     GetTaskResult,
+    IdOrFalse,
 )
 from ..labels import MainProjectLabels
 from ..parse import extract_issue_number, extract_mr_number
@@ -330,7 +331,7 @@ class CTSTaskCreationData:
         kb = kb_project.kb
 
         task_id = cast(
-            int | Literal[False],
+            IdOrFalse,
             await kb.create_task_async(
                 title=self.title,
                 project_id=kb_project.project_id,
