@@ -79,7 +79,7 @@ _TASK_BASE_URL = "https://openxr-boards.khronos.org/task/"
 
 
 _CTS_BOARD_LINK = re.compile(
-    r"CTS Board Tracking Task: " + re.escape(_TASK_BASE_URL) + r"(?P<task_id>[0-9]+)"
+    rf"CTS Board Tracking Task: {re.escape(_TASK_BASE_URL)}(?P<task_id>[0-9]+)"
 )
 
 
