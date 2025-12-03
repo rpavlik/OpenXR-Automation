@@ -33,16 +33,27 @@ By now there are far more tools in here than just the below.
 
 - CTS Contractor Kanboard project:
   - `python3 -m openxr_ops.kb_cts.update` to run an update of the CTS Contractor
-    Kanboard project. Takes about a minute and a half. `--help` and `--dry-run` available.
+    Kanboard project. Takes about a minute and a half. `--help` and `--dry-run`
+    available. Try running in CI!
   - `python3 -m openxr_ops.kb_cts.create` to automatically create/update most of
-    the structure for the CTS Contractor board. Idempotent. `--help` and `--dry-run` available.
+    the structure for the CTS Contractor board. Idempotent. `--help` and
+    `--dry-run` available.
   - `./cts-workboard-import.py` to import the old "Nullboard" export json into a
     Kanboard project.
 - OpenXRExtensions (Operations) Kanboard project:
   - `python3 -m openxr_ops.kb_ops_create` to automatically create most of the
     structure for the OpenXRExtensions board. Idempotent. `--help` available.
+    Requires the following plugins for Kanboard:
+    - https://github.com/rpavlik/kanboard-plugin-auto-tag - developed for this
+      project.
+    - https://github.com/rpavlik/AutoSubtasks - forked and improved for this
+      project.
+  - `./kb_create_extension_task.py 4113` to create a task for an extension in
+    GitLab MR 4113 (for example). `--help` available.
   - `./kb_ops_migrate.py` to perform automatic migration from the GitLab
-    operations project to kanboard. `--help` and `--dry-run` available.
+    operations project to kanboard. Mostly idempotent, though if your board
+    isn't read-only, you will want to turn off some of the options (in the
+    code). `--help` and `--dry-run` available.
 - `work_item_and_collection.py` is a somewhat-generic (though GitLab-based)
   group of data structures
 - `nullboard_gitlab.py` has some shared utilities for Nullboard export (`.nbx`)
