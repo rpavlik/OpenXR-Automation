@@ -18,9 +18,8 @@ from typing import cast
 import gitlab
 import gitlab.v4.objects
 
-from .extensions import compute_vendor_name_and_tag
+from .extensions import VendorNames, compute_vendor_name_and_tag
 from .labels import GroupLabels, MainProjectLabels, OpsProjectLabels
-from .vendors import VendorNames
 
 NOW = datetime.datetime.now(datetime.UTC)
 log = logging.getLogger(__name__)

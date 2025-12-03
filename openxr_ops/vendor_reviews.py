@@ -12,10 +12,10 @@ from pathlib import Path
 
 from .checklists import ColumnName, ReleaseChecklistCollection
 from .custom_sort import SorterBase
+from .extensions import VendorNames
 from .gitlab import OpenXRGitlab
 from .priority_results import NOW, PriorityResults, ReleaseChecklistIssue
 from .review_priority import ReviewPriorityConfig
-from .vendors import VendorNames
 
 
 def load_in_flight(

@@ -23,6 +23,7 @@ import kanboard
 from gitlab.v4.objects import ProjectIssue
 
 from openxr_ops.checklists import ReleaseChecklistCollection
+from openxr_ops.extensions import VendorNames
 from openxr_ops.gitlab import STATE_CLOSED, STATES_CLOSED_MERGED, OpenXRGitlab
 from openxr_ops.kanboard_helpers import KanboardProject
 from openxr_ops.kb_defaults import REAL_PROJ_NAME, connect_and_get_project
@@ -42,7 +43,6 @@ from openxr_ops.kb_ops.task import (
 )
 from openxr_ops.labels import ColumnName
 from openxr_ops.priority_results import ReleaseChecklistIssue
-from openxr_ops.vendors import VendorNames
 
 _PROJ_NAME = "test1"
 

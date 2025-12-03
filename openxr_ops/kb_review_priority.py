@@ -18,7 +18,7 @@ import gitlab.v4.objects
 
 from .checklists import ReleaseChecklistCollection
 from .custom_sort import BasicDesignReviewSort, SorterBase
-from .extensions import compute_vendor_name_and_tag
+from .extensions import VendorNames, compute_vendor_name_and_tag
 from .gitlab import OpenXRGitlab
 from .kanboard_helpers import KanboardProject
 from .kb_defaults import connect_and_get_project
@@ -32,7 +32,6 @@ from .priority_results import (
     ReleaseChecklistMRData,
 )
 from .review_priority import ReviewPriorityConfig
-from .vendors import VendorNames
 
 
 @dataclass

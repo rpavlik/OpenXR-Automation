@@ -20,6 +20,7 @@ from gitlab.v4.objects import ProjectMergeRequest
 from kb_ops_migrate import load_kb_ops
 from openxr_ops.checklists import ChecklistData, ReleaseChecklistTemplate
 from openxr_ops.ext_author_kind import CanonicalExtensionAuthorKind
+from openxr_ops.extensions import VendorNames
 from openxr_ops.gitlab import STATES_CLOSED_MERGED, OpenXRGitlab
 from openxr_ops.kanboard_helpers import KanboardProject
 from openxr_ops.kb_defaults import REAL_PROJ_NAME
@@ -33,7 +34,6 @@ from openxr_ops.kb_ops.task import (
     OperationsTaskFlags,
 )
 from openxr_ops.labels import GroupLabels, MainProjectLabels
-from openxr_ops.vendors import VendorNames
 
 
 def task_to_labels(task: OperationsTask):

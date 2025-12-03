@@ -11,8 +11,8 @@ from collections import defaultdict
 from dataclasses import dataclass, field
 from typing import Any
 
+from .extensions import VendorNames
 from .priority_results import ReleaseChecklistIssue
-from .vendors import VendorNames
 
 log = logging.getLogger(__name__)
 

@@ -9,9 +9,9 @@
 import logging
 
 from openxr_ops.checklists import ReleaseChecklistCollection
+from openxr_ops.extensions import VendorNames
 from openxr_ops.gitlab import OpenXRGitlab
 from openxr_ops.labels import ColumnName, OpsProjectLabels
-from openxr_ops.vendors import VendorNames
 
 if __name__ == "__main__":
     import argparse

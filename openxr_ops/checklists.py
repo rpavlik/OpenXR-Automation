@@ -17,10 +17,9 @@ from typing import Any, cast
 import gitlab
 import gitlab.v4.objects
 
-from .extensions import ExtensionData, ExtensionNameGuesser
+from .extensions import ExtensionData, ExtensionNameGuesser, VendorNames
 from .gitlab import STATE_CLOSED, STATES_CLOSED_MERGED
 from .labels import ColumnName, GroupLabels, MainProjectLabels
-from .vendors import VendorNames
 
 _MAIN_MR_RE = re.compile(
     r"Main extension MR:\s*(openxr/openxr!|openxr!|!|https://gitlab.khronos.org/openxr/openxr/-/merge_requests/)(?P<mrnum>[0-9]+)"

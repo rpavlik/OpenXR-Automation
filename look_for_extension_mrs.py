@@ -18,9 +18,9 @@ from openxr_ops.checklists import (
     ReleaseChecklistFactory,
     get_extension_names_for_mr,
 )
+from openxr_ops.extensions import VendorNames
 from openxr_ops.gitlab import OpenXRGitlab
 from openxr_ops.labels import GroupLabels, MainProjectLabels
-from openxr_ops.vendors import VendorNames
 from work_item_and_collection import get_short_ref
 
 

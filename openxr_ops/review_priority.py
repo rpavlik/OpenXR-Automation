@@ -12,10 +12,10 @@ from collections.abc import Iterable
 
 from .checklists import ColumnName, ReleaseChecklistCollection
 from .custom_sort import SORTERS, BasicDesignReviewSort, BasicSpecReviewSort, SorterBase
+from .extensions import VendorNames
 from .gitlab import OpenXRGitlab
 from .labels import OpsProjectLabels
 from .priority_results import NOW, PriorityResults, ReleaseChecklistIssue, apply_offsets
-from .vendors import VendorNames
 
 
 class ReviewPriorityConfig:
