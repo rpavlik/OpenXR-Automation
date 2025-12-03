@@ -12,8 +12,6 @@ from typing import Literal, cast
 
 import kanboard
 
-from openxr_ops.kb_result_types import GetTaskResult
-
 from ..gitlab import ISSUE_URL_BASE, MR_URL_BASE
 from ..kanboard_helpers import KanboardProject, LinkIdMapping
 from ..kb_enums import InternalLinkRelation

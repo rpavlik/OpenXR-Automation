@@ -11,14 +11,18 @@ import logging
 from dataclasses import dataclass
 from enum import Enum
 from pprint import pformat
-from typing import Any, Awaitable, Coroutine, Literal, cast
+from typing import Any, Awaitable, Coroutine, cast
 
 import kanboard
 
-from openxr_ops.kb_result_types import NameIdResultElt, TitleIdResultElt
-
 from .kanboard_helpers import KanboardProject
 from .kb_auto_actions import AutoActionABC, get_and_parse_actions
+from .kb_result_types import (
+    GetProjectByNameResult,
+    NameIdResultElt,
+    ProjectResult,
+    TitleIdResultElt,
+)
 
 
 async def populate_columns_general(
@@ -241,7 +245,7 @@ async def populate_actions(
     log.info("Matched %d automatic actions", len(discovered_expected_indices))
 
     if remove_unexpected:
-        to_destroy = [
+        to_destroy: list[Awaitable[Any]] = [
             kb.remove_action_async(action_id=action_id)
             for action_id in existing_action_ids_to_drop
         ]
@@ -286,7 +290,7 @@ async def populate_project_general(
 ):
     log = logging.getLogger(f"{__name__}.populate_project_general")
 
-    proj = await kb.get_project_by_id_async(project_id=proj_id)
+    proj = cast(ProjectResult, await kb.get_project_by_id_async(project_id=proj_id))
 
     log.info("Project ID is %d", proj_id)
     log.info("Project Board URL: %s", proj["url"]["board"])
@@ -325,7 +329,9 @@ async def create_or_populate_project_general(
 ):
     log = logging.getLogger(f"{__name__}.create_or_populate_project_general")
 
-    proj: dict | Literal[False] = await kb.get_project_by_name_async(name=project_name)
+    proj = cast(
+        GetProjectByNameResult, await kb.get_project_by_name_async(name=project_name)
+    )
     print(proj)
     if not proj:
         log.info("Project '%s' not found, will create.", project_name)

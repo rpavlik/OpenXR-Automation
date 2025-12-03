@@ -12,7 +12,7 @@ import logging
 from collections.abc import Sequence
 from dataclasses import dataclass
 from pprint import pformat
-from typing import Any, Literal, Mapping, Optional, TypedDict, cast
+from typing import Any, Mapping, Optional, TypedDict, cast
 
 import kanboard
 
@@ -21,6 +21,7 @@ from .kb_defaults import USERNAME, get_kb_api_token, get_kb_api_url
 from .kb_enums import ACTION_NAME, EVENT_NAME, AutoActionEvents, AutoActionTypes
 from .kb_ops_config import ConfigAutoTag, ConfigData, ConfigSubtaskGroup
 from .kb_ops_stages import TaskCategory, TaskColumn, TaskSwimlane
+from .kb_result_types import GetProjectByNameResult
 
 
 def _to_check_box_no_duplicates(allow_duplicate_subtasks: bool):
@@ -270,7 +271,7 @@ class SubtasksFromColumn(AutoSubtasksBase, AutoActionABC):
             action=self.action_name(),
             event=self.event,
             params={
-                "column_id": self.column.to_column_id(kb_project),
+                "column_id": self.column.to_required_column_id(kb_project),
                 "check_box_all_columns": 0,  # unused for now
             },
         )
@@ -355,7 +356,7 @@ class SubtasksFromColumnAndCategory(AutoSubtasksBase, AutoActionABC):
             action=self.action_name(),
             event=self.event,
             params={
-                "column_id": self.column.to_column_id(kb_project),
+                "column_id": self.column.to_required_column_id(kb_project),
                 "category_id": TaskCategory.optional_to_category_id(
                     kb_project, self.category
                 ),
@@ -446,8 +447,8 @@ class SubtasksFromColumnAndSwimlane(AutoSubtasksBase, AutoActionABC):
             action=self.action_name(),
             event=self.event,
             params={
-                "column_id": self.column.to_column_id(kb_project),
-                "swimlane_id": self.swimlane.to_swimlane_id(kb_project),
+                "column_id": self.column.to_required_column_id(kb_project),
+                "swimlane_id": self.swimlane.to_required_swimlane_id(kb_project),
             },
         )
 
@@ -540,8 +541,8 @@ class SubtasksFromColumnAndSwimlaneAndCategory(AutoSubtasksBase, AutoActionABC):
             action=self.action_name(),
             event=self.event,
             params={
-                "column_id": self.column.to_column_id(kb_project),
-                "swimlane_id": self.swimlane.to_swimlane_id(kb_project),
+                "column_id": self.column.to_required_column_id(kb_project),
+                "swimlane_id": self.swimlane.to_required_swimlane_id(kb_project),
                 "category_id": TaskCategory.optional_to_category_id(
                     kb_project, self.category
                 ),
@@ -913,12 +914,14 @@ async def get_and_parse_actions_from_named_project(
     kb: kanboard.Client, project_name: str
 ):
     log = logging.getLogger(f"{__name__}.get_and_parse_actions_from_named_project")
-    proj: dict | Literal[False] = await kb.get_project_by_name_async(name=project_name)
+    proj = cast(
+        GetProjectByNameResult, await kb.get_project_by_name_async(name=project_name)
+    )
     if not proj:
         log.warning("Project '%s' not found, skipping", project_name)
         return None, None
 
-    proj_id = int(proj["id"])
+    proj_id = proj["id"]
     kb_project = KanboardProject(kb, proj_id)
     await kb_project.fetch_all_id_maps()
     return await get_and_parse_actions(kb, kb_project=kb_project, proj_id=proj_id)

@@ -10,6 +10,8 @@ import re
 from dataclasses import dataclass
 from typing import Optional
 
+from .vendors import VendorNames
+
 EXT_ADOC_DECOMP = re.compile(
     r"""specification/sources/chapters/extensions/
     (?P<vendor>[a-z0-9]+)/ # vendor directory
@@ -53,7 +55,9 @@ _EXT_TITLE_DECOMP = re.compile(
 _EXT_DECOMP_RE = re.compile(r"XR_" + TAG_DECOMP_RE.pattern + r"_.*", re.VERBOSE)
 
 
-def compute_vendor_name_and_tag(title, vendors) -> tuple[str | None, str | None]:
+def compute_vendor_name_and_tag(
+    title: str, vendors: VendorNames
+) -> tuple[str | None, str | None]:
     m = _EXT_DECOMP_RE.match(title)
     vendor: str | None = None
     tag: str | None = None
@@ -128,9 +132,9 @@ class ExtensionData:
 class ExtensionNameGuesser:
     """Process modified file paths to try to guess the extension related to an MR."""
 
-    def __init__(self):
-        self.names = set()
-        self.extensions = []
+    def __init__(self) -> None:
+        self.names: set[str] = set()
+        self.extensions: list[ExtensionData] = []
 
     def handle_path(self, path_modified: str) -> ExtensionData | None:
         data = ExtensionData.try_from_adoc_path(path_modified)

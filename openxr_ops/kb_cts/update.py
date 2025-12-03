@@ -555,10 +555,8 @@ class CTSBoardUpdater:
         ):
             if self.options.update_column:
                 self.log.info("Moving %s task to DONE", issue_or_mr)
-                column_id = TaskColumn.DONE.to_column_id(self.kb_project)
-                assert column_id is not None
-                swimlane_id = task.swimlane.to_swimlane_id(self.kb_project)
-                assert swimlane_id is not None
+                column_id = TaskColumn.DONE.to_required_column_id(self.kb_project)
+                swimlane_id = task.swimlane.to_required_swimlane_id(self.kb_project)
                 await self.kb.move_task_position_async(
                     project_id=self.kb_project.project_id,
                     task_id=task.task_id,

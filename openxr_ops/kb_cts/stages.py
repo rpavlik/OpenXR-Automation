@@ -25,6 +25,12 @@ class TaskColumn(Enum):
         # depends on data cached by kb_project
         return kb_project.col_titles.get(self.value)
 
+    def to_required_column_id(self, kb_project: KanboardProject) -> int:
+        ret = self.to_column_id(kb_project)
+        if ret is None:
+            raise RuntimeError(f"Column ID for {self} not found!")
+        return ret
+
     @classmethod
     def from_column_id(cls, kb_project: KanboardProject, col_id: int) -> "TaskColumn":
         # depends on data cached by kb_project
@@ -108,6 +114,12 @@ class TaskSwimlane(Enum):
     def to_swimlane_id(self, kb_project: KanboardProject) -> int | None:
         # depends on data cached by kb_project
         return kb_project.swimlane_titles.get(self.value)
+
+    def to_required_swimlane_id(self, kb_project: KanboardProject) -> int:
+        ret = self.to_swimlane_id(kb_project)
+        if ret is None:
+            raise RuntimeError(f"Unknown swimlane ID for '{self}'")
+        return ret
 
     @classmethod
     def from_swimlane_id(

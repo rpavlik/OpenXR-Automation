@@ -83,14 +83,12 @@ if __name__ == "__main__":
     parser.add_argument(
         "--project",
         type=str,
-        nargs=1,
         help="Create or update the named project",
     )
 
     parser.add_argument(
         "--project-id",
         type=int,
-        nargs=1,
         help="Update the project with the given ID",
     )
     args = parser.parse_args()
@@ -119,11 +117,11 @@ if __name__ == "__main__":
 
         if args.project:
             await get_projects(kb)
-            await create_or_populate_project(kb, args.project[0])
+            await create_or_populate_project(kb, args.project)
 
         if args.project_id:
 
             await get_projects(kb)
-            await populate_project(kb, args.project_id[0])
+            await populate_project(kb, args.project_id)
 
     asyncio.run(runner())

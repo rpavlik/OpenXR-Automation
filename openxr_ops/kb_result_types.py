@@ -190,10 +190,36 @@ class GetAllLinksResultElt(TypedDict):
 
 
 class NameIdResultElt(TypedDict):
+    """Generic type helper for things with a name and ID."""
+
     name: str
     id: int
 
 
 class TitleIdResultElt(TypedDict):
+    """Generic type helper for things with a title and ID."""
+
     title: str
     id: int
+
+
+class ProjectUrlResult(TypedDict):
+    board: str
+    list: str
+
+
+class ProjectResult(TypedDict):
+    """
+    Type helper for return data from getProject methods.
+
+    More data is available than this.
+    """
+
+    name: str
+    id: int
+    url: ProjectUrlResult
+
+
+GetProjectByIdResult = ProjectResult
+
+GetProjectByNameResult = Literal[False] | ProjectResult
