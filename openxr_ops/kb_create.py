@@ -11,29 +11,23 @@ import logging
 from dataclasses import dataclass
 from enum import Enum
 from pprint import pformat
-from typing import Any, Awaitable, Coroutine, Literal, TypedDict, cast
+from typing import Any, Awaitable, Coroutine, Literal, cast
 
 import kanboard
+
+from openxr_ops.kb_result_types import NameIdResultElt, TitleIdResultElt
 
 from .kanboard_helpers import KanboardProject
 from .kb_auto_actions import AutoActionABC, get_and_parse_actions
 
 
-class NameIdResults(TypedDict):
-    name: str
-    id: int
-
-
 async def populate_columns_general(
     kb: kanboard.Client, project_id: int, enum: type[Enum], descriptions: dict[Any, str]
 ):
-    class ColumnsResultEntry(TypedDict):
-        title: str
-        id: int
 
     log = logging.getLogger(f"{__name__}.populate_columns_general")
     cols = cast(
-        list[ColumnsResultEntry], await kb.get_columns_async(project_id=project_id)
+        list[TitleIdResultElt], await kb.get_columns_async(project_id=project_id)
     )
 
     col_titles: set[str] = {col["title"] for col in cols}
@@ -65,7 +59,7 @@ async def populate_columns_general(
         await asyncio.gather(*futures)
 
     updated_cols = cast(
-        list[ColumnsResultEntry], await kb.get_columns_async(project_id=project_id)
+        list[TitleIdResultElt], await kb.get_columns_async(project_id=project_id)
     )
     col_ids: dict[str, int] = {col["title"]: col["id"] for col in updated_cols}
 
@@ -90,7 +84,7 @@ async def populate_swimlanes_general(
     log = logging.getLogger(f"{__name__}.populate_swimlanes_general")
 
     lanes = cast(
-        list[NameIdResults],
+        list[NameIdResultElt],
         await kb.get_all_swimlanes_async(project_id=project_id),
     )
 
@@ -133,7 +127,7 @@ async def populate_categories_general(
     log = logging.getLogger(f"{__name__}.populate_categories_general")
 
     cats = cast(
-        list[NameIdResults],
+        list[NameIdResultElt],
         await kb.get_all_categories_async(project_id=project_id),
     )
 
@@ -159,7 +153,7 @@ async def populate_tags_general(
 ):
     log = logging.getLogger(f"{__name__}.populate_tags_general")
     tags = cast(
-        list[NameIdResults], await kb.get_tags_by_project_async(project_id=project_id)
+        list[NameIdResultElt], await kb.get_tags_by_project_async(project_id=project_id)
     )
 
     tag_names = {tag["name"] for tag in tags}
@@ -189,7 +183,9 @@ async def populate_tags_general(
         await asyncio.gather(*futures)
 
 
-def find_auto_action(action, expected_auto_actions) -> int | None:
+def find_auto_action(
+    action: AutoActionABC, expected_auto_actions: list[AutoActionABC]
+) -> int | None:
     for i, expected_action in enumerate(expected_auto_actions):
         if action == expected_action:
             return i

@@ -4,9 +4,11 @@
 # SPDX-License-Identifier: BSL-1.0
 #
 # Author: Rylie Pavlik <rylie.pavlik@collabora.com>
+"""OpenXR Extension workboard task flags and task data."""
 import datetime
+import logging
 from dataclasses import dataclass
-from typing import Any
+from typing import cast
 
 import kanboard
 
@@ -14,6 +16,7 @@ from .ext_author_kind import CanonicalExtensionAuthorKind
 from .gitlab import MR_URL_BASE
 from .kanboard_helpers import KanboardProject
 from .kb_ops_stages import TaskCategory, TaskColumn, TaskSwimlane, TaskTags
+from .kb_result_types import GetAllExternalTaskLinksResultElt, GetTaskResult, IdOrFalse
 from .parse import extract_mr_number
 
 
@@ -80,7 +83,7 @@ class OperationsTaskFlags:
         return cls.from_task_tags_result(await tags_future)
 
     def to_enum_list(self) -> list[TaskTags]:
-        ret = []
+        ret: list[TaskTags] = []
         if self.api_frozen:
             ret.append(TaskTags.API_FROZEN)
         if self.initial_design_review_complete:
@@ -120,7 +123,7 @@ class OperationsTaskBase:
     category: TaskCategory | None
     title: str
     description: str
-    task_dict: dict | None
+    task_dict: GetTaskResult | None
 
     @property
     def url(self) -> str | None:
@@ -130,7 +133,7 @@ class OperationsTaskBase:
 
     @classmethod
     def from_task_dict(
-        cls, kb_project: KanboardProject, task: dict[str, Any]
+        cls, kb_project: KanboardProject, task: GetTaskResult
     ) -> "OperationsTaskBase":
         """
         Interpret a task dictionary from e.g. get_all_tasks.
@@ -140,20 +143,20 @@ class OperationsTaskBase:
         Unable to populate the main MR or any more advanced properties.
         """
 
-        task_id = int(task["id"])
-        column_id = int(task["column_id"])
+        task_id = task["id"]
+        column_id = task["column_id"]
         column: TaskColumn = TaskColumn.from_column_id(kb_project, col_id=column_id)
         title: str = task["title"]
         description: str = task["description"]
 
-        swimlane_id = int(task["swimlane_id"])
+        swimlane_id = task["swimlane_id"]
         swimlane: TaskSwimlane = TaskSwimlane.from_swimlane_id(
-            kb_project, swimlane_id=int(swimlane_id)
+            kb_project, swimlane_id=swimlane_id
         )
         category_id: int | None = None
         category: TaskCategory | None = None
         if task["category_id"] is not None:
-            category_id = int(task["category_id"])
+            category_id = task["category_id"]
             category = TaskCategory.from_category_id_maybe_none(kb_project, category_id)
         return cls(
             task_id=task_id,
@@ -172,11 +175,17 @@ class OperationsTask(OperationsTaskBase):
 
     main_mr: int | None
 
-    ext_links_list: list[dict[str, Any]]
+    ext_links_list: list[GetAllExternalTaskLinksResultElt]
+    """Raw external links data from API"""
 
     flags: OperationsTaskFlags | None
 
-    tags_dict: dict[str, Any]
+    tags_dict: dict[str, str]
+    """
+    Raw tags data from API.
+    
+    Tag ID number as string for key, with tag name as value.
+    """
 
     @classmethod
     async def from_base_with_more_data(
@@ -186,13 +195,13 @@ class OperationsTask(OperationsTaskBase):
         tags_future = kb.get_task_tags_async(task_id=base.task_id)
 
         main_mr: int | None = None
-        ext_links = await ext_links_future
+        ext_links = cast(list[GetAllExternalTaskLinksResultElt], await ext_links_future)
         for ext_link in ext_links:
             main_mr = extract_mr_number(ext_link["url"])
             if main_mr is not None:
                 break
 
-        tags = await tags_future
+        tags = cast(dict[str, str], await tags_future)
         flags = OperationsTaskFlags.from_task_tags_result(tags)
 
         return cls(
@@ -211,7 +220,7 @@ class OperationsTask(OperationsTaskBase):
 
     @classmethod
     async def from_task_dict_with_more_data(
-        cls, kb_project: KanboardProject, task: dict[str, Any]
+        cls, kb_project: KanboardProject, task: GetTaskResult
     ) -> "OperationsTask":
         base = OperationsTaskBase.from_task_dict(kb_project, task)
         return await cls.from_base_with_more_data(base=base, kb=kb_project.kb)
@@ -220,7 +229,9 @@ class OperationsTask(OperationsTaskBase):
     async def from_task_id(
         cls, kb_project: KanboardProject, task_id: int
     ) -> "OperationsTask":
-        task_dict = await kb_project.kb.get_task_async(task_id=task_id)
+        task_dict = cast(
+            GetTaskResult, await kb_project.kb.get_task_async(task_id=task_id)
+        )
         return await cls.from_task_dict_with_more_data(
             task=task_dict, kb_project=kb_project
         )
@@ -242,12 +253,15 @@ class OperationsTaskCreationData:
     date_started: datetime.datetime | None = None
 
     async def create_task(self, kb_project: KanboardProject) -> int | None:
+        log = logging.getLogger(f"{__name__}.{self.__class__.__name__}.create_task")
         swimlane_id = self.swimlane.to_swimlane_id(kb_project)
         if swimlane_id is None:
+            log.error("Could not find ID for swimlane %s", self.swimlane.value)
             return None
 
         column_id = self.column.to_column_id(kb_project)
         if column_id is None:
+            log.error("Could not find ID for column %s", self.column.value)
             return None
 
         category_id: int | None = None
@@ -265,18 +279,23 @@ class OperationsTaskCreationData:
         mr_url = f"{MR_URL_BASE}{self.main_mr}"
         kb = kb_project.kb
 
-        task_id = await kb.create_task_async(
-            title=self.title,
-            project_id=kb_project.project_id,
-            description=self.description,
-            swimlane_id=swimlane_id,
-            column_id=column_id,
-            color_id="grey",
-            # gl_url=mr_url,
-            category_id=category_id,
-            tags=tags,
-            date_started=date_started,
+        task_id = cast(
+            IdOrFalse,
+            await kb.create_task_async(
+                title=self.title,
+                project_id=kb_project.project_id,
+                description=self.description,
+                swimlane_id=swimlane_id,
+                column_id=column_id,
+                color_id="grey",
+                category_id=category_id,
+                tags=tags,
+                date_started=date_started,
+            ),
         )
+
+        if not task_id:
+            raise RuntimeError("Failed to create task!")
 
         await kb.create_external_task_link_async(
             task_id=task_id,

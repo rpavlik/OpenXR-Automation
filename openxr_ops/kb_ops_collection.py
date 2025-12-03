@@ -6,10 +6,10 @@
 # Author: Rylie Pavlik <rylie.pavlik@collabora.com>
 
 import asyncio
-from typing import Any
 
 from .kanboard_helpers import KanboardProject
 from .kb_ops_task import OperationsTask
+from .kb_result_types import GetTaskResult
 
 
 class TaskCollection:
@@ -37,7 +37,7 @@ class TaskCollection:
                 return
             self.mr_to_task_id[task.main_mr] = task.task_id
 
-    async def _load_task(self, task_data: dict[str, Any]):
+    async def _load_task(self, task_data: GetTaskResult):
         task = await OperationsTask.from_task_dict_with_more_data(
             self.kb_project, task_data
         )

@@ -83,7 +83,7 @@ _CTS_BOARD_LINK = re.compile(
 )
 
 
-def _make_cts_board_link(task_id):
+def _make_cts_board_link(task_id: int):
     return f"CTS Board Tracking Task: {_TASK_BASE_URL}{task_id}"
 
 
@@ -669,7 +669,7 @@ class CTSBoardUpdater:
 
     async def update_existing_tasks(self) -> None:
         self.log.info("Updating issue tasks")
-        issue_update_futures = []
+        issue_update_futures: list[Awaitable[Any]] = []
         for issue_num, task_id in self.task_collection.issue_to_task_id.items():
             gl_issue = self.get_or_fetch_gitlab_issue(issue_num)
             issue_update_futures.append(
@@ -678,7 +678,7 @@ class CTSBoardUpdater:
         await asyncio.gather(*issue_update_futures)
 
         self.log.info("Updating MR tasks")
-        mr_update_futures = []
+        mr_update_futures: list[Awaitable[Any]] = []
         for mr_num, task_id in self.task_collection.mr_to_task_id.items():
             gl_mr = self.get_or_fetch_gitlab_mr(mr_num)
             mr_update_futures.append(
@@ -700,7 +700,9 @@ class CTSBoardUpdater:
 
         # Sort so that we keep the order of recently updated a little tidier.
 
-        def sort_key(task_id_and_item) -> datetime.datetime:
+        def sort_key(
+            task_id_and_item: tuple[int, ProjectIssue | ProjectMergeRequest],
+        ) -> datetime.datetime:
             _, gl_item = task_id_and_item
             return datetime.datetime.fromisoformat(gl_item.attributes["updated_at"])
 
@@ -783,7 +785,7 @@ class CTSBoardSearchUpdater:
 
         self.log.info("Looking for relevant GitLab issues")
 
-        futures = []
+        futures: list[Awaitable[Any | None]] = []
         for issue in self.oxr_gitlab.main_proj.issues.list(
             labels=[
                 MainProjectLabels.CONTRACTOR_APPROVED,
@@ -806,7 +808,7 @@ class CTSBoardSearchUpdater:
         # by contractor, as part of maintaining the cts)
         self.log.info("Looking for relevant GitLab merge requests")
 
-        futures = []
+        futures: list[Awaitable[Any | None]] = []
         for mr in self.oxr_gitlab.main_proj.mergerequests.list(
             labels=[MainProjectLabels.CONFORMANCE_IMPLEMENTATION],
             state="opened",

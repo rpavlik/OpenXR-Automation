@@ -21,7 +21,7 @@ class TaskColumn(Enum):
     NEEDS_REVIEW = "Needs Review"
     DONE = "Done"
 
-    def to_column_id(self, kb_project) -> int | None:
+    def to_column_id(self, kb_project: KanboardProject) -> int | None:
         # depends on data cached by kb_project
         return kb_project.col_titles.get(self.value)
 

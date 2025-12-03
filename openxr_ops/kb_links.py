@@ -5,9 +5,9 @@
 #
 # Author: Rylie Pavlik <rylie.pavlik@collabora.com>
 from dataclasses import dataclass
-from typing import Any
 
 from .kb_enums import InternalLinkRelation
+from .kb_result_types import GetAllTaskLinksResultElt
 
 
 @dataclass
@@ -22,7 +22,7 @@ class InternalLinkData:
 
     @classmethod
     def parse_internal_links(
-        cls, task_id: int, internal_links_list: list[dict[str, Any]]
+        cls, task_id: int, internal_links_list: list[GetAllTaskLinksResultElt]
     ):
         """Parse results of get_all_task_links"""
         return [
