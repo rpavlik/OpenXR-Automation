@@ -58,8 +58,6 @@ By now there are far more tools in here than just the below.
   group of data structures
 - `nullboard_gitlab.py` has some shared utilities for Nullboard export (`.nbx`)
   and GitLab interaction, building on the above
-- `kanboard-from-nullboard-async.py` - really primitive and generic Nullboard to
-  Kanboard migration script.
 
 ## Usage
 

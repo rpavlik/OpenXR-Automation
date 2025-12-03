@@ -4,6 +4,7 @@
 # SPDX-License-Identifier: BSL-1.0
 #
 # Author: Rylie Pavlik <rylie.pavlik@collabora.com>
+"""NEEDS PORTING."""
 
 import logging
 
