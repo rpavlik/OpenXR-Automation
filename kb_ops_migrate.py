@@ -239,7 +239,7 @@ class OperationsGitLabToKanboard:
         data: OperationsTaskCreationData,
     ):
         existing_subtasks = await self.kb.get_all_subtasks_async(task_id=task_id)
-        if existing_subtasks == False:
+        if existing_subtasks is False:
             raise RuntimeError(f"Failed to get subtasks for task ID {task_id!s}")
 
         subtask_migration = MigrateChecklistToSubtasks(
@@ -640,7 +640,6 @@ def get_description(issue_obj: ProjectIssue) -> str:
     # Truncate it to the first section.
     full_desc: str = issue_obj.attributes["description"]
     lines: list[str] = full_desc.splitlines()
-    keeper_lines: list[str] = []
     header_line_indices: dict[str, int] = {
         line.strip("#").strip(): i
         for i, line in enumerate(lines)
@@ -705,7 +704,6 @@ def populate_data_from_gitlab(
     """
     Return KB task creation/update data for a gitlab ops issue.
     """
-
     swimlane, converted_column = get_swimlane_and_column(checklist_issue)
 
     category = get_category(checklist_issue)

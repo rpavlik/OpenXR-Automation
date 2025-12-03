@@ -131,7 +131,7 @@ class KanboardProject:
             Literal[False] | int,
             await self.kb.add_column_async(project_id=self.project_id, title=title),
         )
-        if col_id == False:
+        if col_id is False:
             raise RuntimeError(f"Error trying to add column '{title}'")
 
         self.col_titles[title] = col_id
@@ -147,7 +147,7 @@ class KanboardProject:
                     project_id=self.project_id, status_id=1
                 ),
             )
-            if open_tasks == False:
+            if open_tasks is False:
                 raise RuntimeError("Error trying to get all open tasks.")
             return open_tasks
 
@@ -158,7 +158,7 @@ class KanboardProject:
                 self.kb.get_all_tasks_async(project_id=self.project_id, status_id=0),
             ),
         )
-        if tasks[0] == False or tasks[1] == False:
+        if tasks[0] is False or tasks[1] is False:
             raise RuntimeError("Error trying to get all tasks.")
         return tasks[0] + tasks[1]
 

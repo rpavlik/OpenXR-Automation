@@ -549,7 +549,7 @@ class CTSBoardUpdater:
         # The only auto-move we do is moving into "DONE" when corresponding item is closed/merged.
         # (if not on hold)
         is_closed_or_merged = gl_item.attributes["state"] in STATES_CLOSED_MERGED
-        if is_closed_or_merged and not task.column in (
+        if is_closed_or_merged and task.column not in (
             TaskColumn.DONE,
             TaskColumn.ON_HOLD,
         ):

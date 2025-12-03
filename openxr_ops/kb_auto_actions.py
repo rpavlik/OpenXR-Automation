@@ -126,7 +126,7 @@ class AutoSubtasksBase:
             checkbox_no_dupe == 0
             or checkbox_no_dupe == "0"
             or checkbox_no_dupe == "false"
-            or checkbox_no_dupe == False
+            or checkbox_no_dupe is False
         ):
             allow_duplicate = True
         return cls(subtasks=subtasks, allow_duplicate_subtasks=allow_duplicate)

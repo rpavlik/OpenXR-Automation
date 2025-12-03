@@ -312,7 +312,7 @@ class OperationsTaskCreationData:
                 url=self.issue_url,
                 type="weblink",
                 dependency="related",
-                title=f"Original Operations Issue",
+                title="Original Operations Issue",
             )
 
         return task_id
