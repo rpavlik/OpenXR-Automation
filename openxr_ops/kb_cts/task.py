@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 # Copyright 2022-2024, Collabora, Ltd.
 # Copyright 2025, The Khronos Group Inc.
 #
@@ -9,7 +8,7 @@
 import datetime
 import logging
 from dataclasses import dataclass
-from typing import Any
+from typing import cast
 
 import kanboard
 
@@ -17,6 +16,12 @@ from ..gitlab import ISSUE_URL_BASE, MR_URL_BASE
 from ..kanboard_helpers import KanboardProject, LinkIdMapping
 from ..kb_enums import InternalLinkRelation
 from ..kb_links import InternalLinkData
+from ..kb_result_types import (
+    GetAllExternalTaskLinksResultElt,
+    GetAllTaskLinksResultElt,
+    GetTaskResult,
+    IdOrFalse,
+)
 from ..labels import MainProjectLabels
 from ..parse import extract_issue_number, extract_mr_number
 from .stages import TaskCategory, TaskColumn, TaskSwimlane, TaskTags
@@ -57,7 +62,7 @@ class CTSTaskFlags:
         self.in_the_wild = MainProjectLabels.CONFORMANCE_IN_THE_WILD in labels
 
     def to_enum_list(self) -> list[TaskTags]:
-        ret = []
+        ret: list[TaskTags] = []
         if self.blocked_on_spec:
             ret.append(TaskTags.BLOCKED_ON_SPEC)
         if self.contractor_reviewed:
@@ -83,7 +88,7 @@ class CTSTaskBase:
     title: str
     description: str
     color_id: str
-    task_dict: dict | None
+    task_dict: GetTaskResult | None
 
     @property
     def url(self) -> str | None:
@@ -102,7 +107,7 @@ class CTSTaskBase:
 
     @classmethod
     def from_task_dict(
-        cls, kb_project: KanboardProject, task: dict[str, Any]
+        cls, kb_project: KanboardProject, task: GetTaskResult
     ) -> "CTSTaskBase":
         """
         Interpret a task dictionary from e.g. get_all_tasks.
@@ -153,16 +158,20 @@ class CTSTask(CTSTaskBase):
     internal_links: list[InternalLinkData]
     """Parsed internal link data"""
 
-    ext_links_list: list[dict[str, Any]]
+    ext_links_list: list[GetAllExternalTaskLinksResultElt]
     """Raw external links data from API"""
 
-    internal_links_list: list[dict[str, Any]]
+    internal_links_list: list[GetAllTaskLinksResultElt]
     """Raw internal links data from API"""
 
     flags: CTSTaskFlags | None
 
-    tags_dict: dict[str, Any]
-    """Raw tags data from API."""
+    tags_dict: dict[str, str]
+    """
+    Raw tags data from API.
+    
+    Tag ID number as string for key, with tag name as value.
+    """
 
     def is_mr(self):
         return self.mr_num is not None
@@ -188,7 +197,9 @@ class CTSTask(CTSTaskBase):
 
     async def refresh_internal_links(self, kb: kanboard.Client):
         int_links_future = kb.get_all_task_links_async(task_id=self.task_id)
-        self.internal_links_list = await int_links_future
+        self.internal_links_list = cast(
+            list[GetAllTaskLinksResultElt], await int_links_future
+        )
         self.internal_links = InternalLinkData.parse_internal_links(
             self.task_id, self.internal_links_list
         )
@@ -203,7 +214,7 @@ class CTSTask(CTSTaskBase):
 
         mr_num: int | None = None
         issue_num: int | None = None
-        ext_links = await ext_links_future
+        ext_links = cast(list[GetAllExternalTaskLinksResultElt], await ext_links_future)
         for ext_link in ext_links:
             mr_num = extract_mr_number(ext_link["url"])
             if mr_num is not None:
@@ -217,10 +228,10 @@ class CTSTask(CTSTaskBase):
                 "No external links are an issue or MR! "
                 + " ".join(ext_link["url"] for ext_link in ext_links)
             )
-        tags = await tags_future
+        tags = cast(dict[str, str], await tags_future)
         flags = CTSTaskFlags.from_task_tags_result(tags)
 
-        int_links = await int_links_future
+        int_links = cast(list[GetAllTaskLinksResultElt], await int_links_future)
 
         return cls(
             task_id=base.task_id,
@@ -244,14 +255,16 @@ class CTSTask(CTSTaskBase):
 
     @classmethod
     async def from_task_dict_with_more_data(
-        cls, kb_project: KanboardProject, task: dict[str, Any]
+        cls, kb_project: KanboardProject, task: GetTaskResult
     ) -> "CTSTask":
         base = CTSTaskBase.from_task_dict(kb_project, task)
         return await cls.from_base_with_more_data(base=base, kb=kb_project.kb)
 
     @classmethod
     async def from_task_id(cls, kb_project: KanboardProject, task_id: int) -> "CTSTask":
-        task_dict = await kb_project.kb.get_task_async(task_id=task_id)
+        task_dict = cast(
+            GetTaskResult, await kb_project.kb.get_task_async(task_id=task_id)
+        )
         return await cls.from_task_dict_with_more_data(
             task=task_dict, kb_project=kb_project
         )
@@ -317,16 +330,19 @@ class CTSTaskCreationData:
 
         kb = kb_project.kb
 
-        task_id = await kb.create_task_async(
-            title=self.title,
-            project_id=kb_project.project_id,
-            description=self.description,
-            swimlane_id=swimlane_id,
-            column_id=column_id,
-            color_id=self.color_id,
-            category_id=category_id,
-            tags=tags,
-            date_started=date_started,
+        task_id = cast(
+            IdOrFalse,
+            await kb.create_task_async(
+                title=self.title,
+                project_id=kb_project.project_id,
+                description=self.description,
+                swimlane_id=swimlane_id,
+                column_id=column_id,
+                color_id=self.color_id,
+                category_id=category_id,
+                tags=tags,
+                date_started=date_started,
+            ),
         )
         if not task_id:
             raise RuntimeError("Failed to create task!")

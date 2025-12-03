@@ -6,9 +6,9 @@
 # Author: Rylie Pavlik <rylie.pavlik@collabora.com>
 
 import asyncio
-from typing import Any
 
 from ..kanboard_helpers import KanboardProject
+from ..kb_result_types import GetTaskResult
 from .task import CTSTask
 
 
@@ -22,8 +22,6 @@ class TaskCollection:
         self.kb_project = kb_project
         """Object referencing an Kanboard project."""
 
-        # self.ignore_issues: Set[str] = set()
-        # self.include_issues: List[int] = []
         self.issue_to_task_id: dict[int, int] = dict()
         self.mr_to_task_id: dict[int, int] = dict()
         self.tasks: dict[int, CTSTask] = dict()
@@ -37,7 +35,7 @@ class TaskCollection:
             assert task.issue_num
             self.issue_to_task_id[task.issue_num] = task.task_id
 
-    async def _load_task(self, task_data: dict[str, Any]):
+    async def _load_task(self, task_data: GetTaskResult):
         task = await CTSTask.from_task_dict_with_more_data(self.kb_project, task_data)
 
         self._update_task_maps(task)

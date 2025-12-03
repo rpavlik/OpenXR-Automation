@@ -5,6 +5,7 @@
 #
 # Author: Rylie Pavlik <rylie.pavlik@collabora.com>
 """
+OBSOLETE - needs porting to Kanboard
 Process the operations board, auto-updating where applicable.
 
 * Ensures that each issue has exactly one column status label.

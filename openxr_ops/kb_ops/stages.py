@@ -9,14 +9,7 @@
 from enum import Enum
 from typing import Optional
 
-from .kanboard_helpers import KanboardProject
-
-# class QueueStage(Enum):
-#     PREPARATION = "In Preparation"
-#     AWAITING_REVIEW = "Awaiting Review"
-#     REVIEW_IN_PROGRESS = "Review In Progress"
-#     NEEDS_REVISIONS = "Needs Revisions"
-#     REVISIONS_IN_PROGRESS = "Revisions In Progress"
+from ..kanboard_helpers import KanboardProject
 
 
 class TaskColumn(Enum):
@@ -30,9 +23,15 @@ class TaskColumn(Enum):
     REVISIONS_IN_PROGRESS = "Revisions in Progress"
     PENDING_APPROVALS_AND_MERGE = "Pending Approvals And Merge"
 
-    def to_column_id(self, kb_project) -> int | None:
+    def to_column_id(self, kb_project: KanboardProject) -> int | None:
         # depends on data cached by kb_project
         return kb_project.col_titles.get(self.value)
+
+    def to_required_column_id(self, kb_project: KanboardProject) -> int:
+        ret = self.to_column_id(kb_project)
+        if ret is None:
+            raise RuntimeError(f"Column ID for {self} not found!")
+        return ret
 
     @classmethod
     def from_column_id(cls, kb_project: KanboardProject, col_id: int) -> "TaskColumn":
@@ -129,6 +128,12 @@ class TaskSwimlane(Enum):
     def to_swimlane_id(self, kb_project: KanboardProject) -> int | None:
         # depends on data cached by kb_project
         return kb_project.swimlane_titles.get(self.value)
+
+    def to_required_swimlane_id(self, kb_project: KanboardProject) -> int:
+        ret = self.to_swimlane_id(kb_project)
+        if ret is None:
+            raise RuntimeError(f"Unknown swimlane ID for '{self}'")
+        return ret
 
     @classmethod
     def from_swimlane_id(

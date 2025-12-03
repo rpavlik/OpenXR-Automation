@@ -9,15 +9,15 @@ import itertools
 import logging
 import re
 import tomllib
-from collections.abc import Iterable
+from collections.abc import Generator, Iterable
 from dataclasses import dataclass
 from functools import cached_property
-from typing import cast
+from typing import Any, cast
 
 import gitlab
 import gitlab.v4.objects
 
-from .extensions import ExtensionNameGuesser
+from .extensions import ExtensionData, ExtensionNameGuesser
 from .gitlab import STATE_CLOSED, STATES_CLOSED_MERGED
 from .labels import ColumnName, GroupLabels, MainProjectLabels
 from .vendors import VendorNames
@@ -114,7 +114,9 @@ class ReleaseChecklistFactory:
         return self.make_vendor_checklist()
 
 
-def get_extension_names_for_diff(guesser: ExtensionNameGuesser, diff):
+def get_extension_names_for_diff(
+    guesser: ExtensionNameGuesser, diff: gitlab.GitlabList | list[dict[str, Any]]
+):
     """Yield the extension names added in a git diff."""
     for diff_elt in diff:
         if not diff_elt["new_file"]:
@@ -124,16 +126,17 @@ def get_extension_names_for_diff(guesser: ExtensionNameGuesser, diff):
             yield data
 
 
-def get_extension_names_for_mr(mr: gitlab.v4.objects.ProjectMergeRequest):
+def get_extension_names_for_mr(
+    mr: gitlab.v4.objects.ProjectMergeRequest,
+) -> Generator[ExtensionData, None]:
     """Yield the unique extension names added in a merge request."""
     guesser = ExtensionNameGuesser()
 
     for commit in mr.commits():
-        commit = cast(gitlab.v4.objects.ProjectCommit, commit)
         yield from get_extension_names_for_diff(guesser, commit.diff())
 
 
-def get_labels(vendor_id):
+def get_labels(vendor_id: str):
     if is_KHR_KHX(vendor_id):
         return [
             MainProjectLabels.EXTENSION,
@@ -160,7 +163,7 @@ class ChecklistData:
 
     def make_issue_params(
         self, vendor_names: VendorNames, checklist_factory: ReleaseChecklistFactory
-    ):
+    ) -> dict[str, str | list[str]]:
         """Produce the dict used for the checklist template"""
 
         vendor_name = vendor_names.get_vendor_name(self.vendor_id)
@@ -189,8 +192,8 @@ class ChecklistData:
     def lookup(
         cls,
         proj: gitlab.v4.objects.Project,
-        mr_num,
-        **kwargs,
+        mr_num: int,
+        **kwargs: list[str],
     ) -> "ChecklistData":
         """Create a ChecklistData based on a merge request number."""
 
@@ -282,11 +285,10 @@ class ReleaseChecklistCollection:
 
     def __init__(
         self,
-        proj,
-        ops_proj,
+        proj: gitlab.v4.objects.Project,
+        ops_proj: gitlab.v4.objects.Project,
         checklist_factory: ReleaseChecklistFactory | None,
-        vendor_names,
-        data: dict | None = None,
+        vendor_names: VendorNames,
     ):
         self.proj: gitlab.v4.objects.Project = proj
         """Main project"""
@@ -368,7 +370,6 @@ class ReleaseChecklistCollection:
             )
 
         for issue in itertools.chain(*queries):
-            issue = cast(gitlab.v4.objects.ProjectIssue, issue)
             self._handle_issue(issue)
 
         if self.include_issues:
@@ -389,17 +390,17 @@ class ReleaseChecklistCollection:
             return None
         return self.mr_to_issue_object[mr]
 
-    def mr_has_checklist(self, mr_num):
+    def mr_has_checklist(self, mr_num: int):
         """Return true if the MR already has a checklist."""
         return mr_num in self.mr_to_issue
 
-    def handle_mr_if_needed(self, mr_num, **kwargs) -> None:
+    def handle_mr_if_needed(self, mr_num: int, **kwargs: str | list[str]) -> None:
         """Create a release checklist issue if one is not already created for this MR."""
         if mr_num in self.mr_to_issue:
             _log.info("MR number %d is already processed", mr_num)
             return
 
-        data = ChecklistData.lookup(self.proj, mr_num, **kwargs)
+        data = ChecklistData.lookup(self.proj, mr_num, **kwargs)  # type: ignore
         if not self.checklist_factory:
             raise RuntimeError("Cannot handle this MR without a checklist factory")
         data.handle_mr(self.ops_proj, self.vendor_names, self.checklist_factory)

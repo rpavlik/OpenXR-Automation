@@ -292,6 +292,16 @@ class Client:
     async def get_group_async(self, *, group_id: int): ...
     """https://docs.kanboard.org/v1/api/group_procedures/#getgroup"""
 
+    def get_all_groups(
+        self,
+    ): ...
+    """https://docs.kanboard.org/v1/api/group_procedures/#getallgroups"""
+
+    async def get_all_groups_async(
+        self,
+    ): ...
+    """https://docs.kanboard.org/v1/api/group_procedures/#getallgroups"""
+
     # task_metadata_procedures
 
     def get_task_metadata(self, *, task_id: int): ...
@@ -319,6 +329,16 @@ class Client:
     """https://docs.kanboard.org/v1/api/task_metadata_procedures/#removetaskmetadata"""
 
     # tags_procedures
+
+    def get_all_tags(
+        self,
+    ): ...
+    """https://docs.kanboard.org/v1/api/tags_procedures/#getalltags"""
+
+    async def get_all_tags_async(
+        self,
+    ): ...
+    """https://docs.kanboard.org/v1/api/tags_procedures/#getalltags"""
 
     def get_tags_by_project(self, *, project_id: int): ...
     """https://docs.kanboard.org/v1/api/tags_procedures/#gettagsbyproject"""
@@ -365,6 +385,56 @@ class Client:
     """https://docs.kanboard.org/v1/api/tags_procedures/#gettasktags"""
 
     # application_procedures
+
+    def get_version(
+        self,
+    ): ...
+    """https://docs.kanboard.org/v1/api/application_procedures/#getversion"""
+
+    async def get_version_async(
+        self,
+    ): ...
+    """https://docs.kanboard.org/v1/api/application_procedures/#getversion"""
+
+    def get_timezone(
+        self,
+    ): ...
+    """https://docs.kanboard.org/v1/api/application_procedures/#gettimezone"""
+
+    async def get_timezone_async(
+        self,
+    ): ...
+    """https://docs.kanboard.org/v1/api/application_procedures/#gettimezone"""
+
+    def get_color_list(
+        self,
+    ): ...
+    """https://docs.kanboard.org/v1/api/application_procedures/#getcolorlist"""
+
+    async def get_color_list_async(
+        self,
+    ): ...
+    """https://docs.kanboard.org/v1/api/application_procedures/#getcolorlist"""
+
+    def get_application_roles(
+        self,
+    ): ...
+    """https://docs.kanboard.org/v1/api/application_procedures/#getapplicationroles"""
+
+    async def get_application_roles_async(
+        self,
+    ): ...
+    """https://docs.kanboard.org/v1/api/application_procedures/#getapplicationroles"""
+
+    def get_project_roles(
+        self,
+    ): ...
+    """https://docs.kanboard.org/v1/api/application_procedures/#getprojectroles"""
+
+    async def get_project_roles_async(
+        self,
+    ): ...
+    """https://docs.kanboard.org/v1/api/application_procedures/#getprojectroles"""
 
     # task_file_procedures
 
@@ -740,6 +810,16 @@ class Client:
 
     # link_procedures
 
+    def get_all_links(
+        self,
+    ): ...
+    """https://docs.kanboard.org/v1/api/link_procedures/#getalllinks"""
+
+    async def get_all_links_async(
+        self,
+    ): ...
+    """https://docs.kanboard.org/v1/api/link_procedures/#getalllinks"""
+
     def get_opposite_link_id(self, *, link_id: int): ...
     """https://docs.kanboard.org/v1/api/link_procedures/#getoppositelinkid"""
 
@@ -1083,7 +1163,7 @@ class Client:
         *,
         id: int,
         task_id: int,
-        title: Optional[int] = None,
+        title: Optional[str] = None,
         user_id: Optional[int] = None,
         time_estimated: Optional[int] = None,
         time_spent: Optional[int] = None,
@@ -1363,6 +1443,26 @@ class Client:
     """https://docs.kanboard.org/v1/api/project_file_procedures/#removeallprojectfiles"""
 
     # action_procedures
+
+    def get_available_actions(
+        self,
+    ): ...
+    """https://docs.kanboard.org/v1/api/action_procedures/#getavailableactions"""
+
+    async def get_available_actions_async(
+        self,
+    ): ...
+    """https://docs.kanboard.org/v1/api/action_procedures/#getavailableactions"""
+
+    def get_available_action_events(
+        self,
+    ): ...
+    """https://docs.kanboard.org/v1/api/action_procedures/#getavailableactionevents"""
+
+    async def get_available_action_events_async(
+        self,
+    ): ...
+    """https://docs.kanboard.org/v1/api/action_procedures/#getavailableactionevents"""
 
     def get_compatible_action_events(self, *, action_name: str): ...
     """https://docs.kanboard.org/v1/api/action_procedures/#getcompatibleactionevents"""

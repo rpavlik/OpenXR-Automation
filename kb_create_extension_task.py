@@ -12,6 +12,7 @@ import datetime
 import importlib
 import importlib.resources
 import logging
+from collections.abc import Awaitable
 
 import kanboard
 from gitlab.v4.objects import ProjectMergeRequest
@@ -22,11 +23,11 @@ from openxr_ops.ext_author_kind import CanonicalExtensionAuthorKind
 from openxr_ops.gitlab import STATES_CLOSED_MERGED, OpenXRGitlab
 from openxr_ops.kanboard_helpers import KanboardProject
 from openxr_ops.kb_defaults import REAL_PROJ_NAME
-from openxr_ops.kb_ops_collection import TaskCollection
-from openxr_ops.kb_ops_config import get_config_data
-from openxr_ops.kb_ops_gitlab import note_contains_sentinel, update_mr_desc
-from openxr_ops.kb_ops_stages import TaskCategory, TaskColumn, TaskSwimlane
-from openxr_ops.kb_ops_task import (
+from openxr_ops.kb_ops.collection import TaskCollection
+from openxr_ops.kb_ops.config import get_config_data
+from openxr_ops.kb_ops.gitlab import note_contains_sentinel, update_mr_desc
+from openxr_ops.kb_ops.stages import TaskCategory, TaskColumn, TaskSwimlane
+from openxr_ops.kb_ops.task import (
     OperationsTask,
     OperationsTaskCreationData,
     OperationsTaskFlags,
@@ -97,7 +98,7 @@ class ExtensionTaskCreator:
         self.log = logging.getLogger(f"{__name__}.{self.__class__.__name__}")
 
         self.mr_num_to_mr: dict[int, ProjectMergeRequest] = {}
-        self.update_subtask_futures: list = []
+        self.update_subtask_futures: list[Awaitable[None]] = []
 
         # these are populated later in prepare
         self.kb_project: KanboardProject
@@ -218,7 +219,7 @@ class ExtensionTaskCreator:
             self.log.info("Posting comment on %s", mr.attributes["web_url"])
             mr.notes.create({"body": message})
 
-    def prefetch(self, mr_num):
+    def prefetch(self, mr_num: int):
         self.mr_num_to_mr[mr_num] = self.oxr_gitlab.main_proj.mergerequests.get(mr_num)
 
     async def handle_mr_if_needed(
@@ -241,9 +242,6 @@ class ExtensionTaskCreator:
             self.oxr_gitlab.main_proj, mr_num, **kwargs
         )
         data = self.populate_data(checklist_data, mr_num=mr_num, mr=mr)
-
-        if data is None:
-            return
 
         new_task_id = await data.create_task(kb_project=self.kb_project)
 

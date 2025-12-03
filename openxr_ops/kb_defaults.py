@@ -50,7 +50,7 @@ async def connect_and_get_project(
     log.info("Getting project by name")
 
     proj = await kb.get_project_by_name_async(name=project_name)
-    if proj == False:
+    if proj is False:
         raise RuntimeError(f"No project named {project_name}")
 
     return kb, proj

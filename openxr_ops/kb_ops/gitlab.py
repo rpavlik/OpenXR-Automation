@@ -11,13 +11,13 @@ import re
 
 from gitlab.v4.objects import ProjectMergeRequest, ProjectMergeRequestNote
 
-from .checklists import CHECKLIST_RE
+from ..checklists import CHECKLIST_RE
 
 _TASK_BASE_URL = "https://openxr-boards.khronos.org/task/"
 
 
 _OPS_BOARD_LINK = re.compile(
-    r"Operations Tracking Task: " + re.escape(_TASK_BASE_URL) + r"(?P<task_id>[0-9]+)"
+    rf"Operations Tracking Task: {re.escape(_TASK_BASE_URL)}(?P<task_id>[0-9]+)"
 )
 
 

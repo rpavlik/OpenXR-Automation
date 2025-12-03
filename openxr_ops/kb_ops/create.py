@@ -12,15 +12,15 @@ from pprint import pformat
 
 import kanboard
 
-from .kb_auto_actions import AutoActionABC, auto_actions_from_config
-from .kb_create import (
+from ..kb_auto_actions import AutoActionABC, auto_actions_from_config
+from ..kb_create import (
     ProjectData,
     create_or_populate_project_general,
     populate_project_general,
 )
-from .kb_defaults import USERNAME, get_kb_api_token, get_kb_api_url
-from .kb_ops_config import get_config_data
-from .kb_ops_stages import (
+from ..kb_defaults import USERNAME, get_kb_api_token, get_kb_api_url
+from .config import get_config_data
+from .stages import (
     CATEGORY_COLORS,
     COLUMN_DESCRIPTIONS,
     SWIMLANE_DESCRIPTIONS,
@@ -83,14 +83,12 @@ if __name__ == "__main__":
     parser.add_argument(
         "--project",
         type=str,
-        nargs=1,
         help="Create or update the named project",
     )
 
     parser.add_argument(
         "--project-id",
         type=int,
-        nargs=1,
         help="Update the project with the given ID",
     )
     args = parser.parse_args()
@@ -119,11 +117,11 @@ if __name__ == "__main__":
 
         if args.project:
             await get_projects(kb)
-            await create_or_populate_project(kb, args.project[0])
+            await create_or_populate_project(kb, args.project)
 
         if args.project_id:
 
             await get_projects(kb)
-            await populate_project(kb, args.project_id[0])
+            await populate_project(kb, args.project_id)
 
     asyncio.run(runner())

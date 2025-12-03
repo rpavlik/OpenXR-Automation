@@ -9,7 +9,6 @@
 import logging
 import tomllib
 from collections.abc import Iterable
-from typing import List, Optional, Union
 
 from .checklists import ColumnName, ReleaseChecklistCollection
 from .custom_sort import SORTERS, BasicDesignReviewSort, BasicSpecReviewSort, SorterBase

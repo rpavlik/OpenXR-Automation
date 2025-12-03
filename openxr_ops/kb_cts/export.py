@@ -97,8 +97,6 @@ async def main(
 ):
     logging.basicConfig(level=logging.INFO)
 
-    log = logging.getLogger(__name__)
-
     oxr_gitlab = OpenXRGitlab.create()
 
     obj = CTSBoardExporter(

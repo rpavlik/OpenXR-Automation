@@ -79,11 +79,11 @@ _TASK_BASE_URL = "https://openxr-boards.khronos.org/task/"
 
 
 _CTS_BOARD_LINK = re.compile(
-    r"CTS Board Tracking Task: " + re.escape(_TASK_BASE_URL) + r"(?P<task_id>[0-9]+)"
+    rf"CTS Board Tracking Task: {re.escape(_TASK_BASE_URL)}(?P<task_id>[0-9]+)"
 )
 
 
-def _make_cts_board_link(task_id):
+def _make_cts_board_link(task_id: int):
     return f"CTS Board Tracking Task: {_TASK_BASE_URL}{task_id}"
 
 
@@ -549,16 +549,14 @@ class CTSBoardUpdater:
         # The only auto-move we do is moving into "DONE" when corresponding item is closed/merged.
         # (if not on hold)
         is_closed_or_merged = gl_item.attributes["state"] in STATES_CLOSED_MERGED
-        if is_closed_or_merged and not task.column in (
+        if is_closed_or_merged and task.column not in (
             TaskColumn.DONE,
             TaskColumn.ON_HOLD,
         ):
             if self.options.update_column:
                 self.log.info("Moving %s task to DONE", issue_or_mr)
-                column_id = TaskColumn.DONE.to_column_id(self.kb_project)
-                assert column_id is not None
-                swimlane_id = task.swimlane.to_swimlane_id(self.kb_project)
-                assert swimlane_id is not None
+                column_id = TaskColumn.DONE.to_required_column_id(self.kb_project)
+                swimlane_id = task.swimlane.to_required_swimlane_id(self.kb_project)
                 await self.kb.move_task_position_async(
                     project_id=self.kb_project.project_id,
                     task_id=task.task_id,
@@ -669,7 +667,7 @@ class CTSBoardUpdater:
 
     async def update_existing_tasks(self) -> None:
         self.log.info("Updating issue tasks")
-        issue_update_futures = []
+        issue_update_futures: list[Awaitable[Any]] = []
         for issue_num, task_id in self.task_collection.issue_to_task_id.items():
             gl_issue = self.get_or_fetch_gitlab_issue(issue_num)
             issue_update_futures.append(
@@ -678,7 +676,7 @@ class CTSBoardUpdater:
         await asyncio.gather(*issue_update_futures)
 
         self.log.info("Updating MR tasks")
-        mr_update_futures = []
+        mr_update_futures: list[Awaitable[Any]] = []
         for mr_num, task_id in self.task_collection.mr_to_task_id.items():
             gl_mr = self.get_or_fetch_gitlab_mr(mr_num)
             mr_update_futures.append(
@@ -700,7 +698,9 @@ class CTSBoardUpdater:
 
         # Sort so that we keep the order of recently updated a little tidier.
 
-        def sort_key(task_id_and_item) -> datetime.datetime:
+        def sort_key(
+            task_id_and_item: tuple[int, ProjectIssue | ProjectMergeRequest],
+        ) -> datetime.datetime:
             _, gl_item = task_id_and_item
             return datetime.datetime.fromisoformat(gl_item.attributes["updated_at"])
 
@@ -783,7 +783,7 @@ class CTSBoardSearchUpdater:
 
         self.log.info("Looking for relevant GitLab issues")
 
-        futures = []
+        futures: list[Awaitable[Any | None]] = []
         for issue in self.oxr_gitlab.main_proj.issues.list(
             labels=[
                 MainProjectLabels.CONTRACTOR_APPROVED,
@@ -806,7 +806,7 @@ class CTSBoardSearchUpdater:
         # by contractor, as part of maintaining the cts)
         self.log.info("Looking for relevant GitLab merge requests")
 
-        futures = []
+        futures: list[Awaitable[Any | None]] = []
         for mr in self.oxr_gitlab.main_proj.mergerequests.list(
             labels=[MainProjectLabels.CONFORMANCE_IMPLEMENTATION],
             state="opened",

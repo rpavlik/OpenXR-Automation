@@ -36,6 +36,8 @@ SUBHEAD_TO_USER = {
     "Simon": "simonz",
 }
 
+BATCH_SIZE = 5
+
 
 @dataclass
 class UpdateOptions:
@@ -308,7 +310,6 @@ class CTSNullboardToKanboard:
         # now handle notes
         self.log.info("Iterating notes to process")
 
-        BATCH_SIZE = 5
         for note_data_batch in itertools.batched(
             _iterate_notes_with_optional_limit(board, self.limit), BATCH_SIZE
         ):
@@ -361,8 +362,6 @@ async def main(
     in_filename: str,
 ):
     logging.basicConfig(level=logging.INFO)
-
-    log = logging.getLogger(__name__)
 
     oxr_gitlab = OpenXRGitlab.create()
 

@@ -4,8 +4,8 @@
 # SPDX-License-Identifier: BSL-1.0
 #
 # Author: Rylie Pavlik <rylie.pavlik@collabora.com>
-from .kb_ops_stages import TaskColumn, TaskSwimlane
-from .labels import ColumnName
+from ..labels import ColumnName
+from .stages import TaskColumn, TaskSwimlane
 
 COLUMN_CONVERSION = {
     ColumnName.INACTIVE: TaskColumn.INACTIVE,

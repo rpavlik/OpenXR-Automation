@@ -22,9 +22,9 @@ from .extensions import compute_vendor_name_and_tag
 from .gitlab import OpenXRGitlab
 from .kanboard_helpers import KanboardProject
 from .kb_defaults import connect_and_get_project
-from .kb_ops_collection import TaskCollection
-from .kb_ops_stages import TaskCategory, TaskColumn, TaskSwimlane
-from .kb_ops_task import OperationsTask
+from .kb_ops.collection import TaskCollection
+from .kb_ops.stages import TaskCategory, TaskColumn, TaskSwimlane
+from .kb_ops.task import OperationsTask
 from .priority_results import (
     NOW,
     PriorityResults,
@@ -95,12 +95,17 @@ class KBChecklistItem(ReleaseChecklistMRData):
         date_moved = datetime.datetime.fromtimestamp(
             self.task.task_dict["date_moved"], datetime.UTC
         )
-        date_started = datetime.datetime.fromtimestamp(
-            self.task.task_dict["date_started"], datetime.UTC
-        )
-        # TODO choose the more recent of this date or the MR update date?
-        # or latest push to MR?
-        pending_since = max(date_moved, date_started)
+        pending_since = date_moved
+
+        orig_date_started = self.task.task_dict["date_started"]
+        if orig_date_started:
+            date_started = datetime.datetime.fromtimestamp(
+                orig_date_started, datetime.UTC
+            )
+            # TODO choose the more recent of this date or the MR update date?
+            # or latest push to MR?
+            pending_since = max(date_moved, date_started)
+
         age = NOW - pending_since
         return age.days + self.offset
 

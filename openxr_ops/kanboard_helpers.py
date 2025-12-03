@@ -6,9 +6,19 @@
 # Author: Rylie Pavlik <rylie.pavlik@collabora.com>
 import asyncio
 from dataclasses import dataclass
-from typing import Literal
+from typing import Literal, cast
 
 import kanboard
+
+from .kb_result_types import (
+    GetAllCategoriesResultElt,
+    GetAllLinksResultElt,
+    GetAllSwimlanesResultElt,
+    GetAllTasksResult,
+    GetAllUsersResultElt,
+    GetColumnsResultElt,
+    GetTaskResult,
+)
 
 
 @dataclass
@@ -30,8 +40,9 @@ class LinkIdMapping:
     async def fetch_link_types(self) -> None:
         """Retrieve names and IDs for link types."""
 
-        links: Literal[False] | list[dict[str, str]] = (
-            await self.kb.get_all_links_async()  # type: ignore
+        links = cast(
+            Literal[False] | list[GetAllLinksResultElt],
+            await self.kb.get_all_links_async(),
         )
         if not links:
             raise RuntimeError("Could not get all links!")
@@ -74,14 +85,17 @@ class KanboardProject:
 
     async def fetch_users(self):
         """Retrieve users."""
-        users = await self.kb.get_all_users_async()
+        users = cast(list[GetAllUsersResultElt], await self.kb.get_all_users_async())
         self.username_to_id.update({user["username"]: user["id"] for user in users})
         self.user_id_to_username = {v: k for k, v in self.username_to_id.items()}
 
     async def fetch_categories(self):
         """Retrieve category names and IDs."""
 
-        categories = await self.kb.get_all_categories_async(project_id=self.project_id)
+        categories = cast(
+            list[GetAllCategoriesResultElt],
+            await self.kb.get_all_categories_async(project_id=self.project_id),
+        )
         self.category_title_to_id.update({cat["name"]: cat["id"] for cat in categories})
         self.category_ids_to_titles = {
             v: k for k, v in self.category_title_to_id.items()
@@ -90,38 +104,63 @@ class KanboardProject:
     async def fetch_swimlanes(self):
         """Retrieve swimlane names and IDs."""
 
-        swimlanes = await self.kb.get_active_swimlanes_async(project_id=self.project_id)
+        swimlanes = cast(
+            list[GetAllSwimlanesResultElt],
+            await self.kb.get_active_swimlanes_async(project_id=self.project_id),
+        )
         self.swimlane_titles.update({sl["name"]: sl["id"] for sl in swimlanes})
         self.swimlane_ids_to_titles = {v: k for k, v in self.swimlane_titles.items()}
 
     async def fetch_columns(self):
         """Retrieve column titles and IDs."""
 
-        columns = await self.kb.get_columns_async(project_id=self.project_id)
+        columns = cast(
+            list[GetColumnsResultElt],
+            await self.kb.get_columns_async(project_id=self.project_id),
+        )
         self.col_titles.update({col["title"]: col["id"] for col in columns})
         self.col_ids_to_titles = {v: k for k, v in self.col_titles.items()}
 
-    async def get_or_create_column(self, title):
+    async def get_or_create_column(self, title: str):
         """Get a column ID, creating the column if needed."""
         maybe_col_id = self.col_titles.get(title)
         if maybe_col_id is not None:
             return maybe_col_id
 
-        col_id = await self.kb.add_column_async(project_id=self.project_id, title=title)
+        col_id = cast(
+            Literal[False] | int,
+            await self.kb.add_column_async(project_id=self.project_id, title=title),
+        )
+        if col_id is False:
+            raise RuntimeError(f"Error trying to add column '{title}'")
+
         self.col_titles[title] = col_id
         self.col_ids_to_titles[col_id] = title
         return col_id
 
-    async def get_all_tasks(self, only_open: bool = True):
+    async def get_all_tasks(self, only_open: bool = True) -> list[GetTaskResult]:
         """Wrapper for https://docs.kanboard.org/v1/api/task_procedures/#getalltasks async."""
         if only_open:
-            return await self.kb.get_all_tasks_async(
-                project_id=self.project_id, status_id=1
+            open_tasks = cast(
+                GetAllTasksResult,
+                await self.kb.get_all_tasks_async(
+                    project_id=self.project_id, status_id=1
+                ),
             )
+            if open_tasks is False:
+                raise RuntimeError("Error trying to get all open tasks.")
+            return open_tasks
 
-        return await self.kb.get_all_tasks_async(
-            project_id=self.project_id, status_id=1
-        ) + await self.kb.get_all_tasks_async(project_id=self.project_id, status_id=0)
+        tasks = cast(
+            tuple[GetAllTasksResult, GetAllTasksResult],
+            await asyncio.gather(
+                self.kb.get_all_tasks_async(project_id=self.project_id, status_id=1),
+                self.kb.get_all_tasks_async(project_id=self.project_id, status_id=0),
+            ),
+        )
+        if tasks[0] is False or tasks[1] is False:
+            raise RuntimeError("Error trying to get all tasks.")
+        return tasks[0] + tasks[1]
 
     def lookup_user_id_for_username(self, username: str | None) -> int | None:
         """
