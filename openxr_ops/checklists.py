@@ -9,10 +9,10 @@ import itertools
 import logging
 import re
 import tomllib
-from collections.abc import Iterable
+from collections.abc import Generator, Iterable
 from dataclasses import dataclass
 from functools import cached_property
-from typing import Any, Generator, cast
+from typing import Any, cast
 
 import gitlab
 import gitlab.v4.objects

@@ -8,10 +8,11 @@
 
 import asyncio
 import logging
+from collections.abc import Awaitable, Coroutine
 from dataclasses import dataclass
 from enum import Enum
 from pprint import pformat
-from typing import Any, Awaitable, Coroutine, cast
+from typing import Any, cast
 
 import kanboard
 

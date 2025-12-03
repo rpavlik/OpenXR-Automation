@@ -9,10 +9,10 @@
 import abc
 import asyncio
 import logging
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from pprint import pformat
-from typing import Any, Mapping, Optional, TypedDict, cast
+from typing import Any, Optional, TypedDict, cast
 
 import kanboard
 
