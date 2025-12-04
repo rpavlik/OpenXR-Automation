@@ -2,21 +2,23 @@ An extension release tracking task for this extension has been opened at
 {{ task_link }}. @{{ username }} please update it to reflect the current state of
 this extension merge request and request review, if applicable. (Sub-tasks have
 been added automatically, and more will be added as it moves through the
-process. You are welcome to add your own sub-tasks for your own usage.)
+process. You are welcome to add sub-tasks for your own usage as well.)
+You can change the overall stage either through "Move Position" on the task
+detail, or by dragging the corresponding card on the full
+[OpenXR Extensions Workboard][board].
 
-You should also update the [OpenXR Extensions Workboard][board] according to
-the status of your extension: most likely this means moving it to 'NeedsReview'
-once you complete the self-review steps in the checklist
+For most extensions, complete the self-review steps listed as subtasks and on
+the wiki, then move it to "Awaiting Review"
 {%- if not review_required %} if you choose to request spec editor/support review
 {%- endif -%}.
 
 {% if not review_required -%}
 
-Spec editor/support review is optional but recommended for this extension. To
-opt-in to review, go to the task, choose "Edit Task", and add the "Editor Review
-Requested" tag. Otherwise, moving the task to the "Needs Review" column is
-taken as a signal that you want it reviewed, and the tag will be added
-automatically.
+**Note**: Spec editor/support review is **optional but recommended** for this
+extension. **To opt-in to review**, go to the task, choose "Edit Task", and add
+the "Editor Review Requested" tag. Alternately, moving the task to the "Awaiting
+Review" column is also taken as a signal that you want it reviewed, and the tag
+will be added automatically.
 
 {%- endif %}
 
