@@ -41,12 +41,12 @@ class TaskColumn(Enum):
 
 COLUMN_DESCRIPTIONS = {
     TaskColumn.INACTIVE: "Not currently being moved toward release.",
-    TaskColumn.IN_PREPARATION: "Champion moves item to the next step, 'Awaiting Review', once all required prerequisites have been completed",
+    TaskColumn.IN_PREPARATION: "Champion moves item to the next step, 'Awaiting Review', once all required prerequisites have been completed. See subtasks, and ensure CI passes.",
     TaskColumn.AWAITING_REVIEW: "Spec support team or spec editor will move to 'In Review' when applicable.",
     TaskColumn.IN_REVIEW: "Next step is either 'Needs Revisions' or 'Pending Approvals and Merge', moved by spec support or spec editor.",
-    TaskColumn.NEEDS_REVISIONS: "Champion moves items from here to 'Revisions in Progress' when they start.",
-    TaskColumn.REVISIONS_IN_PROGRESS: "When complete, next step is return to 'Awaiting Review'",
-    TaskColumn.PENDING_APPROVALS_AND_MERGE: "This column can be skipped during the Design Review phase, extensions can move directly on to 'In Preparation' for the Spec Review phase. In the Spec Review phase, this column is for waiting on approvals, CTS, ratification, or other details.",
+    TaskColumn.NEEDS_REVISIONS: "Champion moves items from here to 'Revisions in Progress' when they start addressing review comments.",
+    TaskColumn.REVISIONS_IN_PROGRESS: "When complete, next step is return to 'Awaiting Review'. Remember to mark the 'Review comments addressed' subtask as done.",
+    TaskColumn.PENDING_APPROVALS_AND_MERGE: "In the Spec Review phase, this column is for waiting on approvals, CTS, ratification, or other details as described in subtasks. This column can be skipped during the Design Review phase, extensions can move directly on to 'In Preparation' for the Spec Review phase.",
 }
 
 

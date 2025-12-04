@@ -19,10 +19,10 @@ import kanboard
 from .kanboard_helpers import KanboardProject
 from .kb_auto_actions import AutoActionABC, get_and_parse_actions
 from .kb_result_types import (
+    GetColumnsResultElt,
     GetProjectByNameResult,
     NameIdResultElt,
     ProjectResult,
-    TitleIdResultElt,
 )
 
 
@@ -32,11 +32,12 @@ async def populate_columns_general(
 
     log = logging.getLogger(f"{__name__}.populate_columns_general")
     cols = cast(
-        list[TitleIdResultElt], await kb.get_columns_async(project_id=project_id)
+        list[GetColumnsResultElt], await kb.get_columns_async(project_id=project_id)
     )
 
     col_titles: set[str] = {col["title"] for col in cols}
 
+    # Add columns
     futures: list[Awaitable[Any]] = [
         kb.add_column_async(
             project_id=project_id,
@@ -64,7 +65,7 @@ async def populate_columns_general(
         await asyncio.gather(*futures)
 
     updated_cols = cast(
-        list[TitleIdResultElt], await kb.get_columns_async(project_id=project_id)
+        list[GetColumnsResultElt], await kb.get_columns_async(project_id=project_id)
     )
     col_ids: dict[str, int] = {col["title"]: col["id"] for col in updated_cols}
 
@@ -81,6 +82,24 @@ async def populate_columns_general(
             await kb.change_column_position_async(
                 project_id=project_id, column_id=col_id, position=position
             )
+
+    # Fix existing column descriptions
+    existing_descriptions: dict[str, str] = {
+        col["title"]: col["description"] for col in cols
+    }
+    futures = [
+        kb.update_column_async(
+            column_id=col_ids[col.value],
+            title=col.value,
+            description=descriptions[col],
+        )
+        for col in enum
+        if col.value in col_titles
+        and descriptions[col] != existing_descriptions[col.value]
+    ]
+    if futures:
+        log.info("Correcting %d column descriptions", len(futures))
+        await asyncio.gather(*futures)
 
 
 async def populate_swimlanes_general(
