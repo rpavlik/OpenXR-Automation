@@ -19,6 +19,7 @@ import kanboard
 from .kanboard_helpers import KanboardProject
 from .kb_auto_actions import AutoActionABC, get_and_parse_actions
 from .kb_result_types import (
+    GetAllSwimlanesResultElt,
     GetColumnsResultElt,
     GetProjectByNameResult,
     NameIdResultElt,
@@ -31,6 +32,7 @@ async def populate_columns_general(
 ):
 
     log = logging.getLogger(f"{__name__}.populate_columns_general")
+    log.info("Populating columns...")
     cols = cast(
         list[GetColumnsResultElt], await kb.get_columns_async(project_id=project_id)
     )
@@ -106,9 +108,10 @@ async def populate_swimlanes_general(
     kb: kanboard.Client, project_id: int, enum: type[Enum], descriptions: dict[Any, str]
 ):
     log = logging.getLogger(f"{__name__}.populate_swimlanes_general")
+    log.info("Populating swimlanes...")
 
     lanes = cast(
-        list[NameIdResultElt],
+        list[GetAllSwimlanesResultElt],
         await kb.get_all_swimlanes_async(project_id=project_id),
     )
 
@@ -144,11 +147,32 @@ async def populate_swimlanes_general(
         for future in futures:
             await future
 
+    # Fix existing swimlane descriptions
+    lane_ids = {sl["name"]: sl["id"] for sl in lanes}
+    existing_descriptions: dict[str, str] = {
+        sl["name"]: sl["description"] for sl in lanes
+    }
+    futures = [
+        kb.update_swimlane_async(
+            project_id=project_id,
+            swimlane_id=lane_ids[sl.value],
+            name=sl.value,
+            description=descriptions[sl],
+        )
+        for sl in enum
+        if sl.value in lane_names
+        and descriptions[sl] != existing_descriptions[sl.value]
+    ]
+    if futures:
+        log.info("Correcting %d swimlane descriptions", len(futures))
+        await asyncio.gather(*futures)
+
 
 async def populate_categories_general(
     kb: kanboard.Client, project_id: int, enum: type[Enum], colors: dict[Any, str]
 ):
     log = logging.getLogger(f"{__name__}.populate_categories_general")
+    log.info("Populating categories...")
 
     cats = cast(
         list[NameIdResultElt],
