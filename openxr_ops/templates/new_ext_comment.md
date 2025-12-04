@@ -11,6 +11,8 @@ For most extensions, complete the self-review steps listed as subtasks and on
 the wiki, then move it to "Awaiting Review"
 {%- if not review_required %} if you choose to request spec editor/support review
 {%- endif -%}.
+By default, your extension has been placed in the optional "Design Review
+phase", in the "In Preparation" step.
 
 {% if not review_required -%}
 
