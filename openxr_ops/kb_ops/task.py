@@ -30,6 +30,7 @@ class OperationsTaskFlags:
     spec_support_review_comments_pending: bool
     editor_review_requested: bool
 
+    # Exactly one of the following must be true
     khr_extension: bool
     multivendor_extension: bool
     single_vendor_extension: bool
