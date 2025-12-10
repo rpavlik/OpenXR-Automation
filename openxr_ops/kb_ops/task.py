@@ -29,6 +29,7 @@ class OperationsTaskFlags:
     initial_spec_review_complete: bool
     spec_support_review_comments_pending: bool
     editor_review_requested: bool
+    strings_released: bool
 
     # Exactly one of the following must be true
     khr_extension: bool
@@ -49,6 +50,7 @@ class OperationsTaskFlags:
             editor_review_requested=(
                 author_kind != CanonicalExtensionAuthorKind.SINGLE_VENDOR
             ),
+            strings_released=False,
             khr_extension=author_kind == CanonicalExtensionAuthorKind.KHR,
             multivendor_extension=author_kind == CanonicalExtensionAuthorKind.EXT,
             single_vendor_extension=author_kind
@@ -71,6 +73,7 @@ class OperationsTaskFlags:
                 TaskTags.SPEC_SUPPORT_REVIEW_COMMENTS_PENDING.value in tags
             ),
             editor_review_requested=(TaskTags.EDITOR_REVIEW_REQUESTED.value in tags),
+            strings_released=(TaskTags.STRINGS_RELEASED.value in tags),
             khr_extension=(TaskTags.KHR_EXTENSION.value in tags),
             multivendor_extension=(TaskTags.MULTIVENDOR_EXTENSION.value in tags),
             single_vendor_extension=(TaskTags.SINGLE_VENDOR_EXTENSION.value in tags),
@@ -95,6 +98,8 @@ class OperationsTaskFlags:
             ret.append(TaskTags.SPEC_SUPPORT_REVIEW_COMMENTS_PENDING)
         if self.editor_review_requested:
             ret.append(TaskTags.EDITOR_REVIEW_REQUESTED)
+        if self.strings_released:
+            ret.append(TaskTags.STRINGS_RELEASED)
         if self.khr_extension:
             ret.append(TaskTags.KHR_EXTENSION)
         if self.multivendor_extension:
