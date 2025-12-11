@@ -17,7 +17,6 @@ from collections.abc import Awaitable
 import kanboard
 from gitlab.v4.objects import ProjectMergeRequest
 
-from kb_ops_migrate import load_kb_ops
 from openxr_ops.checklists import ChecklistData, ReleaseChecklistTemplate
 from openxr_ops.ext_author_kind import CanonicalExtensionAuthorKind
 from openxr_ops.extensions import VendorNames
@@ -27,6 +26,7 @@ from openxr_ops.kb_defaults import REAL_PROJ_NAME
 from openxr_ops.kb_ops.collection import TaskCollection
 from openxr_ops.kb_ops.config import get_config_data
 from openxr_ops.kb_ops.gitlab import note_contains_sentinel, update_mr_desc
+from openxr_ops.kb_ops.load import load_kb_ops
 from openxr_ops.kb_ops.stages import TaskCategory, TaskColumn, TaskSwimlane
 from openxr_ops.kb_ops.task import (
     OperationsTask,

@@ -26,7 +26,7 @@ from openxr_ops.checklists import ReleaseChecklistCollection
 from openxr_ops.extensions import VendorNames
 from openxr_ops.gitlab import STATE_CLOSED, STATES_CLOSED_MERGED, OpenXRGitlab
 from openxr_ops.kanboard_helpers import KanboardProject
-from openxr_ops.kb_defaults import REAL_PROJ_NAME, connect_and_get_project
+from openxr_ops.kb_defaults import REAL_PROJ_NAME
 from openxr_ops.kb_ops.collection import TaskCollection
 from openxr_ops.kb_ops.config import (
     ConfigSubtaskEntry,
@@ -35,6 +35,7 @@ from openxr_ops.kb_ops.config import (
 )
 from openxr_ops.kb_ops.conversions import COLUMN_CONVERSION, COLUMN_TO_SWIMLANE
 from openxr_ops.kb_ops.gitlab import update_mr_desc
+from openxr_ops.kb_ops.load import load_kb_ops
 from openxr_ops.kb_ops.stages import TaskCategory
 from openxr_ops.kb_ops.task import (
     OperationsTask,
@@ -730,23 +731,6 @@ def populate_data_from_gitlab(
         category=category,
         date_started=started,
     )
-
-
-async def load_kb_ops(
-    project_name: str = REAL_PROJ_NAME, only_open: bool = True
-) -> tuple[KanboardProject, TaskCollection]:
-    log = logging.getLogger(__name__)
-
-    kb, proj = await connect_and_get_project(project_name)
-
-    kb_project = KanboardProject(kb, int(proj["id"]))
-    log.info("Getting columns, swimlanes, and categories")
-    await kb_project.fetch_all_id_maps()
-
-    log.info("Loading KB tasks")
-    task_collection = TaskCollection(kb_project)
-    await task_collection.load_project(only_open=only_open)
-    return kb_project, task_collection
 
 
 def load_gitlab_ops(for_real: bool = True):

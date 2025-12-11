@@ -5,7 +5,7 @@
 #
 # Author: Rylie Pavlik <rylie.pavlik@collabora.com>
 """
-Process the extension tracking topic, auto-updating where applicable.
+Process the extension tracking tasks, auto-updating where applicable.
 
 * Syncs some labels from GitLab
   * "Binary Strings Released" on GitLab implies "Strings Released" on Kanboard
@@ -18,20 +18,59 @@ import asyncio
 import logging
 from collections.abc import Awaitable
 from copy import deepcopy
+from dataclasses import dataclass
 from typing import Any
 
 import gitlab
 import gitlab.v4.objects
 import kanboard
 
-from kb_ops_migrate import load_kb_ops
-from openxr_ops.gitlab import OpenXRGitlab
-from openxr_ops.kanboard_helpers import KanboardProject
-from openxr_ops.kb_defaults import REAL_PROJ_NAME, USERNAME
-from openxr_ops.kb_ops.collection import TaskCollection
-from openxr_ops.kb_ops.gitlab import update_flags
-from openxr_ops.kb_ops.stages import TaskColumn
-from openxr_ops.kb_ops.task import OperationsTask
+from ..gitlab import OpenXRGitlab
+from ..kanboard_helpers import KanboardProject
+from ..kb_defaults import REAL_PROJ_NAME, USERNAME
+from .collection import TaskCollection
+from .gitlab import update_flags
+from .load import load_kb_ops
+from .stages import TaskColumn
+from .task import OperationsTask
+
+
+@dataclass
+class Options:
+    """Options for updating the extensions project."""
+
+    update_title: bool
+    update_category: bool
+    update_tags: bool
+    update_owner: bool
+    update_column: bool
+    close_on_release: bool
+
+    modify_gitlab_desc: bool
+
+    @classmethod
+    def all_true(cls):
+        return cls(
+            update_title=True,
+            update_category=True,
+            update_tags=True,
+            update_owner=True,
+            update_column=True,
+            close_on_release=True,
+            modify_gitlab_desc=True,
+        )
+
+    @classmethod
+    def all_false(cls):
+        return cls(
+            update_title=False,
+            update_category=False,
+            update_tags=False,
+            update_owner=False,
+            update_column=False,
+            close_on_release=False,
+            modify_gitlab_desc=False,
+        )
 
 
 class OpsBoardProcessing:
@@ -39,11 +78,11 @@ class OpsBoardProcessing:
         self,
         main_project: gitlab.v4.objects.Project,
         kb_project_name: str,
-        dry_run: bool,
+        options: Options,
     ):
         self.main_proj = main_project
         self.kb_project_name: str = kb_project_name
-        self.dry_run: bool = dry_run
+        self.options: Options = options
 
         tags = list(
             self.main_proj.tags.list(
@@ -98,7 +137,7 @@ class OpsBoardProcessing:
                 async def close_released():
                     user_id = self.kb_project.username_to_id[self.username]
                     comment = f"Closing this task: merge commit {sha} found in changes preceding {self.latest_release_ref}."
-                    if self.dry_run:
+                    if self.options.close_on_release:
                         log.info(
                             "Would add this comment: '%s' and close task.", comment
                         )
@@ -116,7 +155,7 @@ class OpsBoardProcessing:
                 log.info("Moving to pending, has been merged")
 
                 async def move_to_pending():
-                    if self.dry_run:
+                    if not self.options.update_column:
                         log.info(
                             "Would move from column '%s' to '%s'.",
                             str(task.column),
@@ -166,7 +205,7 @@ class OpsBoardProcessing:
             log.info("%s", repr(new_tags))
 
             async def update_tags():
-                if self.dry_run:
+                if not self.options.update_tags:
                     log.info(
                         "Would update tags from '%s' to '%s'.",
                         str(list(sorted(task.tags_dict.values()))),
@@ -190,7 +229,6 @@ class OpsBoardProcessing:
 
 
 if __name__ == "__main__":
-    logging.basicConfig(level=logging.INFO)
 
     from dotenv import load_dotenv
 
@@ -213,12 +251,28 @@ if __name__ == "__main__":
         help="Do not actually make any changes",
         default=False,
     )
+    parser.add_argument(
+        "-v",
+        "--verbose",
+        action="store_true",
+        help="Higher log level",
+        default=False,
+    )
 
     args = parser.parse_args()
 
+    if args.verbose:
+        logging.basicConfig(level=logging.DEBUG)
+    else:
+        logging.basicConfig(level=logging.INFO)
+
     oxr_gitlab = OpenXRGitlab.create()
 
-    app = OpsBoardProcessing(oxr_gitlab.main_proj, args.project, dry_run=args.dry_run)
+    options = Options.all_true()
+    if args.dry_run:
+        options = Options.all_false()
+
+    app = OpsBoardProcessing(oxr_gitlab.main_proj, args.project, options=options)
 
     async def wrapper():
         await app.prepare()
