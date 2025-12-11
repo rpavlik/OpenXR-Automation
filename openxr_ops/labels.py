@@ -30,6 +30,7 @@ class MainProjectLabels:
     NEEDS_AUTHOR_ACTION = "Needs Author Action"
     CONTRACTOR_APPROVED = "Contractor:Approved"
     OBJECTION_WINDOW = "Objection Window"
+    BINARY_STRINGS_RELEASED = "Binary Strings Released"
 
 
 class OpsProjectLabels:

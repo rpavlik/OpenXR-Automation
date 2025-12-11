@@ -12,6 +12,8 @@ import re
 from gitlab.v4.objects import ProjectMergeRequest, ProjectMergeRequestNote
 
 from ..checklists import CHECKLIST_RE
+from ..labels import MainProjectLabels
+from .task import OperationsTaskFlags
 
 _TASK_BASE_URL = "https://openxr-boards.khronos.org/task/"
 
@@ -92,3 +94,9 @@ TASK_CREATED_COMMENT_SENTINEL = "<!-- task-created-comment -->"
 def note_contains_sentinel(note: ProjectMergeRequestNote):
     body = note.attributes["body"]
     return OLD_CHECKLIST_CREATED_MARKER in body or TASK_CREATED_COMMENT_SENTINEL in body
+
+
+def update_flags(flags: OperationsTaskFlags, mr: ProjectMergeRequest):
+    flags.strings_released = (
+        MainProjectLabels.BINARY_STRINGS_RELEASED in mr.attributes["labels"]
+    )
