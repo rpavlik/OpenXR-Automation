@@ -498,7 +498,7 @@ async def async_main(
     options = UpdateOptions()
     if options.update_mr_desc:
         # for safety, only update MRs when the project name is the real project.
-        options.update_mr_desc = project_name == "OpenXRExtensions"
+        options.update_mr_desc = project_name == REAL_PROJ_NAME
 
     if ignore_columns:
         options.update_column_and_swimlane = False
@@ -668,6 +668,7 @@ def get_flags(checklist_issue: ReleaseChecklistIssue):
         initial_spec_review_complete=checklist_issue.initial_spec_review_complete,
         spec_support_review_comments_pending=False,
         editor_review_requested=checklist_issue.editor_review_requested,
+        strings_released=False,
         khr_extension=checklist_issue.is_khr,
         multivendor_extension=checklist_issue.is_multivendor,
         single_vendor_extension=checklist_issue.is_vendor,
