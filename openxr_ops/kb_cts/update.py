@@ -15,7 +15,7 @@ import re
 from collections.abc import Awaitable, Sequence
 from dataclasses import dataclass
 from pprint import pformat
-from typing import Any, cast
+from typing import Any, Mapping, cast
 
 import kanboard
 from gitlab.v4.objects import ProjectIssue, ProjectMergeRequest
@@ -65,10 +65,17 @@ def _category_from_labels(labels: set[str]) -> TaskCategory | None:
 
 def _guess_mr_column(mr: ProjectMergeRequest):
     column = TaskColumn.NEEDS_REVIEW
-    if mr.attributes["work_in_progress"]:
+    attrs: Mapping[str, Any]
+    if isinstance(mr, dict):
+        attrs = mr
+    else:
+        attrs = mr.attributes
+
+    if attrs["work_in_progress"]:
         column = TaskColumn.IN_PROGRESS
-    if MainProjectLabels.NEEDS_AUTHOR_ACTION in mr.attributes["labels"]:
+    if MainProjectLabels.NEEDS_AUTHOR_ACTION in attrs["labels"]:
         column = TaskColumn.IN_PROGRESS
+
     return column
 
 
