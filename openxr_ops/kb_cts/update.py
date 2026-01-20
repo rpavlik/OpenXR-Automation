@@ -928,7 +928,7 @@ class CTSBoardSearchUpdater:
             )
             create_future = self.base.create_task_from_data(ref, data)
 
-        related_mrs = [
+        related_mrs: list[dict[str, Any]] = [
             mr
             for mr in proj_issue.closed_by()
             if "candidate" not in mr["title"].casefold()
@@ -939,11 +939,16 @@ class CTSBoardSearchUpdater:
             # no related stuff
             return create_future
 
-        async def create_or_get_mr_task(mr_num: int, mr):
+        # fetch serialized
+        for mr in related_mrs:
+            self.base.get_or_fetch_gitlab_mr(int(mr["iid"]))
+
+        async def create_or_get_mr_task(mr_num: int, mr_dict: dict[str, Any]):
             task = self.task_collection.get_task_by_mr(mr_num)
             if task is not None:
                 return task
 
+            mr = self.base.get_gitlab_mr(mr_num)
             mr_data = self.base.compute_creation_data_for_item(
                 ReferenceType.MERGE_REQUEST,
                 mr_num,
