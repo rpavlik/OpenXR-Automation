@@ -142,6 +142,11 @@ class Client:
     ): ...
     """https://docs.kanboard.org/v1/api/project_procedures/#updateproject"""
 
+    def remove_project(self, *, project_id: int): ...
+    """https://docs.kanboard.org/v1/api/project_procedures/#removeproject"""
+
+    async def remove_project_async(self, *, project_id: int): ...
+    """https://docs.kanboard.org/v1/api/project_procedures/#removeproject"""
     def enable_project(self, *, project_id: int): ...
     """https://docs.kanboard.org/v1/api/project_procedures/#enableproject"""
 
@@ -179,6 +184,15 @@ class Client:
     """https://docs.kanboard.org/v1/api/project_procedures/#getprojectactivities"""
 
     # external_task_link_procedures
+    def get_external_task_link_types(
+        self,
+    ): ...
+    """https://docs.kanboard.org/v1/api/external_task_link_procedures/#getexternaltasklinktypes"""
+
+    async def get_external_task_link_types_async(
+        self,
+    ): ...
+    """https://docs.kanboard.org/v1/api/external_task_link_procedures/#getexternaltasklinktypes"""
 
     def get_external_task_link_provider_dependencies(self, *, providerName: str): ...
     """https://docs.kanboard.org/v1/api/external_task_link_procedures/#getexternaltasklinkproviderdependencies"""
@@ -405,6 +419,25 @@ class Client:
         self,
     ): ...
     """https://docs.kanboard.org/v1/api/application_procedures/#gettimezone"""
+    def get_default_task_colors(
+        self,
+    ): ...
+    """https://docs.kanboard.org/v1/api/application_procedures/#getdefaulttaskcolors"""
+
+    async def get_default_task_colors_async(
+        self,
+    ): ...
+    """https://docs.kanboard.org/v1/api/application_procedures/#getdefaulttaskcolors"""
+
+    def get_default_task_color(
+        self,
+    ): ...
+    """https://docs.kanboard.org/v1/api/application_procedures/#getdefaulttaskcolor"""
+
+    async def get_default_task_color_async(
+        self,
+    ): ...
+    """https://docs.kanboard.org/v1/api/application_procedures/#getdefaulttaskcolor"""
 
     def get_color_list(
         self,
@@ -575,6 +608,35 @@ class Client:
     """https://docs.kanboard.org/v1/api/board_procedures/#getboard"""
 
     # me_procedures
+    def get_me(
+        self,
+    ): ...
+    """https://docs.kanboard.org/v1/api/me_procedures/#getme"""
+
+    async def get_me_async(
+        self,
+    ): ...
+    """https://docs.kanboard.org/v1/api/me_procedures/#getme"""
+
+    def get_my_dashboard(
+        self,
+    ): ...
+    """https://docs.kanboard.org/v1/api/me_procedures/#getmydashboard"""
+
+    async def get_my_dashboard_async(
+        self,
+    ): ...
+    """https://docs.kanboard.org/v1/api/me_procedures/#getmydashboard"""
+
+    def get_my_activity_stream(
+        self,
+    ): ...
+    """https://docs.kanboard.org/v1/api/me_procedures/#getmyactivitystream"""
+
+    async def get_my_activity_stream_async(
+        self,
+    ): ...
+    """https://docs.kanboard.org/v1/api/me_procedures/#getmyactivitystream"""
 
     def create_my_private_project(
         self, *, name: str, description: Optional[str] = None
@@ -585,6 +647,25 @@ class Client:
         self, *, name: str, description: Optional[str] = None
     ): ...
     """https://docs.kanboard.org/v1/api/me_procedures/#createmyprivateproject"""
+    def get_my_projects_list(
+        self,
+    ): ...
+    """https://docs.kanboard.org/v1/api/me_procedures/#getmyprojectslist"""
+
+    async def get_my_projects_list_async(
+        self,
+    ): ...
+    """https://docs.kanboard.org/v1/api/me_procedures/#getmyprojectslist"""
+
+    def get_my_overdue_tasks(
+        self,
+    ): ...
+    """https://docs.kanboard.org/v1/api/me_procedures/#getmyoverduetasks"""
+
+    async def get_my_overdue_tasks_async(
+        self,
+    ): ...
+    """https://docs.kanboard.org/v1/api/me_procedures/#getmyoverduetasks"""
 
     def get_my_projects(
         self,
@@ -1261,6 +1342,25 @@ class Client:
 
     async def get_all_tasks_async(self, *, project_id: int, status_id: int): ...
     """https://docs.kanboard.org/v1/api/task_procedures/#getalltasks"""
+    def get_overdue_tasks(
+        self,
+    ): ...
+    """https://docs.kanboard.org/v1/api/task_procedures/#getoverduetasks"""
+
+    async def get_overdue_tasks_async(
+        self,
+    ): ...
+    """https://docs.kanboard.org/v1/api/task_procedures/#getoverduetasks"""
+
+    def get_overdue_tasks_by_project(
+        self,
+    ): ...
+    """https://docs.kanboard.org/v1/api/task_procedures/#getoverduetasksbyproject"""
+
+    async def get_overdue_tasks_by_project_async(
+        self,
+    ): ...
+    """https://docs.kanboard.org/v1/api/task_procedures/#getoverduetasksbyproject"""
 
     def update_task(
         self,
