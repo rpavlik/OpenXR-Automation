@@ -1,11 +1,12 @@
 # Copyright 2022-2025, Collabora, Ltd.
-# Copyright 2024-2025, The Khronos Group Inc.
+# Copyright 2024-2026, The Khronos Group Inc.
 #
 # SPDX-License-Identifier: BSL-1.0
 #
 # Author: Rylie Pavlik <rylie.pavlik@collabora.com>
 
 import asyncio
+import logging
 
 from ..kanboard_helpers import KanboardProject
 from ..kb_result_types import GetTaskResult
@@ -26,6 +27,8 @@ class TaskCollection:
         self.mr_to_task_id: dict[int, int] = dict()
         self.tasks: dict[int, CTSTask] = dict()
 
+        self._log = logging.getLogger(f"{__name__}.{self.__class__.__name__}")
+
     def _update_task_maps(self, task: CTSTask):
         self.tasks[task.task_id] = task
 
@@ -36,8 +39,11 @@ class TaskCollection:
             self.issue_to_task_id[task.issue_num] = task.task_id
 
     async def _load_task(self, task_data: GetTaskResult):
-        task = await CTSTask.from_task_dict_with_more_data(self.kb_project, task_data)
-
+        try:
+            task = await CTSTask.from_task_dict_with_more_data(self.kb_project, task_data)
+        except RuntimeError as e:
+            self._log.warning("Could not load task %d (%s): %s", task_data["id"], task_data["title"], str(e))
+            return
         self._update_task_maps(task)
 
     async def load_task_id(self, task_id: int):
