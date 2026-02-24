@@ -31,7 +31,7 @@ from ..kb_defaults import REAL_PROJ_NAME, USERNAME
 from .collection import TaskCollection
 from .gitlab import update_flags
 from .load import load_kb_ops
-from .stages import TaskColumn
+from .stages import TaskColumn, TaskCategory
 from .task import OperationsTask
 
 
@@ -196,6 +196,27 @@ class OpsBoardProcessing:
         )
 
         self.handle_merges(task, mr)
+
+        if task.category == None:
+            self.log_title()
+            log.info("Adding Ratification Track category")
+
+            async def update_category():
+                new_cat = TaskCategory.RATIFICATION_TRACK
+                if not self.options.update_category:
+                    log.info(
+                        "Would update category from '%s' to '%s'.",
+                        str(task.category),
+                        str(new_cat),
+                    )
+                    return
+
+                await self.kb.update_task_async(
+                    id=task.task_id, category_id=new_cat.to_category_id(self.kb_project)
+                )
+
+            self.futures.append(update_category())
+
         assert task.flags
         flags = deepcopy(task.flags)
         update_flags(flags, mr)

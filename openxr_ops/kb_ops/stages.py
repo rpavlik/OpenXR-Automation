@@ -83,6 +83,8 @@ TAG_COLORS = {
 class TaskCategory(Enum):
     OUTSIDE_IPR_POLICY = "Not Subject to IPR Policy"
 
+    RATIFICATION_TRACK = "Ratification Track"
+
     def to_category_id(self, kb_project: KanboardProject) -> int | None:
         # depends on data cached by kb_project
         return kb_project.category_title_to_id.get(self.value)
@@ -113,7 +115,10 @@ class TaskCategory(Enum):
         return cls(kb_project.category_ids_to_titles[category_id])
 
 
-CATEGORY_COLORS = {TaskCategory.OUTSIDE_IPR_POLICY: "red"}
+CATEGORY_COLORS = {
+    TaskCategory.OUTSIDE_IPR_POLICY: "red",
+    TaskCategory.RATIFICATION_TRACK: "light_green",
+}
 
 # No API?
 CATEGORY_DESCRIPTIONS = {
