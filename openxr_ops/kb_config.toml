@@ -100,8 +100,7 @@ events = ["TASK_CREATE", "TASK_MOVE_COLUMN"]
 [subtask_group.condition]
 swimlane = "Spec Review phase"
 column = "In Preparation"
-# exclude_category = "Not Subject to IPR Policy"
-exclude_categories = true
+category = "Ratification Track"
 [[subtask_group.subtask]]
 name = "CTS tests written"
 migration_prefix = "CTS tests written"
@@ -130,9 +129,9 @@ prefix = "Before Board Submission:"
 events = ["TASK_CREATE", "TASK_MOVE_COLUMN"]
 [subtask_group.condition]
 swimlane = "Spec Review phase"
-column = "Pending Approvals And Merge"
-# exclude_category = "Not Subject to IPR Policy"
-exclude_categories = true
+#column = "Pending Approvals And Merge"
+column = "In Preparation"
+category = "Ratification Track"
 [[subtask_group.subtask]]
 name = "WG vote to submit passed with a 3/4 majority"
 [[subtask_group.subtask]]
@@ -144,9 +143,9 @@ prefix = "Before Release:"
 events = ["TASK_CREATE", "TASK_MOVE_COLUMN"]
 [subtask_group.condition]
 swimlane = "Spec Review phase"
-column = "Pending Approvals And Merge"
-# exclude_category = "Not Subject to IPR Policy"
-exclude_categories = true
+#column = "Pending Approvals And Merge"
+column = "In Preparation"
+category = "Ratification Track"
 [[subtask_group.subtask]]
 name = "OpenXR specification ratified by Promoters"
 [[subtask_group.subtask]]
