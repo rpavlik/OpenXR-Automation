@@ -61,9 +61,9 @@ class TaskTags(Enum):
     STRINGS_RELEASED = "Strings Released"
     RATIFIED = "Ratified"
 
-    KHR_EXTENSION = "KHR Extension"
-    MULTIVENDOR_EXTENSION = "Multivendor Extension"
-    SINGLE_VENDOR_EXTENSION = "Single Vendor Extension"
+    KHR_EXTENSION = "KHR"
+    MULTIVENDOR_EXTENSION = "Multivendor"
+    SINGLE_VENDOR_EXTENSION = "Single Vendor"
 
 
 TAG_COLORS = {
