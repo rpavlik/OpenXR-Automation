@@ -1,4 +1,4 @@
-# Copyright 2022-2025, Collabora, Ltd.
+# Copyright 2022-2026, Collabora, Ltd.
 # Copyright 2024-2026, The Khronos Group Inc.
 #
 # SPDX-License-Identifier: BSL-1.0
@@ -40,9 +40,16 @@ class TaskCollection:
 
     async def _load_task(self, task_data: GetTaskResult):
         try:
-            task = await CTSTask.from_task_dict_with_more_data(self.kb_project, task_data)
+            task = await CTSTask.from_task_dict_with_more_data(
+                self.kb_project, task_data
+            )
         except RuntimeError as e:
-            self._log.warning("Could not load task %d (%s): %s", task_data["id"], task_data["title"], str(e))
+            self._log.warning(
+                "Could not load task %d (%s): %s",
+                task_data["id"],
+                task_data["title"],
+                str(e),
+            )
             return
         self._update_task_maps(task)
 

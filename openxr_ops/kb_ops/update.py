@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# Copyright 2022-2025, Collabora, Ltd.
+# Copyright 2022-2026, Collabora, Ltd.
 #
 # SPDX-License-Identifier: BSL-1.0
 #
@@ -31,7 +31,7 @@ from ..kb_defaults import REAL_PROJ_NAME, USERNAME
 from .collection import TaskCollection
 from .gitlab import update_flags
 from .load import load_kb_ops
-from .stages import TaskColumn, TaskCategory
+from .stages import TaskCategory, TaskColumn
 from .task import OperationsTask
 
 
