@@ -1083,6 +1083,10 @@ class CTSBoardCloseUpdater:
             date_moved = datetime.datetime.fromtimestamp(
                 task.task_dict["date_moved"], datetime.UTC
             )
+            if "(MERGED)" not in task.title and "(CLOSED)" not in task.title:
+                # Do not close things that we will just re-create.
+                continue
+
             if date_moved.date() < close_date:
                 if self.base.options.close_old_done_tasks:
                     self.log.info("Close %d: %s", task.task_id, task.title)
@@ -1102,9 +1106,11 @@ class CTSBoardCloseUpdater:
 
     async def _process_task_to_close(self, task: CTSTask):
         if self.close_message:
-            await self.kb.create_comment_async(
+            result = await self.kb.create_comment_async(
                 task_id=task.task_id, user_id=self.user_id, content=self.close_message
             )
+            if not result:
+                raise RuntimeError("Failed to post comment to task %d", task.task_id)
         await self.kb.close_task_async(task_id=task.task_id)
 
 
