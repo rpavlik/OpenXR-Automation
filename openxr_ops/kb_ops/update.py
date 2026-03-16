@@ -26,13 +26,20 @@ import gitlab.v4.objects
 import kanboard
 
 from ..gitlab import OpenXRGitlab
-from ..kanboard_helpers import KanboardProject
+from ..kanboard_helpers import KanboardProject, SubtaskStatus
 from ..kb_defaults import REAL_PROJ_NAME, USERNAME
+from ..kb_result_types import GetAllSubtasksResult
 from .collection import TaskCollection
 from .gitlab import update_flags
 from .load import load_kb_ops
 from .stages import TaskCategory, TaskColumn
 from .task import OperationsTask
+
+_MERGED_TITLE_SUFFIX = "(MERGED)"
+
+_MERGE_SUBTASK = "Before Release: Merged"
+
+_MERGED_COLOR_ID = "light_green"
 
 
 @dataclass
@@ -44,6 +51,7 @@ class Options:
     update_tags: bool
     update_owner: bool
     update_column: bool
+    update_color: bool
     close_on_release: bool
 
     modify_gitlab_desc: bool
@@ -56,6 +64,7 @@ class Options:
             update_tags=True,
             update_owner=True,
             update_column=True,
+            update_color=True,
             close_on_release=True,
             modify_gitlab_desc=True,
         )
@@ -68,6 +77,7 @@ class Options:
             update_tags=False,
             update_owner=False,
             update_column=False,
+            update_color=False,
             close_on_release=False,
             modify_gitlab_desc=False,
         )
@@ -127,30 +137,39 @@ class OpsBoardProcessing:
         log = logging.getLogger(__name__)
 
         # Auto move to release pending upon merge.
-        if mr.state == "merged" and task.column != TaskColumn.INACTIVE:
-            sha = mr.attributes["merge_commit_sha"]
+        if mr.state != "merged":
+            return
+        if task.column == TaskColumn.INACTIVE:
+            return
 
-            if sha in self.commits_in_last_release:
-                self.log_title()
-                log.info("Closing - found in release.")
+        sha = mr.attributes["merge_commit_sha"]
 
-                async def close_released():
-                    user_id = self.kb_project.username_to_id[self.username]
-                    comment = f"Closing this task: merge commit {sha} found in changes preceding {self.latest_release_ref}."
-                    if self.options.close_on_release:
-                        log.info(
-                            "Would add this comment: '%s' and close task.", comment
-                        )
-                        return
-                    await self.kb.create_comment_async(
-                        task_id=task.task_id, user_id=user_id, content=comment
-                    )
+        if sha in self.commits_in_last_release:
+            self.log_title()
+            log.info("Closing - found in release.")
 
-                    await self.kb.close_task_async(task_id=task.task_id)
+            async def close_released():
+                user_id = self.kb_project.username_to_id[self.username]
+                comment = f"Closing this task: merge commit {sha} found in changes preceding {self.latest_release_ref}."
+                if self.options.close_on_release:
+                    log.info("Would add this comment: '%s' and close task.", comment)
+                    return
+                await self.kb.create_comment_async(
+                    task_id=task.task_id, user_id=user_id, content=comment
+                )
 
-                self.futures.append(close_released())
+                await self.kb.close_task_async(task_id=task.task_id)
 
-            elif task.column != TaskColumn.PENDING_APPROVALS_AND_MERGE:
+            self.futures.append(close_released())
+
+        else:
+            log.info(
+                "%s - Commit is merged in %s, column is %s",
+                mr.attributes["web_url"],
+                sha,
+                str(task.column),
+            )
+            if task.column != TaskColumn.PENDING_APPROVALS_AND_MERGE:
                 self.log_title()
                 log.info("Moving to pending, has been merged")
 
@@ -176,13 +195,66 @@ class OpsBoardProcessing:
 
                 self.futures.append(move_to_pending())
 
-            else:
-                log.info(
-                    "%s - Commit is merged in %s, column is %s",
-                    mr.attributes["web_url"],
-                    sha,
-                    str(task.column),
+            title_stub = task.title.replace(_MERGED_TITLE_SUFFIX, "").strip()
+            new_title = f"{title_stub} {_MERGED_TITLE_SUFFIX}"
+            assert task.task_dict
+            color_id = task.task_dict["color_id"]
+            if new_title != task.title or color_id != _MERGED_COLOR_ID:
+
+                async def update_title_and_color():
+                    if new_title != task.title:
+                        if not self.options.update_title:
+                            log.info(
+                                "Would change title from '%s' to '%s'.",
+                                task.title,
+                                new_title,
+                            )
+                        else:
+                            await self.kb.update_task_async(
+                                id=task.task_id, title=new_title
+                            )
+                    if color_id != _MERGED_COLOR_ID:
+                        if not self.options.update_color:
+                            log.info(
+                                "Would change color from '%s' to '%s'.",
+                                color_id,
+                                _MERGED_COLOR_ID,
+                            )
+                        else:
+                            await self.kb.update_task_async(
+                                id=task.task_id, color_id=_MERGED_COLOR_ID
+                            )
+
+                self.futures.append(update_title_and_color())
+
+            async def handle_subtask():
+                subtasks: GetAllSubtasksResult = await self.kb.get_all_subtasks_async(
+                    task_id=task.task_id
                 )
+                if not subtasks:
+                    raise RuntimeError(f"Failed getting subtasks of {task.url}")
+                assert subtasks != False
+
+                merged_subtask = [
+                    st for st in subtasks if st["title"] == _MERGE_SUBTASK
+                ]
+                if merged_subtask:
+                    st_status = merged_subtask[0]["status"]
+                    if int(st_status) != SubtaskStatus.DONE:
+                        st_id = int(merged_subtask[0]["id"])
+                        await self.kb.update_subtask_async(
+                            id=st_id,
+                            task_id=task.task_id,
+                            status=SubtaskStatus.DONE.value,
+                        )
+                else:
+                    await self.kb.create_subtask_async(
+                        task_id=task.task_id,
+                        title=_MERGE_SUBTASK,
+                        status=SubtaskStatus.DONE.value,
+                    )
+
+            self.futures.append(handle_subtask())
 
     def process_task(self, task: OperationsTask, mr_num: int):
         log = logging.getLogger(__name__)
