@@ -1,10 +1,11 @@
-# Copyright 2022, Collabora, Ltd.
+# Copyright 2022-2026, Collabora, Ltd.
 # Copyright 2025, The Khronos Group Inc.
 #
 # SPDX-License-Identifier: BSL-1.0
 #
 # Author: Rylie Pavlik <rylie.pavlik@collabora.com>
 import asyncio
+import enum
 from dataclasses import dataclass
 from typing import Literal, cast
 
@@ -19,6 +20,12 @@ from .kb_result_types import (
     GetColumnsResultElt,
     GetTaskResult,
 )
+
+
+class SubtaskStatus(enum.Enum):
+    NOT_DONE = 0
+    STARTED = 1
+    DONE = 2
 
 
 @dataclass

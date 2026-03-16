@@ -1,4 +1,4 @@
-# Copyright 2025, Collabora, Ltd.
+# Copyright 2025-2026, Collabora, Ltd.
 # Copyright 2025, The Khronos Group Inc.
 #
 # SPDX-License-Identifier: BSL-1.0
@@ -223,3 +223,19 @@ class ProjectResult(TypedDict):
 GetProjectByIdResult = ProjectResult
 
 GetProjectByNameResult = Literal[False] | ProjectResult
+
+
+class GetSubtasksResultElt(TypedDict):
+    id: int
+    title: str
+    status: int
+    time_estimated: int
+    time_spent: int
+    task_id: int
+    user_id: int
+    username: str | None
+    name: str | None
+    status_name: str
+
+
+GetAllSubtasksResult = Literal[False] | list[GetSubtasksResultElt]

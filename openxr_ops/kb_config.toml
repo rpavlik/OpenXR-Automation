@@ -122,6 +122,8 @@ name = "CTS tests written (optional)"
 migration_prefix = "CTS tests written"
 [[subtask_group.subtask]]
 name = "Champion approved to merge (since last editor push)"
+[[subtask_group.subtask]]
+name = "Merged"
 
 [[subtask_group]]
 group_name = "ratification submission"
@@ -150,3 +152,5 @@ category = "Ratification Track"
 name = "OpenXR specification ratified by Promoters"
 [[subtask_group.subtask]]
 name = "Loader support (if required) ready for release"
+[[subtask_group.subtask]]
+name = "Merged"
