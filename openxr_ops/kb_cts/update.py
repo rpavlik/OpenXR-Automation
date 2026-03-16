@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# Copyright 2022-2024, Collabora, Ltd.
+# Copyright 2022-2026, Collabora, Ltd.
 # Copyright 2025, The Khronos Group Inc.
 #
 # SPDX-License-Identifier: BSL-1.0
@@ -11,6 +11,7 @@ import asyncio
 import dataclasses
 import datetime
 import logging
+import os
 import re
 from collections.abc import Awaitable, Sequence
 from dataclasses import dataclass
@@ -201,6 +202,8 @@ class BaseOptions:
 
     modify_gitlab_desc: bool
 
+    close_old_done_tasks: bool
+
     @classmethod
     def all_true(cls):
         return cls(
@@ -213,6 +216,7 @@ class BaseOptions:
             create_task=True,
             add_internal_links=True,
             modify_gitlab_desc=True,
+            close_old_done_tasks=True,
         )
 
     @classmethod
@@ -227,6 +231,7 @@ class BaseOptions:
             create_task=False,
             add_internal_links=False,
             modify_gitlab_desc=False,
+            close_old_done_tasks=False,
         )
 
 
@@ -752,10 +757,12 @@ class CTSBoardSearchUpdater:
         oxr_gitlab: OpenXRGitlab,
         kb_project_name: str,
         options: BaseOptions,
+        filter_out_refs: set[str],
     ):
         self.base = CTSBoardUpdater(oxr_gitlab, kb_project_name, options=options)
         self.oxr_gitlab: OpenXRGitlab = oxr_gitlab
         self.kb_project_name: str = kb_project_name
+        self.filter_out_refs: set[str] = filter_out_refs
 
         self.log = logging.getLogger(f"{__name__}.{self.__class__.__name__}")
 
@@ -770,17 +777,17 @@ class CTSBoardSearchUpdater:
         self.kb_project = self.base.kb_project
         self.task_collection = self.base.task_collection
 
-    async def process(self, filter_out_refs: set[str]) -> bool:
+    async def process(self) -> bool:
         # First, fetch everything from gitlab if possible. Serially.
         self.base.fetch_all_from_gitlab()
 
         # Now, update stuff.
         await self.base.update_existing_tasks()
 
-        new_issue_futures = self.search_issues(filter_out_refs)
+        new_issue_futures = self.search_issues(self.filter_out_refs)
         await asyncio.gather(*new_issue_futures)
 
-        new_mr_futures = self.search_mrs(filter_out_refs)
+        new_mr_futures = self.search_mrs(self.filter_out_refs)
         await asyncio.gather(*new_mr_futures)
 
         return self.base.changes_made
@@ -1000,9 +1007,112 @@ class CTSBoardSearchUpdater:
         return create_and_link(task)
 
 
+class CTSBoardCloseUpdater:
+    """A special updater just for closing tasks after release."""
+
+    def __init__(
+        self,
+        oxr_gitlab: OpenXRGitlab,
+        kb_project_name: str,
+        options: BaseOptions,
+        close_date: datetime.date,
+        close_message: str | None,
+    ):
+        self.base = CTSBoardUpdater(oxr_gitlab, kb_project_name, options=options)
+        self.oxr_gitlab: OpenXRGitlab = oxr_gitlab
+        self.kb_project_name: str = kb_project_name
+        self.close_date: datetime.date = close_date
+        self.close_message: str | None = close_message
+
+        self.log = logging.getLogger(f"{__name__}.{self.__class__.__name__}")
+
+        # these are populated later in prepare
+        self.kb_project: KanboardProject
+        self.task_collection: TaskCollection
+        self.kb: kanboard.Client
+        self.user_id: int = 0
+
+    async def prepare(self):
+        await self.base.prepare()
+        self.kb = self.base.kb
+        self.kb_project = self.base.kb_project
+        self.task_collection = self.base.task_collection
+        username = os.environ.get("KANBOARD_USERNAME")
+        if username is None and self.close_message:
+            self.log.error(
+                "Did not specify KANBOARD_USERNAME but provided a close message"
+            )
+            raise RuntimeError(
+                "Must supply KANBOARD_USERNAME in the environment to post a close message"
+            )
+        assert username is not None
+
+        user = await self.kb.get_user_by_name_async(username=username)
+        if not user:
+            self.log.error("Unrecognized KANBOARD_USERNAME: %s", username)
+            raise RuntimeError("KANBOARD_USERNAME not recognized by server")
+        assert user
+        self.user_id = int(user["id"])
+
+    async def process(self) -> bool:
+        # We are just running a close job
+        self.base.changes_made = await self.close_done_date()
+
+        return self.base.changes_made
+
+    async def close_done_date(self) -> bool:
+        assert self.close_date is not None
+        close_date: datetime.date = self.close_date
+
+        self.log.info(
+            "Identifying tasks in Done last moved %s or earlier",
+            close_date.isoformat(),
+        )
+
+        actions = []
+        candidates: list[CTSTask] = [
+            task
+            for task in self.task_collection.tasks.values()
+            if task is not None
+            and task.column == TaskColumn.DONE
+            and task.task_dict is not None
+        ]
+
+        for task in candidates:
+            assert task.task_dict is not None
+            date_moved = datetime.datetime.fromtimestamp(
+                task.task_dict["date_moved"], datetime.UTC
+            )
+            if date_moved.date() < close_date:
+                if self.base.options.close_old_done_tasks:
+                    self.log.info("Close %d: %s", task.task_id, task.title)
+                    actions.append(self._process_task_to_close(task))
+                else:
+                    self.log.info(
+                        "Skipping close of %d: %s - message: %s",
+                        task.task_id,
+                        task.title,
+                        str(self.close_message),
+                    )
+
+        await asyncio.gather(*actions)
+        if actions:
+            return True
+        return False
+
+    async def _process_task_to_close(self, task: CTSTask):
+        if self.close_message:
+            await self.kb.create_comment_async(
+                task_id=task.task_id, user_id=self.user_id, content=self.close_message
+            )
+        await self.kb.close_task_async(task_id=task.task_id)
+
+
 async def main(
     project_name: str,
     dry_run: bool,
+    close_date: datetime.date | None,
+    close_message: str | None,
 ):
     logging.basicConfig(level=logging.INFO)
 
@@ -1014,14 +1124,25 @@ async def main(
     if dry_run:
         options = BaseOptions.all_false()
 
-    obj = CTSBoardSearchUpdater(
-        oxr_gitlab=oxr_gitlab,
-        kb_project_name=project_name,
-        options=options,
-    )
+    obj: CTSBoardCloseUpdater | CTSBoardSearchUpdater
+    if close_date is not None:
+        obj = CTSBoardCloseUpdater(
+            oxr_gitlab=oxr_gitlab,
+            kb_project_name=project_name,
+            options=options,
+            close_date=close_date,
+            close_message=close_message,
+        )
+    else:
+        obj = CTSBoardSearchUpdater(
+            oxr_gitlab=oxr_gitlab,
+            kb_project_name=project_name,
+            options=options,
+            filter_out_refs=FILTER_OUT,
+        )
 
     await obj.prepare()
-    changes_made = await obj.process(FILTER_OUT)
+    changes_made = await obj.process()
 
     if changes_made:
         log.info("Changes made!")
@@ -1060,6 +1181,18 @@ if __name__ == "__main__":
         help="Higher log level",
         default=False,
     )
+    parser.add_argument(
+        "-c",
+        "--close-date",
+        help="Close all items in 'Done' last moved on the given date or earlier. YYYY-MM-DD",
+        type=datetime.date.fromisoformat,
+    )
+    parser.add_argument(
+        "-m",
+        "--close-message",
+        help="Post the comment on all tasks closed due to --close-date",
+        type=str,
+    )
     args = parser.parse_args()
 
     if args.verbose:
@@ -1071,5 +1204,7 @@ if __name__ == "__main__":
         main(
             project_name=args.project,
             dry_run=args.dry_run,
+            close_date=args.close_date,
+            close_message=args.close_message,
         )
     )

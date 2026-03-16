@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# Copyright 2022-2024, Collabora, Ltd.
+# Copyright 2022-2026, Collabora, Ltd.
 # Copyright 2025, The Khronos Group Inc.
 #
 # SPDX-License-Identifier: BSL-1.0
@@ -79,6 +79,7 @@ class UpdateOptions:
             create_task=self.create_task,
             add_internal_links=self.add_internal_links,
             modify_gitlab_desc=self.update_mr_desc,
+            close_old_done_tasks=False,
         )
 
 
