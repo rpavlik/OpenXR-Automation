@@ -94,14 +94,6 @@ def compute_api_item_state_and_suffix(
     return state, suffix
 
 
-# Must have at least one of these labels to show up on this board
-# since there are now two projects using "Contractor:Approved"
-REQUIRED_LABEL_SET = {
-    MainProjectLabels.CONFORMANCE_IMPLEMENTATION,
-    MainProjectLabels.CONFORMANCE_IN_THE_WILD,
-    MainProjectLabels.CONFORMANCE_QUESTION,
-}
-
 # List stuff that causes undesired merging here
 # Anything on this list will be excluded from the board
 DO_NOT_MERGE = {

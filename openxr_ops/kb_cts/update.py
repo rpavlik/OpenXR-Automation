@@ -23,7 +23,6 @@ from gitlab.v4.objects import ProjectIssue, ProjectMergeRequest
 
 from ..cts_board_utils import (
     FILTER_OUT,
-    REQUIRED_LABEL_SET,
     compute_api_item_state_and_suffix,
 )
 from ..gitlab import STATES_CLOSED_MERGED, OpenXRGitlab, ReferenceType, get_short_ref
