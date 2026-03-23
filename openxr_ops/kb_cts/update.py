@@ -59,7 +59,7 @@ def _color_id_from_ref_type(ref_type: ReferenceType) -> str:
 
 
 def _category_from_labels(labels: set[str]) -> TaskCategory | None:
-    if MainProjectLabels.CONTRACTOR_APPROVED in labels:
+    if MainProjectLabels.CTS_CONTRACTOR_APPROVED in labels:
         return TaskCategory.CONTRACTOR
     return None
 
@@ -743,7 +743,7 @@ _CONTRACTOR_USERNAMES = {"rpavlik", "safarimonkey", "haagch", "simonz"}
 
 
 def _guess_mr_swimlane(mr: ProjectMergeRequest):
-    if MainProjectLabels.CONTRACTOR_APPROVED in mr.attributes["labels"]:
+    if MainProjectLabels.CTS_CONTRACTOR_APPROVED in mr.attributes["labels"]:
         return TaskSwimlane.CTS_CONTRACTOR
     if mr.attributes["author"]["username"] in _CONTRACTOR_USERNAMES:
         return TaskSwimlane.CTS_CONTRACTOR
@@ -793,15 +793,14 @@ class CTSBoardSearchUpdater:
         return self.base.changes_made
 
     def search_issues(self, filter_out_refs: set[str]) -> list[Awaitable[Any | None]]:
-        # Grab all "Contractor:Approved" issues that are CTS related
+        # Grab all "CTS-Contractor:Approved" issues
 
         self.log.info("Looking for relevant GitLab issues")
 
         futures: list[Awaitable[Any | None]] = []
         for issue in self.oxr_gitlab.main_proj.issues.list(
             labels=[
-                MainProjectLabels.CONTRACTOR_APPROVED,
-                MainProjectLabels.CONFORMANCE_IMPLEMENTATION,
+                MainProjectLabels.CTS_CONTRACTOR_APPROVED,
             ],
             state="opened",
             iterator=True,
@@ -815,7 +814,7 @@ class CTSBoardSearchUpdater:
         return futures
 
     def search_mrs(self, filter_out_refs: set[str]) -> list[Awaitable[Any | None]]:
-        # Grab all "Contractor:Approved" MRs as well as all
+        # Grab all "CTS-Contractor:Approved" MRs as well as all
         # CTS ones (whether or not written
         # by contractor, as part of maintaining the cts)
         self.log.info("Looking for relevant GitLab merge requests")

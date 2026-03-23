@@ -28,7 +28,7 @@ class MainProjectLabels:
     CONFORMANCE_IN_THE_WILD = "CTS:in-the-wild"
     CONFORMANCE_QUESTION = "CTS:question"
     NEEDS_AUTHOR_ACTION = "Needs Author Action"
-    CONTRACTOR_APPROVED = "Contractor:Approved"
+    CTS_CONTRACTOR_APPROVED = "CTS-Contractor:Approved"
     OBJECTION_WINDOW = "Objection Window"
     BINARY_STRINGS_RELEASED = "Binary Strings Released"
 
