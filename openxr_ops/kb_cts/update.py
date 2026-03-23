@@ -903,16 +903,6 @@ class CTSBoardSearchUpdater:
             )
             return None
 
-        labels = set(proj_issue.attributes["labels"])
-        if not labels.intersection(REQUIRED_LABEL_SET):
-            self.log.info(
-                "Skipping contractor approved but non-CTS issue: %s: %s  %s",
-                ref,
-                proj_issue.title,
-                proj_issue.attributes["web_url"],
-            )
-            return None
-
         task = self.task_collection.get_task_by_issue(num)
 
         create_future: Awaitable[Any] | None = None
