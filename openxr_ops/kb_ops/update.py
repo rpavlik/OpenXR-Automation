@@ -151,7 +151,7 @@ class OpsBoardProcessing:
             async def close_released():
                 user_id = self.kb_project.username_to_id[self.username]
                 comment = f"Closing this task: merge commit {sha} found in changes preceding {self.latest_release_ref}."
-                if self.options.close_on_release:
+                if not self.options.close_on_release:
                     log.info("Would add this comment: '%s' and close task.", comment)
                     return
                 await self.kb.create_comment_async(
