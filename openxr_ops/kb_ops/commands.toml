@@ -1,0 +1,212 @@
+# Copyright 2022-2026, Collabora, Ltd.
+#
+# SPDX-License-Identifier: BSL-1.0
+#
+# Author: Rylie Pavlik <rylie.pavlik@collabora.com>
+
+
+[assignees]
+editor = "rpavlik"
+contractor = "gpx1000"
+
+# Actions available:
+#
+# "assign" - assign. Param: who should be one of "" (nobody), "self" (command issuer), "champion",
+#            or one of the people in assignees: "editor", "contractor"
+# "move" - change column. Param: "column" should be a column name
+
+###
+[command.await-review]
+description = "Moves an extension to Awaiting Review"
+auto_on_assign = true
+
+[[command.await-review.condition_on_assign]]
+column = "In Preparation"
+
+[[command.await-review.action]]
+type = "assign"
+who = ""
+
+[[command.await-review.action]]
+type = "move"
+column = "Awaiting Review"
+
+[[command.await-review.action]]
+type = "mr-comment"
+contents = "The task for this extension has been moved to 'Awaiting Review'."
+
+###
+[command.reviewing]
+description = "Self-assigns the MR and moves the task to In Review"
+auto_on_assign = true
+
+[[command.reviewing.condition_on_assign]]
+column = "Awaiting Review"
+
+[[command.reviewing.action]]
+type = "assign"
+who = "self"
+
+[[command.reviewing.action]]
+type = "move"
+column = "In Review"
+
+[[command.reviewing.action]]
+type = "mr-comment"
+contents = "The task for this extension has been moved to 'In Review'. For ease of review, please avoid modifying it until the review is complete."
+
+###
+[command.needs-revision]
+description = "After review, marking that it needs revision"
+auto_on_assign = true
+
+[[command.needs-revision.condition_on_assign]]
+column = "In Review"
+
+[[command.needs-revision.action]]
+type = "assign"
+who = "champion"
+
+[[command.needs-revision.action]]
+type = "move"
+column = "Needs Revision"
+
+# Not always needed, but good to attempt
+[[command.needs-revision.action]]
+type = "tags"
+remove = ["Spec Support Review Comments Pending"]
+
+[[command.needs-revision.action]]
+type = "mr-label"
+add = ["Needs Author Action"]
+
+[[command.needs-revision.action]]
+type = "mr-comment"
+contents = """
+The task for this extension has been moved to 'Needs Revision'.
+When you start revisions, please **move the task** on the OpenXRExtensions board (see link in description)
+to "In Revision" (assign this MR to Khronos Bot to have this done automatically).
+When you've addressed the above discussion threads and made any other improvements,
+please mark the "Address review feedback" sub-task as complete (click twice - the first means "in progress"),
+and **move the task** back to the "Awaiting Review" column (assign this MR to Khronos Bot again to automatically do this)
+for re-review.
+"""
+
+
+###
+[command.revising]
+description = "Mark the extension as in revision."
+auto_on_assign = true
+
+[[command.revising.condition_on_assign]]
+column = "Needs Revisions"
+blocking_discussions = true
+
+[[command.revising.action]]
+type = "assign"
+who = "self"
+
+[[command.revising.action]]
+type = "move"
+column = "Revisions in Progress"
+
+###
+[command.rereview]
+description = "Mark the extension as needing rereview."
+auto_on_assign = true
+
+[[command.rereview.condition_on_assign]]
+column = "Revisions in Progress"
+
+[[command.rereview.action]]
+type = "assign"
+who = ""
+
+[[command.rereview.action]]
+type = "move"
+column = "Awaiting Review"
+
+###
+[command.pending]
+description = "After review, marking that it is acceptable from a spec point of view and is pending other subtasks"
+auto_on_assign = true
+
+[[command.pending.condition_on_assign]]
+column = "In Review"
+blocking_discussions = false
+
+[[command.pending.action]]
+type = "assign"
+who = ""
+
+[[command.pending.action]]
+type = "move"
+column = "Pending Approvals and Merge"
+
+# Not always needed, but good to attempt
+[[command.pending.action]]
+type = "tags"
+remove = ["Spec Support Review Comments Pending"]
+
+[[command.pending.action]]
+type = "mr-comment"
+contents = """
+The task for this extension has been moved to 'Pending Approvals and Merge'.
+Please see the task link (in the description) for the sub-tasks remaining before
+this extension is merged and released.
+"""
+
+###
+# Manual-only commands
+###
+
+###
+[command.support-comments]
+description = "Notes that the spec support team has pending but not submitted review comments"
+
+# Probably redundant, but good anyway
+[[command.support-comments.action]]
+type = "move"
+column = "In Review"
+
+[[command.support-comments.action]]
+type = "tags"
+add = ["Spec Support Review Comments Pending"]
+
+[[command.support-comments.action]]
+type = "mr-comment"
+contents = "The spec support contractor has completed a draft review, and the review results will be posted pending verification by the Spec Editor. Please avoid editing the extension before then to avoid making those review comments out of date."
+
+
+###
+[command.frozen]
+description = "Mark as API frozen"
+
+[[command.frozen.action]]
+type = "tags"
+add = ["API Frozen"]
+
+[[command.frozen.action]]
+type = "mr-comment"
+contents = "**NOTE:** This extension has been marked as 'API Frozen'. Any further review should be limited in scope with that in mind. Review issues that cannot be addressed due to this should be noted in openxr-ext-notes."
+
+
+###
+[command.ratified]
+description = "Mark as board ratified"
+
+[[command.ratified.action]]
+type = "tags"
+add = ["API Frozen", "Ratified"]
+
+[[command.ratified.action]]
+type = "mr-comment"
+contents = "**NOTE:** This extension has been marked as 'Ratified' by the Board of Promoters. Any further changes should be minimal, non-substantive, and not IP relevant."
+
+[[command.ratified.action]]
+type = "complete-subtasks"
+subtasks = [
+    "Before Board Submission: Submission package available for Promoter review",
+    "Before Board Submission: WG vote to submit passed with a 3/4 majority",
+    "Before Release: OpenXR specification ratified by Promoters",
+]
