@@ -27,6 +27,22 @@ def _make_ops_board_link(task_id):
     return f"Operations Tracking Task: {_TASK_BASE_URL}{task_id}"
 
 
+def find_task_mention(
+    merge_request: ProjectMergeRequest,
+) -> re.Match[str] | None:
+    desc: str = merge_request.description
+    return _OPS_BOARD_LINK.search(desc)
+
+
+def find_task_id(
+    merge_request: ProjectMergeRequest,
+) -> str | None:
+    m = find_task_mention(merge_request)
+
+    if m:
+        return m.group("task_id")
+
+
 def update_mr_desc(
     merge_request: ProjectMergeRequest,
     task_id: int,
@@ -43,7 +59,7 @@ def update_mr_desc(
         return
     desc: str = merge_request.description
     new_desc: str = desc
-    m = _OPS_BOARD_LINK.search(desc)
+    m = find_task_mention(merge_request)
     if m:
 
         replaced_desc = prepend + _OPS_BOARD_LINK.sub("", desc, 1).strip()
