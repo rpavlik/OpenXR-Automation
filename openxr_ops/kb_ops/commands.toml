@@ -33,7 +33,12 @@ column = "Awaiting Review"
 
 [[command.await-review.action]]
 type = "mr-comment"
-contents = "The task for this extension has been moved to 'Awaiting Review'."
+contents = """
+The task for this extension has been moved to 'Awaiting Review'.
+
+Spec editor or support contractor: assign to the bot again to take ownership
+and move to 'In Review' when you start reviewing.
+"""
 
 ###
 [command.reviewing]
@@ -53,7 +58,13 @@ column = "In Review"
 
 [[command.reviewing.action]]
 type = "mr-comment"
-contents = "The task for this extension has been moved to 'In Review'. For ease of review, please avoid modifying it until the review is complete."
+contents = """
+The task for this extension has been moved to 'In Review'.
+For ease of review, please avoid modifying it until the review is complete.
+
+Reviewer: When review is complete, assign to the bot again to move to Needs Revision or Pending Approvals,
+depending on whether there are open discussions or not.
+"""
 
 ###
 [command.needs-revision]
@@ -109,6 +120,15 @@ who = "self"
 [[command.revising.action]]
 type = "move"
 column = "Revisions in Progress"
+
+[[command.revising.action]]
+type = "mr-comment"
+contents = """
+The task for this extension has been moved to 'Revisions in Progress'.
+
+Champion: When revisions are complete, mark the "Address review feedback" sub-task as complete,
+and assign to the bot again to move back to 'Awaiting Review'.
+"""
 
 ###
 [command.rereview]
