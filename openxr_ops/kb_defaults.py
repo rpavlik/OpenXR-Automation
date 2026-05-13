@@ -23,6 +23,8 @@ REAL_HUMAN_OVERVIEW_URL = f"https://{SERVER}/project/{REAL_PROJ_NUMBER}/overview
 
 CTS_PROJ_NAME = "CTS Contractor"
 
+ENV_VAR_NAME_TOKEN = "KANBOARD_API_TOKEN"
+
 
 def get_kb_api_url():
     url = os.environ.get("KANBOARD_URL", default=f"https://{SERVER}/jsonrpc.php")
@@ -30,7 +32,7 @@ def get_kb_api_url():
 
 
 def get_kb_api_token():
-    return os.environ.get("KANBOARD_API_TOKEN", default="")
+    return os.environ.get(ENV_VAR_NAME_TOKEN, default="")
 
 
 async def connect_and_get_project(
@@ -38,6 +40,8 @@ async def connect_and_get_project(
 ) -> tuple[kanboard.Client, dict[str, Any]]:
     log = logging.getLogger(__name__)
     token = get_kb_api_token()
+    if not token:
+        raise RuntimeError(f"No API token specified - set {ENV_VAR_NAME_TOKEN}")
     url = get_kb_api_url()
     kb = kanboard.Client(
         url=url,
@@ -47,7 +51,7 @@ async def connect_and_get_project(
         ignore_hostname_verification=True,
         insecure=True,
     )
-    log.info("Getting project by name")
+    log.info("Getting project by name from %s", url)
 
     proj = await kb.get_project_by_name_async(name=project_name)
     if proj is False:
