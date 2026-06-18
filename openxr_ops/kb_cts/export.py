@@ -82,6 +82,8 @@ class CTSBoardExporter:
         lines = [
             f"{indent}* [{mr_task.gitlab_link_title}]({mr_task.gitlab_link}) - {mr_task.title}"
         ]
+        if mr_task.flags and mr_task.flags.contractor_reviewed:
+            lines[0] = lines[0] + " (reviewed by contractor)"
         for link in mr_task.internal_links:
             if link.link_type in _OMIT_LINK_TYPES:
                 continue
