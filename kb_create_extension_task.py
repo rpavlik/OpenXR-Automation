@@ -156,11 +156,15 @@ class ExtensionTaskCreator:
         category: TaskCategory | None = None
         if author_kind == CanonicalExtensionAuthorKind.SINGLE_VENDOR:
             category = TaskCategory.OUTSIDE_IPR_POLICY
-        elif (
-            author_kind == CanonicalExtensionAuthorKind.EXT
-            and GroupLabels.OUTSIDE_IPR_FRAMEWORK in mr.attributes["labels"]
-        ):
-            category = TaskCategory.OUTSIDE_IPR_POLICY
+        elif author_kind == CanonicalExtensionAuthorKind.EXT:
+            if GroupLabels.OUTSIDE_IPR_FRAMEWORK in mr.attributes["labels"]:
+                category = TaskCategory.OUTSIDE_IPR_POLICY
+            else:
+                # EXT are ratification track unless otherwise specified
+                category = TaskCategory.RATIFICATION_TRACK
+
+        elif author_kind == CanonicalExtensionAuthorKind.KHR:
+            category = TaskCategory.RATIFICATION_TRACK
 
         return OperationsTaskCreationData(
             main_mr=mr_num,
