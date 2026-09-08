@@ -33,7 +33,7 @@ from .collection import TaskCollection
 from .gitlab import update_flags
 from .load import load_kb_ops
 from .stages import TaskCategory, TaskColumn
-from .task import OperationsTask
+from .task import OperationsTask, compute_task_title
 
 _MERGED_TITLE_SUFFIX = "(MERGED)"
 
@@ -288,6 +288,26 @@ class OpsBoardProcessing:
                 )
 
             self.futures.append(update_category())
+
+        # new_task_title = compute_task_title(mr_num, mr.attributes["title"])
+        new_task_title = compute_task_title(mr_num, task.title)
+
+        if new_task_title != task.title:
+            self.log_title()
+
+            async def update_title():
+                if not self.options.update_title:
+                    log.info(
+                        "Would update title from '%s' to '%s'",
+                        task.title,
+                        new_task_title,
+                    )
+                    return
+
+                log.info("Updating title from '%s' to '%s'", task.title, new_task_title)
+                await self.kb.update_task_async(id=task.task_id, title=new_task_title)
+
+            self.futures.append(update_title())
 
         assert task.flags
         flags = deepcopy(task.flags)

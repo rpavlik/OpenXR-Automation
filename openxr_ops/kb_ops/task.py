@@ -5,9 +5,11 @@
 #
 # Author: Rylie Pavlik <rylie.pavlik@collabora.com>
 """OpenXR Extension workboard task flags and task data."""
+
 import datetime
 import logging
 from dataclasses import dataclass
+import re
 from typing import cast
 
 import kanboard
@@ -119,6 +121,28 @@ class OperationsTaskFlags:
         if self.single_vendor_extension:
             return CanonicalExtensionAuthorKind.SINGLE_VENDOR
         raise RuntimeError("None of the author kind flags are set!")
+
+
+_TITLE_PREFIX_RE = re.compile(r"^!([0-9]+):\s*")
+
+
+def compute_task_title(mr_num: int, incoming_title: str) -> str:
+    """
+    Compute a task title, regardless of whether the title already has an MR prefix.
+
+    >>> compute_task_title(500, "Sample title")
+    '!500: Sample title'
+
+    >>> compute_task_title(500, "!200:  Sample title")
+    '!500: Sample title'
+    """
+    m = _TITLE_PREFIX_RE.search(incoming_title)
+    if m:
+        end = m.span()[1]
+        trimmed = incoming_title[end:]
+    else:
+        trimmed = incoming_title.strip()
+    return f"!{mr_num}: {trimmed}"
 
 
 @dataclass
@@ -286,10 +310,11 @@ class OperationsTaskCreationData:
         mr_url = f"{MR_URL_BASE}{self.main_mr}"
         kb = kb_project.kb
 
+        task_title = compute_task_title(self.main_mr, self.title)
         task_id = cast(
             IdOrFalse,
             await kb.create_task_async(
-                title=self.title,
+                title=task_title,
                 project_id=kb_project.project_id,
                 description=self.description,
                 swimlane_id=swimlane_id,
@@ -322,3 +347,9 @@ class OperationsTaskCreationData:
             )
 
         return task_id
+
+
+if __name__ == "__main__":
+    import doctest
+
+    doctest.testmod()
