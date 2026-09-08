@@ -139,6 +139,14 @@ class OpsBoardProcessing:
         # Auto move to release pending upon merge.
         if mr.state != "merged":
             return
+        if mr.attributes["target_branch"] != "main":
+            # ignore merges into other branches now
+            log.info(
+                "%s - Commit is merged but target branch was %s",
+                mr.attributes["web_url"],
+                mr.attributes["target_branch"],
+            )
+            return
         if task.column == TaskColumn.INACTIVE:
             return
 
