@@ -56,6 +56,7 @@ class TaskTags(Enum):
     INITIAL_DESIGN_REVIEW_COMPLETE = "Initial Design Review Complete"
     INITIAL_SPEC_REVIEW_COMPLETE = "Initial Spec Review Complete"
     SPEC_SUPPORT_REVIEW_COMMENTS_PENDING = "Spec Support Review Comments Pending"
+    CONTRACTOR_OKAY = "Contractor Spec Review OK"
     API_FROZEN = "API Frozen"
     EDITOR_REVIEW_REQUESTED = "Editor Review Requested"
     STRINGS_RELEASED = "Strings Released"
@@ -70,6 +71,7 @@ TAG_COLORS = {
     TaskTags.INITIAL_DESIGN_REVIEW_COMPLETE: "purple",
     TaskTags.INITIAL_SPEC_REVIEW_COMPLETE: "purple",
     TaskTags.SPEC_SUPPORT_REVIEW_COMMENTS_PENDING: "cyan",
+    TaskTags.CONTRACTOR_OKAY: "green",
     TaskTags.API_FROZEN: "blue",
     # TaskTags.EDITOR_REVIEW_REQUESTED: "green",
     TaskTags.RATIFIED: "green",
