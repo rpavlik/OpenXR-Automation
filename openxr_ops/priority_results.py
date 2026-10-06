@@ -186,8 +186,8 @@ class ReleaseChecklistIssue(ReleaseChecklistMRData):
         return GroupLabels.KHR_EXT in self.issue_obj.attributes["labels"]
 
     @property
-    def is_vendor(self) -> bool:
-        return GroupLabels.VENDOR_EXT in self.issue_obj.attributes["labels"]
+    def is_single_vendor(self) -> bool:
+        return GroupLabels.SINGLE_VENDOR_EXT in self.issue_obj.attributes["labels"]
 
     @property
     def is_outside_ipr_framework(self) -> bool:
@@ -235,7 +235,7 @@ class ReleaseChecklistIssue(ReleaseChecklistMRData):
             author_category = -5
         elif self.is_multivendor:
             author_category = -3
-        elif self.is_vendor:
+        elif self.is_single_vendor:
             author_category = -1
         else:
             log.warning("Could not guess vendor category for %s", self.issue_obj.title)

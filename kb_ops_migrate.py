@@ -672,7 +672,7 @@ def get_flags(checklist_issue: ReleaseChecklistIssue):
         strings_released=False,
         khr_extension=checklist_issue.is_khr,
         multivendor_extension=checklist_issue.is_multivendor,
-        single_vendor_extension=checklist_issue.is_vendor,
+        single_vendor_extension=checklist_issue.is_single_vendor,
     )
 
 

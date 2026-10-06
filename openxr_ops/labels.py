@@ -17,7 +17,7 @@ class GroupLabels:
 
     OUTSIDE_IPR_FRAMEWORK = "Outside IPR Framework"
     KHR_EXT = "KHR_Extension"
-    VENDOR_EXT = "Vendor_Extension"
+    SINGLE_VENDOR_EXT = "Single_Vendor_Extension"
 
 
 class MainProjectLabels:

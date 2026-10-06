@@ -146,7 +146,7 @@ def get_labels(vendor_id: str):
         return [MainProjectLabels.EXTENSION]
     return [
         MainProjectLabels.EXTENSION,
-        GroupLabels.VENDOR_EXT,
+        GroupLabels.SINGLE_VENDOR_EXT,
         GroupLabels.OUTSIDE_IPR_FRAMEWORK,
     ]
 
@@ -420,7 +420,7 @@ class ReleaseChecklistCollection:
                 continue
 
             made_change = False
-            for label in (GroupLabels.KHR_EXT, GroupLabels.VENDOR_EXT):
+            for label in (GroupLabels.KHR_EXT, GroupLabels.SINGLE_VENDOR_EXT):
                 if label in issue.labels and label not in merge_request.labels:
                     merge_request.labels.append(label)
                     made_change = True

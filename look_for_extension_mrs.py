@@ -48,7 +48,7 @@ def main():
             )
             for label in (
                 GroupLabels.KHR_EXT,
-                GroupLabels.VENDOR_EXT,
+                GroupLabels.SINGLE_VENDOR_EXT,
                 MainProjectLabels.EXTENSION,
             )
         )

@@ -39,7 +39,7 @@ from openxr_ops.labels import GroupLabels, MainProjectLabels
 def task_to_labels(task: OperationsTask):
     labels = {MainProjectLabels.EXTENSION}
     if task.flags and task.flags.single_vendor_extension:
-        labels.add(GroupLabels.VENDOR_EXT)
+        labels.add(GroupLabels.SINGLE_VENDOR_EXT)
         labels.add(GroupLabels.OUTSIDE_IPR_FRAMEWORK)
 
     if task.flags and task.flags.khr_extension:
