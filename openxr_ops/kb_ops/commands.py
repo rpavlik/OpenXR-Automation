@@ -194,8 +194,8 @@ class Bot:
         web_url = mr.attributes["web_url"]
         trigger: TriggerInfo | None = self._find_trigger(mr)
         if trigger is None:
+            log.debug("%s : No trigger detected", web_url)
             return
-        assert trigger
 
         lazy_task = LazyTask(mr, self.tasks)
 
@@ -214,19 +214,14 @@ class Bot:
                 return
 
             if cmd.are_conditions_satisfied(trigger, mr, task):
-                log.info(
-                    "%s : Running command %s: %s",
-                    mr.attributes["web_url"],
-                    cmd.name,
-                    cmd.description,
-                )
-
                 await cmd.perform_actions(self.kb_project, trigger, mr, task)
 
                 # Process at most one command per trigger.
                 # This allows adding fall-through command at the bottom of the config,
                 # in case nothing matches.
                 return True
+
+        log.warning("%s : No command matched the trigger! %s", web_url, str(trigger))
 
 
 @dataclass
@@ -307,14 +302,24 @@ class Command:
         mr: ProjectMergeRequest,
         task: OperationsTask,
     ):
+        log = _LOG.getChild(f"{self.__class__.__name__}.{self.name}.perform_actions")
+
+        web_url = mr.attributes["web_url"]
+        log.info(
+            "%s : Running command: %s",
+            web_url,
+            self.description,
+        )
         if trigger.trigger_type == TriggerType.MENTION and trigger.note:
             if _dry_run:
-                logging.info("Not acknowledging due to dry run: %s", str(trigger))
+                log.info("%s : No ack due to dry run: %s", web_url, str(trigger))
             else:
                 _ack_mention(trigger.note)
 
         for action in self.actions:
             await action.perform(kb_project, trigger, mr, task)
+
+        log.info("%s : Running command completed", web_url)
 
 
 @dataclass
@@ -527,7 +532,7 @@ class MrCommentAction(InteractiveAction):
     ):
         if _dry_run:
             self.log.info(
-                "%s : Would post comment %s", mr.attributes["web_url"], self.contents
+                "%s : Would post comment:\n%s\n", mr.attributes["web_url"], self.contents
             )
             return
         mr.notes.create({"body": self.contents})
@@ -730,7 +735,7 @@ if __name__ == "__main__":
     config = get_config_data()
     import pprint
 
-    pprint.pprint(config)
+    _LOG.debug("Parsed config: %s", pprint.pformat(config))
 
     async def wrapper():
         kb_project: KanboardProject = await load_kb_project()
