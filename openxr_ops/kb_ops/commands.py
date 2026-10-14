@@ -163,7 +163,7 @@ class Bot:
         ]
 
         if any(thumbs):
-            log.info(
+            log.debug(
                 "%s : Found bot mention by %s, already processed",
                 mr.attributes["web_url"],
                 trigger.username,
@@ -201,10 +201,10 @@ class Bot:
 
         # See if we should run any command
         for cmd in self.config.commands:
-            log.info("%s : Testing command %s", web_url, cmd.name)
+            log.debug("%s : Testing command %s", web_url, cmd.name)
             # "None" means we need more info!
             if cmd.does_trigger_match(trigger) == False:
-                log.info("%s : Failed trigger")
+                log.debug("%s : Failed trigger")
                 continue
 
             task = await lazy_task.get()
@@ -278,7 +278,7 @@ class Command:
 
         match: bool | None = self.does_trigger_match(trigger)
         if match is not None:
-            log.info("Early out: trigger match gave a full result")
+            log.debug("Early out: trigger match gave a full result")
             # we actually got a full answer
             return match
 
@@ -287,16 +287,16 @@ class Command:
         # Consider the conditions.
         if not self.conditions_on_assign:
             # no conditions: always do it
-            log.info("No additional conditions provided: always do it")
+            log.debug("No additional conditions provided: always do it")
             return True
 
         for conj in self.conditions_on_assign:
             if conj.is_satisfied(mr, task):
-                log.info("Satisfied conjunction: %s", str(conj))
+                log.debug("Satisfied conjunction: %s", str(conj))
                 return True
-            log.info("Failed conjunction: %s", str(conj))
+            log.debug("Failed conjunction: %s", str(conj))
 
-        log.info("Failed all conjuctions")
+        log.debug("Failed all conjuctions")
         return False
         # return any(conj.is_satisfied(mr, task) for conj in self.conditions_on_assign)
 
@@ -332,7 +332,7 @@ class ConditionConjuction:
         predicates: list[Callable[[ProjectMergeRequest, OperationsTask], bool]] = [
             _make_predicate(k, v) for k, v in block.items()
         ]
-        log.info("%d predicates combined into a conjunction", len(predicates))
+        log.debug("%d predicates combined into a conjunction", len(predicates))
         return ConditionConjuction(predicates)
 
 
@@ -649,11 +649,11 @@ def _make_predicate(key: str, val: Any) -> Predicate:
 
     if key == "column":
         col = TaskColumn(val)
-        log.info("Returning predicate to compare column to %s", str(col))
+        log.debug("Returning predicate to compare column to %s", str(col))
         return _make_is_column(col)
 
     if key == "blocking_discussions_resolved":
-        log.info(
+        log.debug(
             "Returning predicate to compare blocking_discussions_resolved to %s",
             str(val),
         )
