@@ -17,6 +17,7 @@ gitlab_cache.sqlite
 !README.md
 !CONTRIBUTING.md
 !CODE_OF_CONDUCT.md
+!ops_bot.md
 
 /*.html
 /*.pdf
