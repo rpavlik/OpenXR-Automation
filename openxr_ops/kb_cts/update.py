@@ -21,10 +21,7 @@ from typing import Any, Mapping, cast
 import kanboard
 from gitlab.v4.objects import ProjectIssue, ProjectMergeRequest
 
-from ..cts_board_utils import (
-    FILTER_OUT,
-    compute_api_item_state_and_suffix,
-)
+from ..cts_board_utils import FILTER_OUT, compute_api_item_state_and_suffix
 from ..gitlab import STATES_CLOSED_MERGED, OpenXRGitlab, ReferenceType, get_short_ref
 from ..kanboard_helpers import KanboardProject, LinkIdMapping
 from ..kb_defaults import CTS_PROJ_NAME, connect_and_get_project

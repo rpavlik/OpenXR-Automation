@@ -54,7 +54,7 @@ class Client:
         priority_default: Optional[int] = None,
         priority_start: Optional[int] = None,
         priority_end: Optional[int] = None,
-        email: Optional[str] = None
+        email: Optional[str] = None,
     ): ...
     """https://docs.kanboard.org/v1/api/project_procedures/#createproject"""
 
@@ -70,7 +70,7 @@ class Client:
         priority_default: Optional[int] = None,
         priority_start: Optional[int] = None,
         priority_end: Optional[int] = None,
-        email: Optional[str] = None
+        email: Optional[str] = None,
     ): ...
     """https://docs.kanboard.org/v1/api/project_procedures/#createproject"""
 
@@ -121,7 +121,7 @@ class Client:
         priority_default: Optional[int] = None,
         priority_start: Optional[int] = None,
         priority_end: Optional[int] = None,
-        email: Optional[str] = None
+        email: Optional[str] = None,
     ): ...
     """https://docs.kanboard.org/v1/api/project_procedures/#updateproject"""
 
@@ -138,7 +138,7 @@ class Client:
         priority_default: Optional[int] = None,
         priority_start: Optional[int] = None,
         priority_end: Optional[int] = None,
-        email: Optional[str] = None
+        email: Optional[str] = None,
     ): ...
     """https://docs.kanboard.org/v1/api/project_procedures/#updateproject"""
 
@@ -209,7 +209,7 @@ class Client:
         url: str,
         dependency: str,
         type: Optional[str] = None,
-        title: Optional[str] = None
+        title: Optional[str] = None,
     ): ...
     """https://docs.kanboard.org/v1/api/external_task_link_procedures/#createexternaltasklink"""
 
@@ -220,7 +220,7 @@ class Client:
         url: str,
         dependency: str,
         type: Optional[str] = None,
-        title: Optional[str] = None
+        title: Optional[str] = None,
     ): ...
     """https://docs.kanboard.org/v1/api/external_task_link_procedures/#createexternaltasklink"""
 
@@ -231,7 +231,7 @@ class Client:
         link_id: int,
         title: str,
         url: str,
-        dependency: Optional[str] = None
+        dependency: Optional[str] = None,
     ): ...
     """https://docs.kanboard.org/v1/api/external_task_link_procedures/#updateexternaltasklink"""
 
@@ -242,7 +242,7 @@ class Client:
         link_id: int,
         title: str,
         url: str,
-        dependency: Optional[str] = None
+        dependency: Optional[str] = None,
     ): ...
     """https://docs.kanboard.org/v1/api/external_task_link_procedures/#updateexternaltasklink"""
 
@@ -281,7 +281,7 @@ class Client:
         *,
         group_id: int,
         name: Optional[str] = None,
-        external_id: Optional[str] = None
+        external_id: Optional[str] = None,
     ): ...
     """https://docs.kanboard.org/v1/api/group_procedures/#updategroup"""
 
@@ -290,7 +290,7 @@ class Client:
         *,
         group_id: int,
         name: Optional[str] = None,
-        external_id: Optional[str] = None
+        external_id: Optional[str] = None,
     ): ...
     """https://docs.kanboard.org/v1/api/group_procedures/#updategroup"""
 
@@ -520,7 +520,7 @@ class Client:
         user_id: int,
         content: str,
         reference: Optional[str] = None,
-        visibility: Optional[str] = None
+        visibility: Optional[str] = None,
     ): ...
     """https://docs.kanboard.org/v1/api/comment_procedures/#createcomment"""
 
@@ -531,7 +531,7 @@ class Client:
         user_id: int,
         content: str,
         reference: Optional[str] = None,
-        visibility: Optional[str] = None
+        visibility: Optional[str] = None,
     ): ...
     """https://docs.kanboard.org/v1/api/comment_procedures/#createcomment"""
 
@@ -775,7 +775,7 @@ class Client:
         column_id: int,
         title: str,
         task_limit: Optional[int] = None,
-        description: Optional[str] = None
+        description: Optional[str] = None,
     ): ...
     """https://docs.kanboard.org/v1/api/column_procedures/#updatecolumn"""
 
@@ -785,7 +785,7 @@ class Client:
         column_id: int,
         title: str,
         task_limit: Optional[int] = None,
-        description: Optional[str] = None
+        description: Optional[str] = None,
     ): ...
     """https://docs.kanboard.org/v1/api/column_procedures/#updatecolumn"""
 
@@ -795,7 +795,7 @@ class Client:
         project_id: int,
         title: str,
         task_limit: Optional[int] = None,
-        description: Optional[str] = None
+        description: Optional[str] = None,
     ): ...
     """https://docs.kanboard.org/v1/api/column_procedures/#addcolumn"""
 
@@ -805,7 +805,7 @@ class Client:
         project_id: int,
         title: str,
         task_limit: Optional[int] = None,
-        description: Optional[str] = None
+        description: Optional[str] = None,
     ): ...
     """https://docs.kanboard.org/v1/api/column_procedures/#addcolumn"""
 
@@ -1022,7 +1022,7 @@ class Client:
         password: str,
         name: Optional[str] = None,
         email: Optional[str] = None,
-        role: Optional[str] = None
+        role: Optional[str] = None,
     ): ...
     """https://docs.kanboard.org/v1/api/user_procedures/#createuser"""
 
@@ -1033,7 +1033,7 @@ class Client:
         password: str,
         name: Optional[str] = None,
         email: Optional[str] = None,
-        role: Optional[str] = None
+        role: Optional[str] = None,
     ): ...
     """https://docs.kanboard.org/v1/api/user_procedures/#createuser"""
 
@@ -1072,7 +1072,7 @@ class Client:
         username: Optional[str] = None,
         name: Optional[str] = None,
         email: Optional[str] = None,
-        role: Optional[str] = None
+        role: Optional[str] = None,
     ): ...
     """https://docs.kanboard.org/v1/api/user_procedures/#updateuser"""
 
@@ -1083,7 +1083,7 @@ class Client:
         username: Optional[str] = None,
         name: Optional[str] = None,
         email: Optional[str] = None,
-        role: Optional[str] = None
+        role: Optional[str] = None,
     ): ...
     """https://docs.kanboard.org/v1/api/user_procedures/#updateuser"""
 
@@ -1159,7 +1159,7 @@ class Client:
         project_id: int,
         swimlane_id: int,
         name: str,
-        description: Optional[str] = None
+        description: Optional[str] = None,
     ): ...
     """https://docs.kanboard.org/v1/api/swimlane_procedures/#updateswimlane"""
 
@@ -1169,7 +1169,7 @@ class Client:
         project_id: int,
         swimlane_id: int,
         name: str,
-        description: Optional[str] = None
+        description: Optional[str] = None,
     ): ...
     """https://docs.kanboard.org/v1/api/swimlane_procedures/#updateswimlane"""
 
@@ -1211,7 +1211,7 @@ class Client:
         user_id: Optional[int] = None,
         time_estimated: Optional[int] = None,
         time_spent: Optional[int] = None,
-        status: Optional[int] = None
+        status: Optional[int] = None,
     ): ...
     """https://docs.kanboard.org/v1/api/subtask_procedures/#createsubtask"""
 
@@ -1223,7 +1223,7 @@ class Client:
         user_id: Optional[int] = None,
         time_estimated: Optional[int] = None,
         time_spent: Optional[int] = None,
-        status: Optional[int] = None
+        status: Optional[int] = None,
     ): ...
     """https://docs.kanboard.org/v1/api/subtask_procedures/#createsubtask"""
 
@@ -1248,7 +1248,7 @@ class Client:
         user_id: Optional[int] = None,
         time_estimated: Optional[int] = None,
         time_spent: Optional[int] = None,
-        status: Optional[int] = None
+        status: Optional[int] = None,
     ): ...
     """https://docs.kanboard.org/v1/api/subtask_procedures/#updatesubtask"""
 
@@ -1261,7 +1261,7 @@ class Client:
         user_id: Optional[int] = None,
         time_estimated: Optional[int] = None,
         time_spent: Optional[int] = None,
-        status: Optional[int] = None
+        status: Optional[int] = None,
     ): ...
     """https://docs.kanboard.org/v1/api/subtask_procedures/#updatesubtask"""
 
@@ -1295,7 +1295,7 @@ class Client:
         recurrence_basedate: Optional[int] = None,
         reference: Optional[str] = None,
         tags: Optional[list[str]] = None,
-        date_started: Optional[str] = None
+        date_started: Optional[str] = None,
     ): ...
     """https://docs.kanboard.org/v1/api/task_procedures/#createtask"""
 
@@ -1321,7 +1321,7 @@ class Client:
         recurrence_basedate: Optional[int] = None,
         reference: Optional[str] = None,
         tags: Optional[list[str]] = None,
-        date_started: Optional[str] = None
+        date_started: Optional[str] = None,
     ): ...
     """https://docs.kanboard.org/v1/api/task_procedures/#createtask"""
 
@@ -1381,7 +1381,7 @@ class Client:
         recurrence_basedate: Optional[int] = None,
         reference: Optional[str] = None,
         tags: Optional[list[str]] = None,
-        date_started: Optional[str] = None
+        date_started: Optional[str] = None,
     ): ...
     """https://docs.kanboard.org/v1/api/task_procedures/#updatetask"""
 
@@ -1404,7 +1404,7 @@ class Client:
         recurrence_basedate: Optional[int] = None,
         reference: Optional[str] = None,
         tags: Optional[list[str]] = None,
-        date_started: Optional[str] = None
+        date_started: Optional[str] = None,
     ): ...
     """https://docs.kanboard.org/v1/api/task_procedures/#updatetask"""
 
@@ -1433,7 +1433,7 @@ class Client:
         task_id: int,
         column_id: int,
         position: int,
-        swimlane_id: int
+        swimlane_id: int,
     ): ...
     """https://docs.kanboard.org/v1/api/task_procedures/#movetaskposition"""
 
@@ -1444,7 +1444,7 @@ class Client:
         task_id: int,
         column_id: int,
         position: int,
-        swimlane_id: int
+        swimlane_id: int,
     ): ...
     """https://docs.kanboard.org/v1/api/task_procedures/#movetaskposition"""
 
@@ -1456,7 +1456,7 @@ class Client:
         swimlane_id: Optional[int] = None,
         column_id: Optional[int] = None,
         category_id: Optional[int] = None,
-        owner_id: Optional[int] = None
+        owner_id: Optional[int] = None,
     ): ...
     """https://docs.kanboard.org/v1/api/task_procedures/#movetasktoproject"""
 
@@ -1468,7 +1468,7 @@ class Client:
         swimlane_id: Optional[int] = None,
         column_id: Optional[int] = None,
         category_id: Optional[int] = None,
-        owner_id: Optional[int] = None
+        owner_id: Optional[int] = None,
     ): ...
     """https://docs.kanboard.org/v1/api/task_procedures/#movetasktoproject"""
 
@@ -1480,7 +1480,7 @@ class Client:
         swimlane_id: Optional[int] = None,
         column_id: Optional[int] = None,
         category_id: Optional[int] = None,
-        owner_id: Optional[int] = None
+        owner_id: Optional[int] = None,
     ): ...
     """https://docs.kanboard.org/v1/api/task_procedures/#duplicatetasktoproject"""
 
@@ -1492,7 +1492,7 @@ class Client:
         swimlane_id: Optional[int] = None,
         column_id: Optional[int] = None,
         category_id: Optional[int] = None,
-        owner_id: Optional[int] = None
+        owner_id: Optional[int] = None,
     ): ...
     """https://docs.kanboard.org/v1/api/task_procedures/#duplicatetasktoproject"""
 
