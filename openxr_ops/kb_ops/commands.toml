@@ -74,6 +74,7 @@ auto_on_assign = true
 
 [[command.needs-revision.condition_on_assign]]
 column = "In Review"
+blocking_discussions_resolved = false
 
 [[command.needs-revision.action]]
 type = "assign"
