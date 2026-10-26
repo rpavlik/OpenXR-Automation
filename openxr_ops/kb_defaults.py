@@ -45,7 +45,7 @@ async def connect_and_get_project(
     url = get_kb_api_url()
     kb = kanboard.Client(
         url=url,
-        username=USERNAME,
+        username=os.environ.get("KANBOARD_USERNAME", USERNAME),
         password=token,
         # cafile="/path/to/my/cert.pem",
         ignore_hostname_verification=True,

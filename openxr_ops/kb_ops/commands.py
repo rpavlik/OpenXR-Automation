@@ -11,14 +11,14 @@ import importlib.resources
 import logging
 import tomllib
 from dataclasses import dataclass, field
+from datetime import datetime, timedelta, timezone
 from enum import Enum
 from typing import Any, Callable, TypeAlias, cast
 
-import kanboard
 from gitlab.v4.objects import ProjectMergeRequest, ProjectMergeRequestNote, User
 
 from ..gitlab import OpenXRGitlab
-from ..kanboard_helpers import KanboardProject
+from ..kanboard_helpers import KanboardProject, SubtaskStatus
 from .collection import TaskCollection
 from .gitlab import find_task_id
 from .load import load_kb_project
@@ -204,7 +204,7 @@ class Bot:
             log.debug("%s : Testing command %s", web_url, cmd.name)
             # "None" means we need more info!
             if cmd.does_trigger_match(trigger) == False:
-                log.debug("%s : Failed trigger")
+                log.debug("%s : Failed trigger", web_url)
                 continue
 
             task = await lazy_task.get()
@@ -487,8 +487,6 @@ class MoveAction(InteractiveAction):
     def __init__(self, data: dict[str, Any], config: BotConfig) -> None:
         super().__init__()
         self.log = _LOG.getChild(f"{self.__class__.__name__}")
-        self.kb_project: KanboardProject
-        self.kb: kanboard.Client
         self.column: TaskColumn = TaskColumn(data["column"])
 
     async def perform(
@@ -506,8 +504,8 @@ class MoveAction(InteractiveAction):
             return
         self.log.info("%s : Moving to column %s", str(task.url), self.column)
 
-        await self.kb.move_task_position_async(
-            project_id=self.kb_project.project_id,
+        await kb_project.kb.move_task_position_async(
+            project_id=kb_project.project_id,
             task_id=task.task_id,
             column_id=column_id,
             swimlane_id=swimlane_id,
@@ -532,7 +530,9 @@ class MrCommentAction(InteractiveAction):
     ):
         if _dry_run:
             self.log.info(
-                "%s : Would post comment:\n%s\n", mr.attributes["web_url"], self.contents
+                "%s : Would post comment:\n%s\n",
+                mr.attributes["web_url"],
+                self.contents,
             )
             return
         mr.notes.create({"body": self.contents})
@@ -564,7 +564,17 @@ class TagsAction(InteractiveAction):
                 str(self.remove),
             )
             return
-        raise NotImplementedError
+
+        # Kanboard replaces the whole tag list on update, so compute the new one.
+        current: list[str] = list(task.tags_dict.values())
+        new_tags = [t for t in current if t not in self.remove]
+        new_tags.extend(t for t in self.add if t not in new_tags)
+        if set(new_tags) == set(current):
+            self.log.info("%s : Task tags already up to date", str(task.url))
+            return
+
+        self.log.info("%s : Updating task tags to %s", str(task.url), str(new_tags))
+        await kb_project.kb.update_task_async(id=task.task_id, tags=new_tags)
 
 
 class MrLabelAction(InteractiveAction):
@@ -593,7 +603,18 @@ class MrLabelAction(InteractiveAction):
                 str(self.remove),
             )
             return
-        raise NotImplementedError
+
+        current: list[str] = list(mr.attributes.get("labels", []))
+        new_labels = [l for l in current if l not in self.remove]
+        new_labels.extend(l for l in self.add if l not in new_labels)
+        if set(new_labels) == set(current):
+            return
+
+        self.log.info(
+            "%s : Updating MR labels to %s", mr.attributes["web_url"], new_labels
+        )
+        mr.labels = new_labels
+        mr.save()
 
 
 class CompleteSubtasksAction(InteractiveAction):
@@ -620,7 +641,32 @@ class CompleteSubtasksAction(InteractiveAction):
                 str(self.subtasks),
             )
             return
-        raise NotImplementedError
+
+        existing = await kb_project.kb.get_all_subtasks_async(task_id=task.task_id)
+        if existing is False:
+            raise RuntimeError(f"Failed getting subtasks of {task.url}")
+        by_title = {st["title"]: st for st in existing or []}
+
+        for title in self.subtasks:
+            subtask = by_title.get(title)
+            if subtask is None:
+                self.log.warning(
+                    "%s : No subtask titled '%s', creating it as done",
+                    str(task.url),
+                    title,
+                )
+                await kb_project.kb.create_subtask_async(
+                    task_id=task.task_id,
+                    title=title,
+                    status=SubtaskStatus.DONE.value,
+                )
+            elif int(subtask["status"]) != SubtaskStatus.DONE.value:
+                self.log.info("%s : Completing subtask '%s'", str(task.url), title)
+                await kb_project.kb.update_subtask_async(
+                    id=int(subtask["id"]),
+                    task_id=task.task_id,
+                    status=SubtaskStatus.DONE.value,
+                )
 
 
 ActionFactory: TypeAlias = Callable[[dict[str, Any], BotConfig], InteractiveAction]
@@ -683,6 +729,32 @@ def _make_is_resolved(desired_resolved_state: bool) -> Predicate:
     return is_resolved
 
 
+def find_candidate_mrs(
+    oxr_gitlab: OpenXRGitlab, config: BotConfig, mention_window: timedelta
+) -> list[ProjectMergeRequest]:
+    """Find open MRs that might have a bot command pending.
+
+    That is: those assigned to the bot, plus those recently updated (which may
+    contain a new mention of the bot in a note).
+    """
+    mrs: dict[int, ProjectMergeRequest] = {}
+    proj = oxr_gitlab.main_proj
+
+    for mr in proj.mergerequests.list(
+        state="opened", assignee_username=config.bot_user, iterator=True
+    ):
+        mrs[mr.get_id()] = mr
+
+    updated_after = (datetime.now(timezone.utc) - mention_window).isoformat()
+    for mr in proj.mergerequests.list(
+        state="opened", updated_after=updated_after, iterator=True
+    ):
+        mrs.setdefault(mr.get_id(), mr)
+
+    _LOG.info("Found %d candidate MRs", len(mrs))
+    return list(mrs.values())
+
+
 def get_config_data() -> BotConfig:
     """Load the bundled bot configuration."""
     data = (
@@ -720,6 +792,21 @@ if __name__ == "__main__":
         default=False,
     )
 
+    parser.add_argument(
+        "--mr",
+        type=int,
+        action="append",
+        help="Process only this MR number (may be repeated), instead of scanning",
+    )
+
+    parser.add_argument(
+        "--mention-window-hours",
+        type=float,
+        default=24.0,
+        help="When scanning, also check open MRs updated within this many hours "
+        "for command mentions. Should be at least the interval between runs.",
+    )
+
     args = parser.parse_args()
 
     if args.verbose:
@@ -744,9 +831,18 @@ if __name__ == "__main__":
 
         bot = Bot(config, kb_project)
 
-        # TODO do more than handle just a single hard-coded MR here.
-        # process web hooks? or worst case iterate all the extension MRs.
-        mr = oxr_gitlab.main_proj.mergerequests.get(3104)
-        await bot.process_mr_once(mr)
+        if args.mr:
+            mrs = [oxr_gitlab.main_proj.mergerequests.get(n) for n in args.mr]
+        else:
+            mrs = find_candidate_mrs(
+                oxr_gitlab, config, timedelta(hours=args.mention_window_hours)
+            )
+
+        for mr in mrs:
+            try:
+                await bot.process_mr_once(mr)
+            except Exception:
+                # Keep going so one bad MR does not block the rest of the queue.
+                _LOG.exception("Failed processing %s", mr.attributes["web_url"])
 
     asyncio.run(wrapper())
